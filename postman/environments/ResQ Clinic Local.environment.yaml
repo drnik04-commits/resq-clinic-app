@@ -1,0 +1,10 @@
+name: ResQ Clinic Local
+values:
+  - key: baseUrl
+    value: 'http://localhost:3000'
+    type: default
+    enabled: true
+  - key: visitId
+    value: '3b4f5374-b1e2-436c-adf2-f6bc15662799'
+    type: default
+    enabled: true

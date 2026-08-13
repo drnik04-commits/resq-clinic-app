@@ -1,0 +1,3 @@
+$kind: collection
+name: ResQ Clinic API
+description: 'Backend API collection for the ResQ Clinic app — patient registration, visit management, and invoice generation.'

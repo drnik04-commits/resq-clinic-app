@@ -1,0 +1,21 @@
+$kind: http-request
+name: Register Visit
+method: POST
+url: '{{baseUrl}}/api/register-visit'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "fullName": "John Doe",
+      "age": 30,
+      "gender": "Male",
+      "phone": "9876543210",
+      "address": "123 Main Street",
+      "referringDoctorId": null,
+      "tests": []
+    }
+description: 'Register a new patient visit. Creates patient if not exists, calculates total amount from selected tests, and creates patient investigations with barcodes for pathology tests.'
