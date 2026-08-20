@@ -28,7 +28,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Database Connection: Cloud Auto-Detection with Offline Localhost Fallback
+// Database Connection: Cloud Auto-Detection with Offline Fallback
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/resq_clinic_db';
 const isCloud = connectionString.includes('neon.tech') || connectionString.includes('render.com');
 
@@ -37,7 +37,7 @@ const pool = new Pool({
   ssl: isCloud ? { rejectUnauthorized: false } : false
 });
 
-// Seed Catalog for Lupin Diagnostics
+// Test Catalog Seed Data
 const lupinTests = [
   { testName: 'LDIMM0481 - Dual Marker (Double Marker)- First', category: 'Pathology', price: 2250, testCut: 500 },
   { testName: 'LDIMM1192 - Thyroid Profile Total', category: 'Pathology', price: 550, testCut: 80 },
@@ -75,7 +75,7 @@ async function seedLupinTests() {
   }
 }
 
-// Database Auto-Initialization & Safe Schema Migration
+// Database Initialization & Schema Synchronization
 async function initDB() {
   try {
     await pool.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
@@ -178,6 +178,7 @@ async function initDB() {
         paid_amount DECIMAL(10,2) DEFAULT 0.00,
         balance_amount DECIMAL(10,2) DEFAULT 0.00,
         payment_status VARCHAR(50) DEFAULT 'Pending',
+        payment_mode VARCHAR(50) DEFAULT 'Cash',
         invoice_number VARCHAR(100) UNIQUE,
         doctor_commission DECIMAL(10,2) DEFAULT 0.00,
         report_file VARCHAR(255),
@@ -185,8 +186,9 @@ async function initDB() {
       );
     `);
     await pool.query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE SET NULL;`);
+    await pool.query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS payment_mode VARCHAR(50) DEFAULT 'Cash';`);
 
-    // Auto-link all existing/past visits to the active primary centre
+    // Auto-link historical visits to the active centre
     await pool.query(`
       UPDATE visits 
       SET centre_id = (SELECT id FROM clinic_centres WHERE is_active = true LIMIT 1) 
@@ -226,7 +228,7 @@ async function initDB() {
     `);
     await pool.query(`ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS scan_result TEXT;`);
 
-    console.log('Database synced: All tables, historical links, auth, and seed catalogs ready.');
+    console.log('Database synced: All tables, payment mode, auth, and seed catalogs ready.');
     await seedLupinTests();
   } catch (err) {
     console.error('Database Initialization Error:', err.message);
@@ -510,7 +512,7 @@ app.get('/api/patients/:id/visits', async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query(
-      `SELECT v.*, p.phone, p.whatsapp_number, d.doctor_name, c.centre_name,
+      `SELECT v.*, COALESCE(v.payment_mode, 'Cash') as payment_mode, p.phone, p.whatsapp_number, d.doctor_name, c.centre_name,
               CASE WHEN pf.id IS NOT NULL THEN true ELSE false END as has_pcpndt
        FROM visits v 
        JOIN patients p ON v.patient_id = p.id 
@@ -569,7 +571,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     await client.query('BEGIN');
     const { 
       existingPatientId, fullName, age, gender, phone, email, whatsappNumber, address, patientCode, 
-      referringDoctorId, tests, concession, paidAmount,
+      referringDoctorId, tests, concession, paidAmount, paymentMode,
       isPcpndt, relativeName, noOfSons, sonsAge, noOfDaughters, daughtersAge, lmpDate, weeksOfPreg, pcpndtIndications, scanResult, doctorName, doctorRegNo
     } = req.body;
 
@@ -582,6 +584,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
 
     const finalWhatsApp = whatsappNumber && whatsappNumber.trim() !== '' ? whatsappNumber : phone;
     const parsedAge = age ? parseInt(age, 10) : null;
+    const selectedMode = paymentMode || 'Cash';
 
     let patientId;
     if (existingPatientId && existingPatientId.trim() !== '') {
@@ -632,9 +635,9 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     const docId = referringDoctorId && referringDoctorId.trim() !== '' ? referringDoctorId : null;
 
     const visitResult = await client.query(
-      `INSERT INTO visits (centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, invoice_number, doctor_commission, report_file, created_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP) RETURNING id`,
-      [centreId, patientId, docId, totalAmount, discount, paid, balance, paymentStatus, invoiceNo, doctorCommission, reportFile]
+      `INSERT INTO visits (centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, payment_mode, invoice_number, doctor_commission, report_file, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP) RETURNING id`,
+      [centreId, patientId, docId, totalAmount, discount, paid, balance, paymentStatus, selectedMode, invoiceNo, doctorCommission, reportFile]
     );
     const visitId = visitResult.rows[0].id;
 
@@ -664,7 +667,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     res.status(201).json({ 
       success: true, 
       message: 'Visit registered successfully', 
-      data: { visitId, invoiceNumber: invoiceNo, patientId, totalAmount, concession: discount, netPayable, paidAmount: paid, balanceAmount: balance, doctorCommission }
+      data: { visitId, invoiceNumber: invoiceNo, patientId, totalAmount, concession: discount, netPayable, paidAmount: paid, balanceAmount: balance, paymentMode: selectedMode, doctorCommission }
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -680,7 +683,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
 // ----------------------------------------------------
 app.put('/api/visits/:id', upload.single('reportFile'), async (req, res) => {
   const { id } = req.params;
-  const { concession, paidAmount, referringDoctorId } = req.body;
+  const { concession, paidAmount, paymentMode, referringDoctorId } = req.body;
   const reportFile = req.file ? req.file.filename : null;
 
   const client = await pool.connect();
@@ -696,16 +699,17 @@ app.put('/api/visits/:id', upload.single('reportFile'), async (req, res) => {
     const netPayable = Math.max(0, totalAmount - discount);
     const balance = Math.max(0, netPayable - paid);
     const status = balance === 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Pending');
+    const mode = paymentMode || 'Cash';
     const docId = referringDoctorId && referringDoctorId.trim() !== '' ? referringDoctorId : null;
 
-    let query = `UPDATE visits SET concession = $1, paid_amount = $2, balance_amount = $3, payment_status = $4, referring_doctor_id = $5`;
-    let params = [discount, paid, balance, status, docId];
+    let query = `UPDATE visits SET concession = $1, paid_amount = $2, balance_amount = $3, payment_status = $4, payment_mode = $5, referring_doctor_id = $6`;
+    let params = [discount, paid, balance, status, mode, docId];
     
     if (reportFile) {
-      query += `, report_file = $6 WHERE id = $7 RETURNING *`;
+      query += `, report_file = $7 WHERE id = $8 RETURNING *`;
       params.push(reportFile, id);
     } else {
-      query += ` WHERE id = $6 RETURNING *`;
+      query += ` WHERE id = $7 RETURNING *`;
       params.push(id);
     }
 
@@ -745,7 +749,7 @@ app.get('/api/invoice/:visitId', async (req, res) => {
   const { visitId } = req.params;
   try {
     const visitQuery = await pool.query(
-      `SELECT v.*, p.id as db_id, p.patient_code, p.full_name, p.age, p.gender, p.phone, p.email, p.address, 
+      `SELECT v.*, COALESCE(v.payment_mode, 'Cash') as payment_mode, p.id as db_id, p.patient_code, p.full_name, p.age, p.gender, p.phone, p.email, p.address, 
               d.doctor_name, d.hospital_clinic_name,
               COALESCE(c.centre_name, 'RESQ HEART CLINIC AND IMAGING CENTRE') as centre_name,
               c.tagline as centre_tagline,
@@ -789,7 +793,8 @@ app.get('/api/reports/collection', async (req, res) => {
     let query = `
       SELECT v.id as visit_id, v.invoice_number, COALESCE(v.created_at, CURRENT_TIMESTAMP) as created_at, 
              COALESCE(p.full_name, 'Direct Patient') as full_name, COALESCE(p.phone, '') as phone, 
-             v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, v.report_file,
+             v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, 
+             COALESCE(v.payment_mode, 'Cash') as payment_mode, v.report_file,
              COALESCE(c.centre_name, 'Main Centre') as centre_name
       FROM visits v 
       LEFT JOIN patients p ON v.patient_id = p.id 

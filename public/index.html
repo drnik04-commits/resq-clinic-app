@@ -24,7 +24,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
         body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
-        /* Lock Screen Overlay */
+        /* Lock Screen */
         #appLockScreen {
             position: fixed;
             inset: 0;
@@ -62,7 +62,7 @@
         .centre-nav select { padding: 6px 10px; border-radius: 4px; border: none; font-weight: bold; background: #fff; color: var(--primary-dark); cursor: pointer; }
         .btn-settings { background: #008080; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; font-weight: bold; }
 
-        /* Navigation Tabs */
+        /* Tabs */
         .tab-nav {
             background-color: #bbdefb;
             display: flex;
@@ -167,13 +167,14 @@
 
         .badge-paid { background-color: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 0.8rem; border: 1px solid #c8e6c9; }
         .badge-pending { background-color: #ffebee; color: #c62828; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 0.8rem; border: 1px solid #ffcdd2; }
+        .badge-mode { background-color: #ede7f6; color: #512da8; padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 0.76rem; border: 1px solid #d1c4e9; }
 
         /* Modals */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); justify-content: center; align-items: center; z-index: 10000; }
         .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 850px; max-height: 90vh; overflow-y: auto; padding: 20px; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 14px; }
 
-        /* Print */
+        /* Print Layout */
         @media print {
             body * { visibility: hidden; }
             #invoicePrintArea, #invoicePrintArea * { visibility: visible; }
@@ -333,7 +334,7 @@
                     </div>
                 </div>
 
-                <!-- Selected Tests & Rates Preview Table -->
+                <!-- Selected Tests Table -->
                 <div style="margin-top: 18px;">
                     <label style="font-size: 0.95rem; font-weight: bold; color: #1a365d;">Selected Tests & Rates Preview</label>
                     <table id="billItemsTable">
@@ -358,7 +359,7 @@
                     </div>
                 </div>
 
-                <!-- Bottom Form Controls -->
+                <!-- Bottom Form Controls with Payment Mode -->
                 <div class="form-grid" style="margin-top: 15px; border-top: 1px solid #edf2f7; padding-top: 14px;">
                     <div class="form-group full-width">
                         <label>Attach Report (PDF or Word):</label>
@@ -371,6 +372,14 @@
                     <div class="form-group">
                         <label>Paid Amount (₹):</label>
                         <input type="number" id="inputPaid" value="0" oninput="calculateFinancialTotals()">
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Mode (Cash / Online / Card):</label>
+                        <select id="inputPaymentMode">
+                            <option value="Cash">Cash</option>
+                            <option value="Online / UPI">Online / UPI</option>
+                            <option value="Card">Card</option>
+                        </select>
                     </div>
                 </div>
 
@@ -454,8 +463,12 @@
                         </div>
                     </div>
 
+                    <!-- Existing Tests with Search Option -->
                     <div class="card">
                         <div class="card-title">Existing Tests List</div>
+                        <div class="search-row" style="margin-bottom: 8px;">
+                            <input type="text" id="existingTestSearch" placeholder="🔍 Search existing tests by name or category..." oninput="filterExistingTestsList()">
+                        </div>
                         <table>
                             <thead>
                                 <tr><th>Test Name</th><th>Price</th><th>Cut</th><th>Action</th></tr>
@@ -514,7 +527,7 @@
                             <th>Patient Name</th>
                             <th>Total (₹)</th>
                             <th>Discount</th>
-                            <th>Paid (₹)</th>
+                            <th>Paid (₹) & Mode</th>
                             <th>Balance (₹)</th>
                             <th>Status</th>
                             <th>Action</th>
@@ -589,7 +602,7 @@
         </div>
     </div>
 
-    <!-- PATIENT BILLS & FORM F HISTORY MODAL -->
+    <!-- PATIENT BILLS MODAL -->
     <div id="patientBillsModal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">
@@ -604,7 +617,7 @@
                         <th>Centre</th>
                         <th>Doctor</th>
                         <th>Total</th>
-                        <th>Paid</th>
+                        <th>Paid & Mode</th>
                         <th>Balance</th>
                         <th>Actions</th>
                     </tr>
@@ -615,7 +628,7 @@
         </div>
     </div>
 
-    <!-- EDIT BILL / PAYMENT FOLLOW UP MODAL -->
+    <!-- EDIT BILL MODAL (With Payment Mode) -->
     <div id="editBillModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -626,6 +639,14 @@
             <div class="form-grid">
                 <div class="form-group"><label>Concession / Discount (₹):</label><input type="number" id="editBillDisc"></div>
                 <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="editBillPaid"></div>
+                <div class="form-group">
+                    <label>Payment Mode:</label>
+                    <select id="editBillPaymentMode">
+                        <option value="Cash">Cash</option>
+                        <option value="Online / UPI">Online / UPI</option>
+                        <option value="Card">Card</option>
+                    </select>
+                </div>
                 <div class="form-group full-width">
                     <label>Attach Updated Report (PDF/Word):</label>
                     <input type="file" id="editBillFile">
@@ -652,7 +673,6 @@
             </div>
 
             <div id="adminPanelSection" style="display: none;">
-                <!-- Existing Centres List -->
                 <div class="card">
                     <div class="card-title">Configured Clinic Centres</div>
                     <table>
@@ -663,7 +683,6 @@
                     </table>
                 </div>
 
-                <!-- Add / Edit Centre Form -->
                 <div class="card">
                     <div class="card-title" id="centreFormTitle">Add New Centre Profile</div>
                     <input type="hidden" id="editCentreId" value="">
@@ -680,7 +699,6 @@
                     </div>
                 </div>
 
-                <!-- Password Reset -->
                 <div class="card">
                     <div class="card-title">Change Administrative Password</div>
                     <div class="form-grid">
@@ -722,7 +740,7 @@
         <div style="text-align: right; font-size: 0.85rem;">
             <p>Gross Subtotal: ₹<span id="prtGross"></span> | Discount: ₹<span id="prtDisc"></span></p>
             <p style="font-size: 1rem; font-weight: bold; margin-top: 3px;">Net Payable: ₹<span id="prtNet"></span></p>
-            <p>Paid Amount: ₹<span id="prtPaid"></span> | Balance Due: ₹<span id="prtBal"></span></p>
+            <p>Paid Amount: ₹<span id="prtPaid"></span> (<span id="prtMode">Cash</span>) | Balance Due: ₹<span id="prtBal"></span></p>
         </div>
 
         <div id="prtPCPNDTBlock" style="display: none; border-top: 1px dashed #333; margin-top: 12px; padding-top: 8px; font-size: 0.78rem;">
@@ -756,7 +774,7 @@
             return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         }
 
-        // 1. Password Lock Engine
+        // 1. Password Lock
         async function unlockApp() {
             const password = document.getElementById('lockInput').value;
             try {
@@ -798,7 +816,7 @@
             document.getElementById('pcpndtFields').style.display = show ? 'block' : 'none';
         }
 
-        // 2. Multi-Centre Management Engine
+        // 2. Multi-Centre Management
         async function loadCentres() {
             try {
                 const res = await fetch('/api/centres');
@@ -934,7 +952,7 @@
             }
         }
 
-        // Admin Security Modal
+        // Admin Security
         function openAdminModal() {
             document.getElementById('adminModal').style.display = 'flex';
             document.getElementById('adminAuthSection').style.display = 'block';
@@ -975,7 +993,7 @@
             if (json.success) closeAdminModal();
         }
 
-        // 3. Doctors Master Engine
+        // 3. Doctors Master
         async function loadDoctors() {
             try {
                 const res = await fetch('/api/doctors');
@@ -1068,30 +1086,50 @@
             loadDoctors();
         }
 
-        // 4. Tests Master Engine
+        // 4. Tests Master & Existing Tests Search
         async function loadTests() {
             try {
                 const res = await fetch('/api/tests');
                 const json = await res.json();
                 testsList = json.data || [];
                 populateTestDropdown(testsList);
-
-                const tbody = document.getElementById('testsTableBody');
-                tbody.innerHTML = '';
-                testsList.forEach(t => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><strong>${t.test_name}</strong></td>
-                            <td>₹${parseFloat(t.price).toFixed(2)}</td>
-                            <td>₹${parseFloat(t.test_cut || 0).toFixed(2)}</td>
-                            <td>
-                                <button type="button" class="btn-view-bills" style="padding: 3px 10px; font-size: 0.8rem;" onclick="startEditTest('${t.id}')">Edit</button>
-                                <button type="button" class="btn-del" onclick="deleteTest('${t.id}')">X</button>
-                            </td>
-                        </tr>
-                    `;
-                });
+                renderExistingTestsTable(testsList);
             } catch (e) { console.error('Error loading tests:', e); }
+        }
+
+        function renderExistingTestsTable(list) {
+            const tbody = document.getElementById('testsTableBody');
+            tbody.innerHTML = '';
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#888;padding:10px;">No matching tests found.</td></tr>`;
+                return;
+            }
+            list.forEach(t => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${t.test_name}</strong><br><small style="color:#666;">${t.category || 'Pathology'}</small></td>
+                        <td>₹${parseFloat(t.price).toFixed(2)}</td>
+                        <td>₹${parseFloat(t.test_cut || 0).toFixed(2)}</td>
+                        <td>
+                            <button type="button" class="btn-view-bills" style="padding: 3px 10px; font-size: 0.8rem;" onclick="startEditTest('${t.id}')">Edit</button>
+                            <button type="button" class="btn-del" onclick="deleteTest('${t.id}')">X</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function filterExistingTestsList() {
+            const query = document.getElementById('existingTestSearch').value.toLowerCase().trim();
+            if (!query) {
+                renderExistingTestsTable(testsList);
+                return;
+            }
+            const filtered = testsList.filter(t => 
+                (t.test_name && t.test_name.toLowerCase().includes(query)) ||
+                (t.category && t.category.toLowerCase().includes(query))
+            );
+            renderExistingTestsTable(filtered);
         }
 
         function populateTestDropdown(list) {
@@ -1171,7 +1209,7 @@
             loadTests();
         }
 
-        // Test Selection & Calculations
+        // Test Selection & Totals
         function addSelectedTest() {
             const testId = document.getElementById('testCatalogSelect').value;
             if (!testId) return alert('Please select a test from dropdown.');
@@ -1273,6 +1311,7 @@
             formData.append('tests', JSON.stringify(selectedBillTests.map(t => t.id)));
             formData.append('concession', document.getElementById('inputDiscount').value);
             formData.append('paidAmount', document.getElementById('inputPaid').value);
+            formData.append('paymentMode', document.getElementById('inputPaymentMode').value);
             formData.append('isPcpndt', isPcpndt);
 
             if (isPcpndt) {
@@ -1303,7 +1342,7 @@
                     printSingleInvoice(json.data.visitId);
                 }
 
-                // Reset
+                // Reset Form
                 document.getElementById('existingPatientId').value = '';
                 document.getElementById('patientFullName').value = '';
                 document.getElementById('patientMobile').value = '';
@@ -1312,6 +1351,7 @@
                 document.getElementById('pcpndtFindings').value = '';
                 document.getElementById('inputDiscount').value = '0';
                 document.getElementById('inputPaid').value = '0';
+                document.getElementById('inputPaymentMode').value = 'Cash';
                 selectedBillTests = [];
                 renderSelectedTests();
                 loadReports();
@@ -1354,6 +1394,7 @@
                 document.getElementById('prtDisc').textContent = parseFloat(visit.concession).toFixed(2);
                 document.getElementById('prtNet').textContent = (parseFloat(visit.total_amount) - parseFloat(visit.concession)).toFixed(2);
                 document.getElementById('prtPaid').textContent = parseFloat(visit.paid_amount).toFixed(2);
+                document.getElementById('prtMode').textContent = visit.payment_mode || 'Cash';
                 document.getElementById('prtBal').textContent = parseFloat(visit.balance_amount).toFixed(2);
 
                 const pcpndtBlock = document.getElementById('prtPCPNDTBlock');
@@ -1471,7 +1512,7 @@
                 tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#888;">No billing records found for this patient.</td></tr>`;
             } else {
                 bills.forEach(b => {
-                    const waText = encodeURIComponent(`Hello ${name}, your bill for invoice ${b.invoice_number} is ₹${b.total_amount}. Paid: ₹${b.paid_amount}, Balance due: ₹${b.balance_amount}.`);
+                    const waText = encodeURIComponent(`Hello ${name}, your bill for invoice ${b.invoice_number} is ₹${b.total_amount}. Paid: ₹${b.paid_amount} (${b.payment_mode || 'Cash'}), Balance due: ₹${b.balance_amount}.`);
                     const waLink = b.phone ? `https://wa.me/91${b.phone.replace(/\D/g,'')}?text=${waText}` : '#';
 
                     tbody.innerHTML += `
@@ -1481,7 +1522,7 @@
                             <td>${b.centre_name || 'Main Centre'}</td>
                             <td>${b.doctor_name || 'Self / Direct'}</td>
                             <td>₹${parseFloat(b.total_amount).toFixed(2)}</td>
-                            <td>₹${parseFloat(b.paid_amount || 0).toFixed(2)}</td>
+                            <td>₹${parseFloat(b.paid_amount || 0).toFixed(2)} <span class="badge-mode">${b.payment_mode || 'Cash'}</span></td>
                             <td>₹${parseFloat(b.balance_amount || 0).toFixed(2)}</td>
                             <td>
                                 <button type="button" class="btn-wa-inv" onclick="printSingleInvoice('${b.id}')">Print</button>
@@ -1517,6 +1558,7 @@
                 const disc = parseFloat(v.concession) || 0;
                 const paid = parseFloat(v.paid_amount) || 0;
                 const bal = parseFloat(v.balance_amount) || 0;
+                const mode = v.payment_mode || 'Cash';
                 totalBiz += tot;
                 totalDisc += disc;
                 totalPaid += paid;
@@ -1524,7 +1566,7 @@
 
                 const isPaid = bal <= 0;
                 const statusBadge = isPaid ? `<span class="badge-paid">Paid</span>` : `<span class="badge-pending">Pending</span>`;
-                const waInv = v.phone ? `https://wa.me/91${v.phone.replace(/\D/g,'')}?text=${encodeURIComponent(`Invoice ${v.invoice_number}: Total ₹${tot}, Paid ₹${paid}, Due ₹${bal}`)}` : '#';
+                const waInv = v.phone ? `https://wa.me/91${v.phone.replace(/\D/g,'')}?text=${encodeURIComponent(`Invoice ${v.invoice_number}: Total ₹${tot}, Paid ₹${paid} (${mode}), Due ₹${bal}`)}` : '#';
 
                 tbody.innerHTML += `
                     <tr>
@@ -1533,7 +1575,7 @@
                         <td><strong>${v.full_name}</strong></td>
                         <td>₹${tot.toFixed(2)}</td>
                         <td>₹${disc.toFixed(2)}</td>
-                        <td>₹${paid.toFixed(2)}</td>
+                        <td>₹${paid.toFixed(2)} <span class="badge-mode">${mode}</span></td>
                         <td>₹${bal.toFixed(2)}</td>
                         <td>${statusBadge}</td>
                         <td>
@@ -1625,6 +1667,7 @@
             const formData = new FormData();
             formData.append('concession', document.getElementById('editBillDisc').value);
             formData.append('paidAmount', document.getElementById('editBillPaid').value);
+            formData.append('paymentMode', document.getElementById('editBillPaymentMode').value);
 
             const file = document.getElementById('editBillFile').files[0];
             if (file) formData.append('reportFile', file);

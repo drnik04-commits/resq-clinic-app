@@ -1,7 +1,14 @@
 @echo off
-title ResQ Clinic Launcher
-cd /d %userprofile%\Desktop\resq-app
-set DATABASE_URL=postgresql://postgres:12345678@localhost:5432/resq_clinic_db
-start "" cmd /c "node server.js"
-timeout /t 2 >nul
-start index.html
+title RESQ Clinic System Launcher
+set NODE_SKIP_PLATFORM_CHECK=1
+
+:: Start the Node server in background
+start /B node server.js
+
+:: Wait 2 seconds for server initialization
+timeout /t 2 /nobreak >nul
+
+:: Launch browser directly in app window mode (looks like a native desktop app)
+start chrome.exe --app=http://localhost:3000 || start msedge.exe --app=http://localhost:3000 || start http://localhost:3000
+
+exit
