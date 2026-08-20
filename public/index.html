@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResQ Clinic - Management & Billing System</title>
+    <style>
+        :root {
+            --primary: #19486a;
+            --primary-dark: #123352;
+            --tab-active: #2196f3;
+            --tab-inactive: #90caf9;
+            --bg: #f4f7f9;
+            --card-bg: #ffffff;
+            --border: #ccd7e2;
+            --text: #2c3e50;
+            --green: #28a745;
+            --purple: #8e24aa;
+            --orange: #f59e0b;
+            --btn-blue: #1976d2;
+            --danger: #dc3545;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+        /* Lock Screen Overlay */
+        #appLockScreen {
+            position: fixed;
+            inset: 0;
+            background: #123352;
+            z-index: 99999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .lock-box {
+            background: white;
+            padding: 30px;
+            border-radius: 6px;
+            width: 90%;
+            max-width: 380px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .lock-box h2 { color: var(--primary-dark); font-size: 1.25rem; margin-bottom: 6px; }
+        .lock-box p { color: #666; font-size: 0.85rem; margin-bottom: 18px; }
+        .lock-box input { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 12px; outline: none; font-size: 0.9rem; }
+
+        /* Header */
+        header {
+            background-color: var(--primary);
+            color: #ffffff;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header-title h1 { font-size: 1.25rem; font-weight: 700; }
+        .header-title p { font-size: 0.8rem; color: #a9c7e2; }
+        .centre-nav { display: flex; align-items: center; gap: 10px; }
+        .centre-nav select { padding: 6px 10px; border-radius: 4px; border: none; font-weight: bold; background: #fff; color: var(--primary-dark); cursor: pointer; }
+        .btn-settings { background: #008080; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; font-weight: bold; }
+
+        /* Navigation Tabs */
+        .tab-nav {
+            background-color: #bbdefb;
+            display: flex;
+            padding: 4px 16px 0;
+            gap: 4px;
+            border-bottom: 2px solid #90caf9;
+        }
+        .tab-btn {
+            background-color: var(--tab-inactive);
+            color: #0d47a1;
+            border: none;
+            outline: none;
+            padding: 10px 18px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+            transition: 0.2s;
+        }
+        .tab-btn.active { background-color: var(--tab-active); color: #ffffff; }
+
+        /* Main Container */
+        .main-container { max-width: 1400px; margin: 16px auto; padding: 0 16px; width: 100%; flex: 1; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 4px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .card-title { font-size: 1.1rem; font-weight: 700; color: #1a365d; margin-bottom: 14px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px; }
+
+        /* Forms */
+        .search-row { display: flex; gap: 8px; margin-bottom: 14px; }
+        .search-row input { flex: 1; padding: 8px 12px; border: 1px solid #90caf9; border-radius: 4px; outline: none; }
+        .btn-search { background-color: #00c853; color: white; border: none; padding: 8px 18px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group.full-width { grid-column: span 2; }
+        .form-group label { font-size: 0.82rem; font-weight: 600; color: #4a5568; }
+        .form-group input, .form-group select, .form-group textarea {
+            padding: 7px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        /* PCPNDT Panel */
+        .pcpndt-panel {
+            background-color: #fbf8e8;
+            border: 1px solid #e8d8a0;
+            padding: 12px 14px;
+            border-radius: 4px;
+            margin: 14px 0;
+        }
+        .pcpndt-checkbox-label {
+            font-size: 0.92rem;
+            font-weight: bold;
+            color: #333333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        /* Test Selection */
+        .test-selection-box { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+        .test-selection-box select { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem; }
+        .btn-add-test { background-color: var(--green); color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .btn-add-all-test { background-color: var(--purple); color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+
+        /* Rates Summary */
+        .rates-summary-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-top: 10px;
+            gap: 4px;
+            font-size: 0.95rem;
+            font-weight: bold;
+        }
+        .rates-summary-panel .subtotal { color: #333; }
+        .rates-summary-panel .concession { color: #e53935; }
+        .rates-summary-panel .payable { color: #00897b; }
+        .rates-summary-panel .balance { color: #d84315; }
+
+        /* Action Buttons */
+        .btn-complete-reg { background-color: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; flex: 1; }
+        .btn-generate-inv { background-color: #2196f3; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; flex: 1; }
+
+        /* Tables & Badges */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        table th, table td { border: 1px solid var(--border); padding: 8px 10px; font-size: 0.88rem; text-align: left; }
+        table th { background-color: #f1f5f9; color: #1a365d; }
+
+        .btn-edit-patient { background-color: #f59e0b; color: white; border: none; padding: 5px 12px; border-radius: 3px; cursor: pointer; font-size: 0.82rem; font-weight: bold; margin-right: 4px; }
+        .btn-view-bills { background-color: #1976d2; color: white; border: none; padding: 5px 12px; border-radius: 3px; cursor: pointer; font-size: 0.82rem; font-weight: bold; }
+        .btn-wa-inv { background-color: #25d366; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; margin-right: 3px; text-decoration: none; display: inline-block; }
+        .btn-wa-rep { background-color: #0288d1; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; margin-right: 3px; }
+        .btn-edit-bill { background-color: #f59e0b; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; margin-right: 3px; }
+        .btn-del { background-color: var(--danger); color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; }
+
+        .badge-paid { background-color: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 0.8rem; border: 1px solid #c8e6c9; }
+        .badge-pending { background-color: #ffebee; color: #c62828; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 0.8rem; border: 1px solid #ffcdd2; }
+
+        /* Modals */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); justify-content: center; align-items: center; z-index: 10000; }
+        .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 850px; max-height: 90vh; overflow-y: auto; padding: 20px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 14px; }
+
+        /* Print */
+        @media print {
+            body * { visibility: hidden; }
+            #invoicePrintArea, #invoicePrintArea * { visibility: visible; }
+            #invoicePrintArea { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+            @page { size: A5 landscape; margin: 8mm; }
+        }
+        .print-paper { display: none; background: white; padding: 15px; border: 1px solid #333; }
+    </style>
+</head>
+<body>
+
+    <!-- APP LOCK SCREEN OVERLAY -->
+    <div id="appLockScreen">
+        <div class="lock-box">
+            <h2>RESQ CLINIC SYSTEM</h2>
+            <p>Enter administrative password to unlock</p>
+            <input type="password" id="lockInput" placeholder="Password (default: admin123)" onkeydown="if(event.key==='Enter') unlockApp()">
+            <button type="button" class="btn-complete-reg" style="width: 100%; padding: 10px;" onclick="unlockApp()">Unlock System</button>
+        </div>
+    </div>
+
+    <!-- HEADER WITH MULTI-CENTRE SWITCHER -->
+    <header>
+        <div class="header-title">
+            <h1 id="topCentreTitle">RESQ HEART CLINIC AND IMAGING CENTRE</h1>
+            <p id="topCentreTagline">Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging</p>
+        </div>
+        <div class="centre-nav">
+            <label style="font-size: 0.85rem; font-weight: bold;">Active Centre:</label>
+            <select id="activeCentreSelector" onchange="switchCentre(this.value)"></select>
+            <button type="button" class="btn-settings" onclick="openAdminModal()">⚙ Settings & Centres</button>
+        </div>
+    </header>
+
+    <!-- 5 NAVIGATION TABS -->
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="openTab('tab-billing', this)">Billing & Registration</button>
+        <button class="tab-btn" onclick="openTab('tab-masters', this)">Edit Doctors & Tests</button>
+        <button class="tab-btn" onclick="openTab('tab-patients', this)">Manage Patients & Bills</button>
+        <button class="tab-btn" onclick="openTab('tab-reports', this)">Collections & Reports</button>
+        <button class="tab-btn" onclick="openTab('tab-business', this)">Doctor Business & Cuts</button>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div class="main-container">
+
+        <!-- TAB 1: BILLING & REGISTRATION -->
+        <div id="tab-billing" class="tab-content active">
+            <div class="card">
+                <div class="card-title">Patient Registration & Billing</div>
+
+                <label style="font-size: 0.82rem; font-weight: 600; color: #4a5568;">Quick Lookup Existing Patient / Family Number:</label>
+                <div class="search-row">
+                    <input type="text" id="lookupSearch" placeholder="Enter Shared Mobile Number or Patient ID...">
+                    <button type="button" class="btn-search" onclick="lookupPatient()">Search</button>
+                </div>
+
+                <div class="form-grid">
+                    <input type="hidden" id="existingPatientId">
+                    <div class="form-group">
+                        <label>Patient ID / Unique Code (Manual):</label>
+                        <input type="text" id="patientCode" placeholder="e.g. PAT-001 (Optional)">
+                    </div>
+                    <div class="form-group">
+                        <label>Full Name *:</label>
+                        <input type="text" id="patientFullName" placeholder="Patient Full Name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Age:</label>
+                        <input type="number" id="patientAge" placeholder="Years">
+                    </div>
+                    <div class="form-group">
+                        <label>Gender:</label>
+                        <select id="patientGender">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Mobile Number (Shared Family Number allowed):</label>
+                        <input type="text" id="patientMobile" placeholder="10 Digit Number">
+                    </div>
+                    <div class="form-group">
+                        <label>Email ID:</label>
+                        <input type="email" id="patientEmail" placeholder="patient@example.com">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Address:</label>
+                        <input type="text" id="patientAddress" placeholder="Address">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Referring Doctor:</label>
+                        <select id="referringDoctorSelect">
+                            <option value="">Select Doctor</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- PCPNDT Section -->
+                <div class="pcpndt-panel">
+                    <label class="pcpndt-checkbox-label">
+                        <input type="checkbox" id="pcpndtToggle" onchange="togglePCPNDT(this.checked)">
+                        Fill PCPNDT Form F (Female Obstetric Ultrasonography)
+                    </label>
+
+                    <div id="pcpndtFields" style="display: none; margin-top: 12px;">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>L.M.P Date:</label>
+                                <input type="date" id="pcpndtLMP">
+                            </div>
+                            <div class="form-group">
+                                <label>Weeks of Gestation:</label>
+                                <input type="text" id="pcpndtWeeks" placeholder="e.g. 18 Weeks 4 Days">
+                            </div>
+                            <div class="form-group">
+                                <label>No of Sons & Age:</label>
+                                <input type="text" id="pcpndtSons" placeholder="e.g. 1 Son (Age 4)">
+                            </div>
+                            <div class="form-group">
+                                <label>No of Daughters & Age:</label>
+                                <input type="text" id="pcpndtDaughters" placeholder="e.g. 0 Daughters">
+                            </div>
+                            <div class="form-group full-width">
+                                <label>Indication for Sonography:</label>
+                                <input type="text" id="pcpndtIndication" placeholder="e.g. Routine Antenatal Anomaly Evaluation">
+                            </div>
+                            <div class="form-group full-width">
+                                <label>Ultrasound Findings / Manual Observations *:</label>
+                                <textarea id="pcpndtFindings" rows="3" placeholder="Enter custom ultrasound scan observations / findings..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Performing Doctor Name:</label>
+                                <input type="text" id="pcpndtDoctor" value="Dr NIKUNJ KOTHIA">
+                            </div>
+                            <div class="form-group">
+                                <label>Doctor Reg No:</label>
+                                <input type="text" id="pcpndtDoctorReg" value="2009/09/3218">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search & Select Test -->
+                <div style="margin-top: 14px;">
+                    <label style="font-size: 0.88rem; font-weight: bold; color: #333;">Search & Select Test:</label>
+                    <div style="margin-top: 4px;">
+                        <input type="text" id="testKeywordSearch" placeholder="🔍 Type test name, code or keyword..." oninput="filterTestDropdown()" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 4px; outline: none; margin-bottom: 6px;">
+                    </div>
+                    <div class="test-selection-box">
+                        <select id="testCatalogSelect">
+                            <option value="">-- Select Test --</option>
+                        </select>
+                        <button type="button" class="btn-add-test" onclick="addSelectedTest()">+ Add Test</button>
+                        <button type="button" class="btn-add-all-test" onclick="addAllTests()">+ Add All Tests</button>
+                    </div>
+                </div>
+
+                <!-- Selected Tests & Rates Preview Table -->
+                <div style="margin-top: 18px;">
+                    <label style="font-size: 0.95rem; font-weight: bold; color: #1a365d;">Selected Tests & Rates Preview</label>
+                    <table id="billItemsTable">
+                        <thead>
+                            <tr>
+                                <th>Test Name</th>
+                                <th>Category</th>
+                                <th style="width: 140px;">Rate (₹)</th>
+                                <th style="width: 70px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected yet. Search above and click + Add Test.</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="rates-summary-panel">
+                        <div class="subtotal">Gross Subtotal: <span id="dispGross">₹0.00</span></div>
+                        <div class="concession">Concession / Discount: <span id="dispDiscount">- ₹0.00</span></div>
+                        <div class="payable">Net Payable Amount: <span id="dispNet">₹0.00</span></div>
+                        <div class="balance">Balance Due: <span id="dispBalance">₹0.00</span></div>
+                    </div>
+                </div>
+
+                <!-- Bottom Form Controls -->
+                <div class="form-grid" style="margin-top: 15px; border-top: 1px solid #edf2f7; padding-top: 14px;">
+                    <div class="form-group full-width">
+                        <label>Attach Report (PDF or Word):</label>
+                        <input type="file" id="reportFileInput" accept=".pdf,.doc,.docx">
+                    </div>
+                    <div class="form-group">
+                        <label>Concession / Discount (₹):</label>
+                        <input type="number" id="inputDiscount" value="0" oninput="calculateFinancialTotals()">
+                    </div>
+                    <div class="form-group">
+                        <label>Paid Amount (₹):</label>
+                        <input type="number" id="inputPaid" value="0" oninput="calculateFinancialTotals()">
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; gap: 14px;">
+                    <button type="button" class="btn-complete-reg" onclick="processVisit(false)">Complete Registration</button>
+                    <button type="button" class="btn-generate-inv" onclick="processVisit(true)">Generate Invoice</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: EDIT DOCTORS & TESTS -->
+        <div id="tab-masters" class="tab-content">
+            <div class="dashboard-grid">
+                <div>
+                    <div class="card">
+                        <div class="card-title" id="docFormTitle">Add / Edit Referring Doctors</div>
+                        <input type="hidden" id="editDocId" value="">
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label>Doctor Name *:</label>
+                                <input type="text" id="docNameInput" placeholder="Dr. Full Name">
+                            </div>
+                            <div class="form-group full-width">
+                                <label>Hospital / Clinic Name:</label>
+                                <input type="text" id="docHospInput" placeholder="Hospital or Clinic Name">
+                            </div>
+                            <div class="form-group">
+                                <label>Commission Type:</label>
+                                <select id="docCommType">
+                                    <option value="percentage">Percentage (%)</option>
+                                    <option value="fixed">Fixed Amount (₹)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Commission Value:</label>
+                                <input type="number" id="docCutInput" placeholder="e.g. 10">
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px; display: flex; gap: 8px;">
+                            <button type="button" class="btn-complete-reg" id="btnSaveDoc" style="padding: 8px 16px;" onclick="saveDoctor()">Save New Doctor</button>
+                            <button type="button" class="btn-del" id="btnCancelDocEdit" style="display: none;" onclick="cancelDocEdit()">Cancel</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">Existing Doctors List</div>
+                        <table>
+                            <thead>
+                                <tr><th>Name</th><th>Hospital</th><th>Action</th></tr>
+                            </thead>
+                            <tbody id="doctorsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="card">
+                        <div class="card-title" id="testFormTitle">Add / Edit Tests & Cuts</div>
+                        <input type="hidden" id="editTestId" value="">
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label>Test Name *:</label>
+                                <input type="text" id="testNameInput" placeholder="Investigation / Test Name">
+                            </div>
+                            <div class="form-group full-width">
+                                <label>Category:</label>
+                                <input type="text" id="testCatInput" placeholder="e.g. Pathology, Imaging" value="Pathology">
+                            </div>
+                            <div class="form-group">
+                                <label>Price (₹) *:</label>
+                                <input type="number" id="testPriceInput" placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <label>Test Cut / Commission (₹):</label>
+                                <input type="number" id="testCutInput" placeholder="0.00">
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px; display: flex; gap: 8px;">
+                            <button type="button" class="btn-complete-reg" id="btnSaveTest" style="padding: 8px 16px;" onclick="saveTest()">Save New Test</button>
+                            <button type="button" class="btn-del" id="btnCancelTestEdit" style="display: none;" onclick="cancelTestEdit()">Cancel</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">Existing Tests List</div>
+                        <table>
+                            <thead>
+                                <tr><th>Test Name</th><th>Price</th><th>Cut</th><th>Action</th></tr>
+                            </thead>
+                            <tbody id="testsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: MANAGE PATIENTS & BILLS -->
+        <div id="tab-patients" class="tab-content">
+            <div class="card">
+                <div class="card-title">Manage Patients & Individual Bills By Date</div>
+                <div class="search-row">
+                    <input type="text" id="patientDirectorySearch" placeholder="Search by name, phone or patient ID..." oninput="filterPatientsDirectory()">
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 110px;">Patient ID</th>
+                            <th>Name</th>
+                            <th style="width: 140px;">Age / Gender</th>
+                            <th style="width: 140px;">Mobile</th>
+                            <th style="width: 240px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="patientsDirectoryBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 4: COLLECTIONS & REPORTS -->
+        <div id="tab-reports" class="tab-content">
+            <div class="card">
+                <div class="card-title">Daily & Monthly Collection Reports</div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px;">
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">Start Date:</label><br><input type="date" id="repStartDate" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">End Date:</label><br><input type="date" id="repEndDate" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">OR Month (YYYY-MM):</label><br><input type="month" id="repMonth" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">Patient Name:</label><br><input type="text" id="repPatientName" placeholder="Search Patient" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <button type="button" class="btn-search" onclick="filterReports()">🔍 Filter</button>
+                    <button type="button" class="btn-edit-patient" onclick="loadReports()">Show All</button>
+                </div>
+
+                <div id="repSummaryBanner" style="background: #e3f2fd; border: 1px solid #90caf9; padding: 10px 14px; border-radius: 4px; font-weight: bold; margin-bottom: 12px; font-size: 0.9rem;">
+                    Loading Financial Summary...
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>Centre</th>
+                            <th>Patient Name</th>
+                            <th>Total (₹)</th>
+                            <th>Discount</th>
+                            <th>Paid (₹)</th>
+                            <th>Balance (₹)</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 5: DOCTOR BUSINESS & CUTS -->
+        <div id="tab-business" class="tab-content">
+            <div class="card">
+                <div class="card-title">Doctor Business & Date-by-Date Details</div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px;">
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">Select Doctor:</label><br><select id="busDocSelect" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"><option value="">All Doctors</option></select></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">Start Date:</label><br><input type="date" id="busStartDate" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">End Date:</label><br><input type="date" id="busEndDate" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">OR Month:</label><br><input type="month" id="busMonth" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">Patient Name:</label><br><input type="text" id="busPatientName" placeholder="Search Patient" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <button type="button" class="btn-search" onclick="filterBusiness()">🔍 Filter</button>
+                    <button type="button" class="btn-edit-patient" onclick="loadBusiness()">Show All</button>
+                    <button type="button" class="btn-view-bills" onclick="window.print()">🖨️ Print Report</button>
+                </div>
+
+                <div id="busSummaryBanner" style="background: #ede7f6; border: 1px solid #d1c4e9; padding: 10px 14px; border-radius: 4px; font-weight: bold; margin-bottom: 12px; font-size: 0.9rem;">
+                    Loading Doctor Commission Summary...
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>Doctor Name</th>
+                            <th>Patient Name</th>
+                            <th>Invoice No</th>
+                            <th>Business (₹)</th>
+                            <th>Doctor Cut (₹)</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="businessTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- EDIT PATIENT MODAL -->
+    <div id="editPatientModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Patient Information</h3>
+                <button type="button" onclick="closeEditPatientModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
+            <input type="hidden" id="editPatRowId">
+            <div class="form-grid">
+                <div class="form-group"><label>Patient Code:</label><input type="text" id="editPatCode"></div>
+                <div class="form-group"><label>Full Name:</label><input type="text" id="editPatName"></div>
+                <div class="form-group"><label>Age:</label><input type="number" id="editPatAge"></div>
+                <div class="form-group">
+                    <label>Gender:</label>
+                    <select id="editPatGender">
+                        <option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Mobile:</label><input type="text" id="editPatMobile"></div>
+                <div class="form-group"><label>Email:</label><input type="email" id="editPatEmail"></div>
+                <div class="form-group full-width"><label>Address:</label><input type="text" id="editPatAddress"></div>
+            </div>
+            <button type="button" class="btn-complete-reg" style="margin-top: 14px; width: 100%;" onclick="submitEditPatient()">Save Changes</button>
+        </div>
+    </div>
+
+    <!-- PATIENT BILLS & FORM F HISTORY MODAL -->
+    <div id="patientBillsModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3 id="patientBillsTitle">Bills & Form F History</h3>
+                <button type="button" onclick="closePatientBillsModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Invoice No</th>
+                        <th>Visit Date</th>
+                        <th>Centre</th>
+                        <th>Doctor</th>
+                        <th>Total</th>
+                        <th>Paid</th>
+                        <th>Balance</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="patientBillsTableBody"></tbody>
+            </table>
+            <button type="button" class="btn-edit-patient" style="margin-top: 14px;" onclick="closePatientBillsModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- EDIT BILL / PAYMENT FOLLOW UP MODAL -->
+    <div id="editBillModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Bill / Payment Follow-up</h3>
+                <button type="button" onclick="closeEditBillModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
+            <input type="hidden" id="editBillRowId">
+            <div class="form-grid">
+                <div class="form-group"><label>Concession / Discount (₹):</label><input type="number" id="editBillDisc"></div>
+                <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="editBillPaid"></div>
+                <div class="form-group full-width">
+                    <label>Attach Updated Report (PDF/Word):</label>
+                    <input type="file" id="editBillFile">
+                </div>
+            </div>
+            <button type="button" class="btn-complete-reg" style="margin-top: 14px; width: 100%;" onclick="submitEditBill()">Update Bill</button>
+        </div>
+    </div>
+
+    <!-- ADMIN SETTINGS & MULTI-CENTRE MODAL -->
+    <div id="adminModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Admin Settings & Multi-Centre Manager</h3>
+                <button type="button" onclick="closeAdminModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
+
+            <div id="adminAuthSection">
+                <div class="form-group">
+                    <label>Enter Admin Password:</label>
+                    <input type="password" id="adminPasswordInput" placeholder="Password (default: admin123)" onkeydown="if(event.key==='Enter') verifyAdmin()">
+                </div>
+                <button type="button" class="btn-view-bills" style="margin-top: 10px; width: 100%;" onclick="verifyAdmin()">Login to Settings</button>
+            </div>
+
+            <div id="adminPanelSection" style="display: none;">
+                <!-- Existing Centres List -->
+                <div class="card">
+                    <div class="card-title">Configured Clinic Centres</div>
+                    <table>
+                        <thead>
+                            <tr><th>Centre Name</th><th>Contact / Reg No</th><th>Status</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="adminCentresListBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Add / Edit Centre Form -->
+                <div class="card">
+                    <div class="card-title" id="centreFormTitle">Add New Centre Profile</div>
+                    <input type="hidden" id="editCentreId" value="">
+                    <div class="form-grid">
+                        <div class="form-group full-width"><label>Centre Name *:</label><input type="text" id="cNameInput" placeholder="e.g. RESQ Heart Care (Branch 2)"></div>
+                        <div class="form-group full-width"><label>Tagline / Subtitle:</label><input type="text" id="cTaglineInput" placeholder="e.g. Multi-Speciality Diagnostic Imaging"></div>
+                        <div class="form-group full-width"><label>Address:</label><input type="text" id="cAddressInput" placeholder="Branch Address"></div>
+                        <div class="form-group"><label>Phone / Contact:</label><input type="text" id="cPhoneInput" placeholder="+91 9876543210"></div>
+                        <div class="form-group"><label>Reg No / License:</label><input type="text" id="cRegInput" placeholder="RC197"></div>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; gap: 8px;">
+                        <button type="button" class="btn-complete-reg" id="btnSaveCentre" style="padding: 8px 16px;" onclick="saveCentre()">Save Centre Profile</button>
+                        <button type="button" class="btn-del" id="btnCancelCentreEdit" style="display: none;" onclick="cancelCentreEdit()">Cancel</button>
+                    </div>
+                </div>
+
+                <!-- Password Reset -->
+                <div class="card">
+                    <div class="card-title">Change Administrative Password</div>
+                    <div class="form-grid">
+                        <div class="form-group"><label>Old Password:</label><input type="password" id="passOld"></div>
+                        <div class="form-group"><label>New Password:</label><input type="password" id="passNew"></div>
+                    </div>
+                    <button type="button" class="btn-view-bills" style="margin-top: 10px; width: 100%;" onclick="changeAdminPassword()">Update Password</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT LAYOUT (A5 INVOICE / PCPNDT FORM F) -->
+    <div id="invoicePrintArea" class="print-paper">
+        <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px;">
+            <h2 id="prtClinicName">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
+            <p id="prtClinicTagline" style="font-size: 0.8rem; font-style: italic;"></p>
+            <p id="prtClinicAddress" style="font-size: 0.8rem;"></p>
+            <p id="prtClinicContact" style="font-size: 0.75rem;"></p>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 10px;">
+            <div>
+                <strong>Patient:</strong> <span id="prtPatName"></span> (<span id="prtPatMeta"></span>)<br>
+                <strong>Ref Doctor:</strong> <span id="prtDocName"></span><br>
+                <strong>Address:</strong> <span id="prtPatAddress"></span>
+            </div>
+            <div style="text-align: right;">
+                <strong>Invoice:</strong> <span id="prtInvNo"></span><br>
+                <strong>Date:</strong> <span id="prtDate"></span>
+            </div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+            <thead><tr><th>Investigation</th><th style="width: 100px;">Amount (₹)</th></tr></thead>
+            <tbody id="prtItemsBody"></tbody>
+        </table>
+
+        <div style="text-align: right; font-size: 0.85rem;">
+            <p>Gross Subtotal: ₹<span id="prtGross"></span> | Discount: ₹<span id="prtDisc"></span></p>
+            <p style="font-size: 1rem; font-weight: bold; margin-top: 3px;">Net Payable: ₹<span id="prtNet"></span></p>
+            <p>Paid Amount: ₹<span id="prtPaid"></span> | Balance Due: ₹<span id="prtBal"></span></p>
+        </div>
+
+        <div id="prtPCPNDTBlock" style="display: none; border-top: 1px dashed #333; margin-top: 12px; padding-top: 8px; font-size: 0.78rem;">
+            <div style="text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 4px;">STATUTORY DECLARATION & FINDINGS (PCPNDT ACT - FORM F)</div>
+            <p><strong>L.M.P:</strong> <span id="prtLMP"></span> | <strong>Gestation Age:</strong> <span id="prtWeeks"></span></p>
+            <p><strong>Clinical Indication:</strong> <span id="prtIndication"></span></p>
+            <div style="margin-top: 4px; padding: 4px; border: 1px solid #ddd; background: #fafafa;">
+                <strong>Ultrasound Observations / Findings:</strong><br>
+                <div id="prtFindings" style="white-space: pre-wrap; font-family: monospace;"></div>
+            </div>
+            <p style="margin-top: 4px;"><strong>Performing Sonologist:</strong> <span id="prtDoctor"></span> (Reg: <span id="prtDoctorReg"></span>)</p>
+            <div style="margin-top: 12px; display: flex; justify-content: space-between;">
+                <div><br>_______________________<br>Patient's / Relative's Signature</div>
+                <div style="text-align: right;"><br>_______________________<br>Doctor's / Sonologist's Signature</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN CLIENT APPLICATION ENGINE -->
+    <script>
+        let testsList = [];
+        let doctorsList = [];
+        let patientsList = [];
+        let visitsList = [];
+        let centresList = [];
+        let selectedBillTests = [];
+        let activeCentre = null;
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+
+        // 1. Password Lock Engine
+        async function unlockApp() {
+            const password = document.getElementById('lockInput').value;
+            try {
+                const res = await fetch('/api/auth/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    document.getElementById('appLockScreen').style.display = 'none';
+                    await loadCentres();
+                    await loadActiveCentre();
+                    loadDoctors();
+                    loadTests();
+                    loadPatientsDirectory();
+                    loadReports();
+                } else {
+                    alert('Incorrect administrative password.');
+                }
+            } catch (e) {
+                alert('Connection Error: Make sure your local node server is running.');
+            }
+        }
+
+        // Navigation
+        function openTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+            if (tabId === 'tab-reports') loadReports();
+            if (tabId === 'tab-business') loadBusiness();
+            if (tabId === 'tab-masters') { loadDoctors(); loadTests(); }
+            if (tabId === 'tab-patients') loadPatientsDirectory();
+        }
+
+        function togglePCPNDT(show) {
+            document.getElementById('pcpndtFields').style.display = show ? 'block' : 'none';
+        }
+
+        // 2. Multi-Centre Management Engine
+        async function loadCentres() {
+            try {
+                const res = await fetch('/api/centres');
+                const json = await res.json();
+                centresList = json.data || [];
+
+                const sel = document.getElementById('activeCentreSelector');
+                sel.innerHTML = '';
+                centresList.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.centre_name;
+                    if (c.is_active) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+                renderAdminCentres();
+            } catch (e) { console.error('Error loading centres:', e); }
+        }
+
+        async function loadActiveCentre() {
+            try {
+                const res = await fetch('/api/centres/active');
+                const json = await res.json();
+                activeCentre = json.data;
+                if (activeCentre) {
+                    document.getElementById('topCentreTitle').textContent = activeCentre.centre_name;
+                    document.getElementById('topCentreTagline').textContent = activeCentre.tagline || '';
+                }
+            } catch (e) { console.error('Error loading active centre:', e); }
+        }
+
+        async function switchCentre(id) {
+            try {
+                const res = await fetch(`/api/centres/${id}/activate`, { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    await loadActiveCentre();
+                    await loadCentres();
+                } else {
+                    alert('Error activating centre: ' + json.error);
+                }
+            } catch (e) { alert('Failed to switch centre'); }
+        }
+
+        function renderAdminCentres() {
+            const tbody = document.getElementById('adminCentresListBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            centresList.forEach(c => {
+                const isAct = c.is_active;
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${c.centre_name}</strong></td>
+                        <td>${c.phone || '-'} | Reg: ${c.reg_no || '-'}</td>
+                        <td>${isAct ? '<span class="badge-paid">Active</span>' : '<button type="button" class="btn-wa-rep" onclick="switchCentre(\'' + c.id + '\')">Set Active</button>'}</td>
+                        <td>
+                            <button type="button" class="btn-edit-patient" onclick="startEditCentre('${c.id}')">Edit</button>
+                            <button type="button" class="btn-del" onclick="deleteCentre('${c.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function saveCentre() {
+            const editId = document.getElementById('editCentreId').value;
+            const centre_name = document.getElementById('cNameInput').value.trim();
+            if (!centre_name) return alert('Centre Name is required');
+
+            const payload = {
+                centre_name,
+                tagline: document.getElementById('cTaglineInput').value.trim(),
+                address: document.getElementById('cAddressInput').value.trim(),
+                phone: document.getElementById('cPhoneInput').value.trim(),
+                reg_no: document.getElementById('cRegInput').value.trim()
+            };
+
+            const url = editId ? `/api/centres/${editId}` : '/api/centres';
+            const method = editId ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert(editId ? 'Centre profile updated!' : 'New centre profile added!');
+                cancelCentreEdit();
+                await loadCentres();
+                await loadActiveCentre();
+            } else {
+                alert('Error: ' + json.error);
+            }
+        }
+
+        function startEditCentre(id) {
+            const c = centresList.find(x => String(x.id) === String(id));
+            if (!c) return;
+            document.getElementById('editCentreId').value = c.id;
+            document.getElementById('cNameInput').value = c.centre_name || '';
+            document.getElementById('cTaglineInput').value = c.tagline || '';
+            document.getElementById('cAddressInput').value = c.address || '';
+            document.getElementById('cPhoneInput').value = c.phone || '';
+            document.getElementById('cRegInput').value = c.reg_no || '';
+            document.getElementById('centreFormTitle').textContent = 'Edit Centre Profile';
+            document.getElementById('btnSaveCentre').textContent = 'Update Centre';
+            document.getElementById('btnCancelCentreEdit').style.display = 'inline-block';
+            document.getElementById('cNameInput').focus();
+        }
+
+        function cancelCentreEdit() {
+            document.getElementById('editCentreId').value = '';
+            document.getElementById('cNameInput').value = '';
+            document.getElementById('cTaglineInput').value = '';
+            document.getElementById('cAddressInput').value = '';
+            document.getElementById('cPhoneInput').value = '';
+            document.getElementById('cRegInput').value = '';
+            document.getElementById('centreFormTitle').textContent = 'Add New Centre Profile';
+            document.getElementById('btnSaveCentre').textContent = 'Save Centre Profile';
+            document.getElementById('btnCancelCentreEdit').style.display = 'none';
+        }
+
+        async function deleteCentre(id) {
+            if (!confirm('Are you sure you want to delete this centre profile?')) return;
+            const res = await fetch(`/api/centres/${id}`, { method: 'DELETE' });
+            const json = await res.json();
+            if (json.success) {
+                await loadCentres();
+                await loadActiveCentre();
+            } else {
+                alert('Error: ' + json.error);
+            }
+        }
+
+        // Admin Security Modal
+        function openAdminModal() {
+            document.getElementById('adminModal').style.display = 'flex';
+            document.getElementById('adminAuthSection').style.display = 'block';
+            document.getElementById('adminPanelSection').style.display = 'none';
+            document.getElementById('adminPasswordInput').value = '';
+        }
+        function closeAdminModal() { document.getElementById('adminModal').style.display = 'none'; }
+
+        async function verifyAdmin() {
+            const password = document.getElementById('adminPasswordInput').value;
+            const res = await fetch('/api/auth/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+            });
+            const json = await res.json();
+            if (json.success) {
+                document.getElementById('adminAuthSection').style.display = 'none';
+                document.getElementById('adminPanelSection').style.display = 'block';
+                renderAdminCentres();
+            } else {
+                alert('Incorrect Admin Password');
+            }
+        }
+
+        async function changeAdminPassword() {
+            const oldPassword = document.getElementById('passOld').value;
+            const newPassword = document.getElementById('passNew').value;
+            if (!newPassword) return alert('Enter new password');
+
+            const res = await fetch('/api/auth/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ oldPassword, newPassword })
+            });
+            const json = await res.json();
+            alert(json.message || json.error);
+            if (json.success) closeAdminModal();
+        }
+
+        // 3. Doctors Master Engine
+        async function loadDoctors() {
+            try {
+                const res = await fetch('/api/doctors');
+                const json = await res.json();
+                doctorsList = json.data || [];
+
+                const sel = document.getElementById('referringDoctorSelect');
+                const busSel = document.getElementById('busDocSelect');
+                sel.innerHTML = '<option value="">Select Doctor</option>';
+                busSel.innerHTML = '<option value="">All Doctors</option>';
+                doctorsList.forEach(d => {
+                    sel.innerHTML += `<option value="${d.id}">${d.doctor_name} (${d.hospital_clinic_name || 'General'})</option>`;
+                    busSel.innerHTML += `<option value="${d.id}">${d.doctor_name}</option>`;
+                });
+
+                const tbody = document.getElementById('doctorsTableBody');
+                tbody.innerHTML = '';
+                doctorsList.forEach(d => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${d.doctor_name}</strong></td>
+                            <td>${d.hospital_clinic_name || '-'}</td>
+                            <td>
+                                <button type="button" class="btn-view-bills" style="padding: 3px 10px; font-size: 0.8rem;" onclick="startEditDoctor('${d.id}')">Edit</button>
+                                <button type="button" class="btn-del" onclick="deleteDoctor('${d.id}')">X</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) { console.error('Error loading doctors:', e); }
+        }
+
+        async function saveDoctor() {
+            const editId = document.getElementById('editDocId').value;
+            const doctorName = document.getElementById('docNameInput').value.trim();
+            if (!doctorName) return alert('Enter Doctor Name');
+
+            const payload = {
+                doctorName,
+                hospitalClinicName: document.getElementById('docHospInput').value.trim(),
+                commissionType: document.getElementById('docCommType').value,
+                commissionValue: parseFloat(document.getElementById('docCutInput').value) || 0
+            };
+
+            const url = editId ? `/api/doctors/${editId}` : '/api/doctors';
+            const method = editId ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(editId ? 'Doctor updated successfully!' : 'Doctor added successfully!');
+                cancelDocEdit();
+                loadDoctors();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        }
+
+        function startEditDoctor(id) {
+            const d = doctorsList.find(x => String(x.id) === String(id));
+            if (!d) return alert('Doctor record not found');
+            document.getElementById('editDocId').value = d.id;
+            document.getElementById('docNameInput').value = d.doctor_name || '';
+            document.getElementById('docHospInput').value = d.hospital_clinic_name || '';
+            document.getElementById('docCommType').value = d.commission_type || 'percentage';
+            document.getElementById('docCutInput').value = d.commission_value || 0;
+            document.getElementById('docFormTitle').textContent = 'Edit Referring Doctor';
+            document.getElementById('btnSaveDoc').textContent = 'Update Doctor';
+            document.getElementById('btnCancelDocEdit').style.display = 'inline-block';
+            document.getElementById('docNameInput').focus();
+        }
+
+        function cancelDocEdit() {
+            document.getElementById('editDocId').value = '';
+            document.getElementById('docNameInput').value = '';
+            document.getElementById('docHospInput').value = '';
+            document.getElementById('docCutInput').value = '';
+            document.getElementById('docFormTitle').textContent = 'Add / Edit Referring Doctors';
+            document.getElementById('btnSaveDoc').textContent = 'Save New Doctor';
+            document.getElementById('btnCancelDocEdit').style.display = 'none';
+        }
+
+        async function deleteDoctor(id) {
+            if (!confirm('Delete doctor?')) return;
+            await fetch(`/api/doctors/${id}`, { method: 'DELETE' });
+            loadDoctors();
+        }
+
+        // 4. Tests Master Engine
+        async function loadTests() {
+            try {
+                const res = await fetch('/api/tests');
+                const json = await res.json();
+                testsList = json.data || [];
+                populateTestDropdown(testsList);
+
+                const tbody = document.getElementById('testsTableBody');
+                tbody.innerHTML = '';
+                testsList.forEach(t => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${t.test_name}</strong></td>
+                            <td>₹${parseFloat(t.price).toFixed(2)}</td>
+                            <td>₹${parseFloat(t.test_cut || 0).toFixed(2)}</td>
+                            <td>
+                                <button type="button" class="btn-view-bills" style="padding: 3px 10px; font-size: 0.8rem;" onclick="startEditTest('${t.id}')">Edit</button>
+                                <button type="button" class="btn-del" onclick="deleteTest('${t.id}')">X</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) { console.error('Error loading tests:', e); }
+        }
+
+        function populateTestDropdown(list) {
+            const sel = document.getElementById('testCatalogSelect');
+            sel.innerHTML = '<option value="">-- Select Test --</option>';
+            list.forEach(t => {
+                sel.innerHTML += `<option value="${t.id}">${t.test_name} - ₹${t.price}</option>`;
+            });
+        }
+
+        function filterTestDropdown() {
+            const keyword = document.getElementById('testKeywordSearch').value.toLowerCase().trim();
+            if (!keyword) return populateTestDropdown(testsList);
+            const filtered = testsList.filter(t => t.test_name.toLowerCase().includes(keyword) || (t.category && t.category.toLowerCase().includes(keyword)));
+            populateTestDropdown(filtered);
+        }
+
+        async function saveTest() {
+            const editId = document.getElementById('editTestId').value;
+            const testName = document.getElementById('testNameInput').value.trim();
+            const price = document.getElementById('testPriceInput').value.trim();
+            if (!testName || !price) return alert('Enter Test Name and Price');
+
+            const payload = {
+                testName,
+                category: document.getElementById('testCatInput').value.trim() || 'Pathology',
+                price: parseFloat(price) || 0,
+                testCut: parseFloat(document.getElementById('testCutInput').value) || 0
+            };
+
+            const url = editId ? `/api/tests/${editId}` : '/api/tests';
+            const method = editId ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(editId ? 'Test updated successfully!' : 'Test saved successfully!');
+                cancelTestEdit();
+                loadTests();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        }
+
+        function startEditTest(id) {
+            const t = testsList.find(x => String(x.id) === String(id));
+            if (!t) return alert('Test record not found');
+            document.getElementById('editTestId').value = t.id;
+            document.getElementById('testNameInput').value = t.test_name;
+            document.getElementById('testCatInput').value = t.category || 'Pathology';
+            document.getElementById('testPriceInput').value = t.price;
+            document.getElementById('testCutInput').value = t.test_cut || '';
+            document.getElementById('testFormTitle').textContent = 'Edit Test & Cuts';
+            document.getElementById('btnSaveTest').textContent = 'Update Test';
+            document.getElementById('btnCancelTestEdit').style.display = 'inline-block';
+            document.getElementById('testNameInput').focus();
+        }
+
+        function cancelTestEdit() {
+            document.getElementById('editTestId').value = '';
+            document.getElementById('testNameInput').value = '';
+            document.getElementById('testCatInput').value = 'Pathology';
+            document.getElementById('testPriceInput').value = '';
+            document.getElementById('testCutInput').value = '';
+            document.getElementById('testFormTitle').textContent = 'Add / Edit Tests & Cuts';
+            document.getElementById('btnSaveTest').textContent = 'Save New Test';
+            document.getElementById('btnCancelTestEdit').style.display = 'none';
+        }
+
+        async function deleteTest(id) {
+            if (!confirm('Delete test?')) return;
+            await fetch(`/api/tests/${id}`, { method: 'DELETE' });
+            loadTests();
+        }
+
+        // Test Selection & Calculations
+        function addSelectedTest() {
+            const testId = document.getElementById('testCatalogSelect').value;
+            if (!testId) return alert('Please select a test from dropdown.');
+            const t = testsList.find(x => String(x.id) === String(testId));
+            if (t && !selectedBillTests.some(item => String(item.id) === String(t.id))) {
+                selectedBillTests.push(t);
+                renderSelectedTests();
+            }
+        }
+
+        function addAllTests() {
+            if (testsList.length === 0) return alert('No tests in catalog.');
+            selectedBillTests = [...testsList];
+            renderSelectedTests();
+        }
+
+        function removeSelectedTest(idx) {
+            selectedBillTests.splice(idx, 1);
+            renderSelectedTests();
+        }
+
+        function renderSelectedTests() {
+            const tbody = document.querySelector('#billItemsTable tbody');
+            tbody.innerHTML = '';
+            if (selectedBillTests.length === 0) {
+                tbody.innerHTML = `<tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected yet. Search above and click + Add Test.</td></tr>`;
+            } else {
+                selectedBillTests.forEach((t, idx) => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${t.test_name}</strong></td>
+                            <td>${t.category || 'Pathology'}</td>
+                            <td>₹${parseFloat(t.price).toFixed(2)}</td>
+                            <td><button type="button" class="btn-del" onclick="removeSelectedTest(${idx})">X</button></td>
+                        </tr>
+                    `;
+                });
+            }
+            calculateFinancialTotals();
+        }
+
+        function calculateFinancialTotals() {
+            const gross = selectedBillTests.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
+            const discount = parseFloat(document.getElementById('inputDiscount').value) || 0;
+            const net = Math.max(0, gross - discount);
+            const paid = parseFloat(document.getElementById('inputPaid').value) || 0;
+            const balance = Math.max(0, net - paid);
+
+            document.getElementById('dispGross').textContent = `₹${gross.toFixed(2)}`;
+            document.getElementById('dispDiscount').textContent = `- ₹${discount.toFixed(2)}`;
+            document.getElementById('dispNet').textContent = `₹${net.toFixed(2)}`;
+            document.getElementById('dispBalance').textContent = `₹${balance.toFixed(2)}`;
+        }
+
+        // Quick Lookup
+        async function lookupPatient() {
+            const query = document.getElementById('lookupSearch').value.trim();
+            if (!query) return alert('Enter Mobile Number or Patient ID');
+            try {
+                const res = await fetch(`/api/patients/lookup?query=${encodeURIComponent(query)}`);
+                const json = await res.json();
+                if (json.success && json.data.length > 0) {
+                    const p = json.data[0];
+                    document.getElementById('existingPatientId').value = p.id;
+                    document.getElementById('patientFullName').value = p.full_name || '';
+                    document.getElementById('patientAge').value = p.age || '';
+                    document.getElementById('patientGender').value = p.gender || 'Male';
+                    document.getElementById('patientMobile').value = p.phone || '';
+                    document.getElementById('patientEmail').value = p.email || '';
+                    document.getElementById('patientAddress').value = p.address || '';
+                    document.getElementById('patientCode').value = p.patient_code || '';
+                    alert('Existing Patient record loaded!');
+                } else {
+                    alert('No record found.');
+                }
+            } catch (e) {
+                alert('Error looking up patient');
+            }
+        }
+
+        // Process Registration & Invoice
+        async function processVisit(shouldPrintInvoice) {
+            const fullName = document.getElementById('patientFullName').value.trim();
+            if (!fullName) return alert('Please enter Patient Full Name.');
+            if (selectedBillTests.length === 0) return alert('Please add at least one test.');
+
+            const isPcpndt = document.getElementById('pcpndtToggle').checked;
+            const formData = new FormData();
+
+            formData.append('existingPatientId', document.getElementById('existingPatientId').value);
+            formData.append('fullName', fullName);
+            formData.append('age', document.getElementById('patientAge').value);
+            formData.append('gender', document.getElementById('patientGender').value);
+            formData.append('phone', document.getElementById('patientMobile').value);
+            formData.append('email', document.getElementById('patientEmail').value);
+            formData.append('address', document.getElementById('patientAddress').value);
+            formData.append('patientCode', document.getElementById('patientCode').value);
+            formData.append('referringDoctorId', document.getElementById('referringDoctorSelect').value);
+            formData.append('tests', JSON.stringify(selectedBillTests.map(t => t.id)));
+            formData.append('concession', document.getElementById('inputDiscount').value);
+            formData.append('paidAmount', document.getElementById('inputPaid').value);
+            formData.append('isPcpndt', isPcpndt);
+
+            if (isPcpndt) {
+                formData.append('lmpDate', document.getElementById('pcpndtLMP').value);
+                formData.append('weeksOfPreg', document.getElementById('pcpndtWeeks').value);
+                formData.append('sonsAge', document.getElementById('pcpndtSons').value);
+                formData.append('daughtersAge', document.getElementById('pcpndtDaughters').value);
+                formData.append('pcpndtIndications', document.getElementById('pcpndtIndication').value);
+                formData.append('scanResult', document.getElementById('pcpndtFindings').value);
+                formData.append('doctorName', document.getElementById('pcpndtDoctor').value);
+                formData.append('doctorRegNo', document.getElementById('pcpndtDoctorReg').value);
+            }
+
+            const fileInput = document.getElementById('reportFileInput');
+            if (fileInput.files.length > 0) {
+                formData.append('reportFile', fileInput.files[0]);
+            }
+
+            const res = await fetch('/api/register-visit', {
+                method: 'POST',
+                body: formData
+            });
+            const json = await res.json();
+
+            if (json.success) {
+                alert(`Registration & Billing Complete! Invoice: ${json.data.invoiceNumber}`);
+                if (shouldPrintInvoice) {
+                    printSingleInvoice(json.data.visitId);
+                }
+
+                // Reset
+                document.getElementById('existingPatientId').value = '';
+                document.getElementById('patientFullName').value = '';
+                document.getElementById('patientMobile').value = '';
+                document.getElementById('patientAddress').value = '';
+                document.getElementById('patientCode').value = '';
+                document.getElementById('pcpndtFindings').value = '';
+                document.getElementById('inputDiscount').value = '0';
+                document.getElementById('inputPaid').value = '0';
+                selectedBillTests = [];
+                renderSelectedTests();
+                loadReports();
+                loadPatientsDirectory();
+            } else {
+                alert('Error: ' + json.error);
+            }
+        }
+
+        async function printSingleInvoice(visitId) {
+            try {
+                const res = await fetch(`/api/invoice/${visitId}`);
+                const json = await res.json();
+                if (!json.success) return alert('Failed to fetch invoice details.');
+
+                const data = json.data;
+                const visit = data.visitDetails || {};
+                const items = data.investigations || [];
+                const pcpndt = data.pcpndtForm;
+
+                document.getElementById('prtClinicName').textContent = visit.centre_name || activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
+                document.getElementById('prtClinicTagline').textContent = visit.centre_tagline || activeCentre?.tagline || '';
+                document.getElementById('prtClinicAddress').textContent = visit.centre_address || activeCentre?.address || '';
+                document.getElementById('prtClinicContact').textContent = `Phone: ${visit.centre_phone || activeCentre?.phone || ''} | Reg No: ${visit.centre_reg_no || activeCentre?.reg_no || ''}`;
+
+                document.getElementById('prtPatName').textContent = visit.full_name || '';
+                document.getElementById('prtPatMeta').textContent = `${visit.age || 'N/A'} Y / ${visit.gender || '-'}`;
+                document.getElementById('prtPatAddress').textContent = visit.address || '-';
+                document.getElementById('prtDocName').textContent = visit.doctor_name || 'Direct / Self';
+                document.getElementById('prtInvNo').textContent = visit.invoice_number;
+                document.getElementById('prtDate').textContent = new Date(visit.created_at).toLocaleDateString();
+
+                const itemsBody = document.getElementById('prtItemsBody');
+                itemsBody.innerHTML = '';
+                items.forEach(t => {
+                    itemsBody.innerHTML += `<tr><td style="border:1px solid #777;padding:4px;">${t.test_name}</td><td style="border:1px solid #777;padding:4px;">₹${parseFloat(t.price).toFixed(2)}</td></tr>`;
+                });
+
+                document.getElementById('prtGross').textContent = parseFloat(visit.total_amount).toFixed(2);
+                document.getElementById('prtDisc').textContent = parseFloat(visit.concession).toFixed(2);
+                document.getElementById('prtNet').textContent = (parseFloat(visit.total_amount) - parseFloat(visit.concession)).toFixed(2);
+                document.getElementById('prtPaid').textContent = parseFloat(visit.paid_amount).toFixed(2);
+                document.getElementById('prtBal').textContent = parseFloat(visit.balance_amount).toFixed(2);
+
+                const pcpndtBlock = document.getElementById('prtPCPNDTBlock');
+                if (pcpndt) {
+                    pcpndtBlock.style.display = 'block';
+                    document.getElementById('prtLMP').textContent = pcpndt.lmp_date || 'N/A';
+                    document.getElementById('prtWeeks').textContent = pcpndt.weeks_of_preg || 'N/A';
+                    document.getElementById('prtIndication').textContent = pcpndt.indications || 'N/A';
+                    document.getElementById('prtDoctor').textContent = pcpndt.doctor_name || 'Dr NIKUNJ KOTHIA';
+                    document.getElementById('prtDoctorReg').textContent = pcpndt.doctor_reg_no || '2009/09/3218';
+                    document.getElementById('prtFindings').textContent = pcpndt.scan_result || 'No remarks.';
+                } else {
+                    pcpndtBlock.style.display = 'none';
+                }
+
+                const printArea = document.getElementById('invoicePrintArea');
+                printArea.style.display = 'block';
+                window.print();
+                printArea.style.display = 'none';
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // TAB 3: Patients Directory
+        async function loadPatientsDirectory() {
+            try {
+                const res = await fetch('/api/patients');
+                const json = await res.json();
+                patientsList = json.data || [];
+                renderPatientsDirectory(patientsList);
+            } catch (e) { console.error('Error loading patients:', e); }
+        }
+
+        function renderPatientsDirectory(list) {
+            const tbody = document.getElementById('patientsDirectoryBody');
+            tbody.innerHTML = '';
+            list.forEach(p => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${p.patient_code || p.id.slice(0, 8)}</strong></td>
+                        <td>${p.full_name}</td>
+                        <td>${p.age ? p.age + ' Yrs / ' : ''}${p.gender || '-'}</td>
+                        <td>${p.phone || '-'}</td>
+                        <td>
+                            <button type="button" class="btn-edit-patient" onclick="openEditPatientModal('${p.id}')">Edit Patient</button>
+                            <button type="button" class="btn-view-bills" onclick="openPatientBillsModal('${p.id}', '${escapeHtml(p.full_name)}')">View Bills By Date</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function filterPatientsDirectory() {
+            const q = document.getElementById('patientDirectorySearch').value.toLowerCase().trim();
+            if (!q) return renderPatientsDirectory(patientsList);
+            const filtered = patientsList.filter(p => 
+                (p.full_name && p.full_name.toLowerCase().includes(q)) ||
+                (p.phone && p.phone.includes(q)) ||
+                (p.patient_code && p.patient_code.toLowerCase().includes(q))
+            );
+            renderPatientsDirectory(filtered);
+        }
+
+        function openEditPatientModal(id) {
+            const p = patientsList.find(x => String(x.id) === String(id));
+            if (!p) return;
+            document.getElementById('editPatRowId').value = p.id;
+            document.getElementById('editPatCode').value = p.patient_code || '';
+            document.getElementById('editPatName').value = p.full_name || '';
+            document.getElementById('editPatAge').value = p.age || '';
+            document.getElementById('editPatGender').value = p.gender || 'Male';
+            document.getElementById('editPatMobile').value = p.phone || '';
+            document.getElementById('editPatEmail').value = p.email || '';
+            document.getElementById('editPatAddress').value = p.address || '';
+            document.getElementById('editPatientModal').style.display = 'flex';
+        }
+        function closeEditPatientModal() { document.getElementById('editPatientModal').style.display = 'none'; }
+
+        async function submitEditPatient() {
+            const id = document.getElementById('editPatRowId').value;
+            const payload = {
+                patientCode: document.getElementById('editPatCode').value.trim(),
+                fullName: document.getElementById('editPatName').value.trim(),
+                age: document.getElementById('editPatAge').value,
+                gender: document.getElementById('editPatGender').value,
+                phone: document.getElementById('editPatMobile').value.trim(),
+                email: document.getElementById('editPatEmail').value.trim(),
+                address: document.getElementById('editPatAddress').value.trim()
+            };
+
+            const res = await fetch(`/api/patients/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Patient details updated successfully!');
+                closeEditPatientModal();
+                loadPatientsDirectory();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        }
+
+        async function openPatientBillsModal(id, name) {
+            document.getElementById('patientBillsTitle').textContent = `Bills & Form F History for: ${name}`;
+            const res = await fetch(`/api/patients/${id}/visits`);
+            const json = await res.json();
+            const bills = json.data || [];
+            const tbody = document.getElementById('patientBillsTableBody');
+            tbody.innerHTML = '';
+            if (bills.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#888;">No billing records found for this patient.</td></tr>`;
+            } else {
+                bills.forEach(b => {
+                    const waText = encodeURIComponent(`Hello ${name}, your bill for invoice ${b.invoice_number} is ₹${b.total_amount}. Paid: ₹${b.paid_amount}, Balance due: ₹${b.balance_amount}.`);
+                    const waLink = b.phone ? `https://wa.me/91${b.phone.replace(/\D/g,'')}?text=${waText}` : '#';
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${b.invoice_number}</strong></td>
+                            <td>${new Date(b.created_at).toLocaleString()}</td>
+                            <td>${b.centre_name || 'Main Centre'}</td>
+                            <td>${b.doctor_name || 'Self / Direct'}</td>
+                            <td>₹${parseFloat(b.total_amount).toFixed(2)}</td>
+                            <td>₹${parseFloat(b.paid_amount || 0).toFixed(2)}</td>
+                            <td>₹${parseFloat(b.balance_amount || 0).toFixed(2)}</td>
+                            <td>
+                                <button type="button" class="btn-wa-inv" onclick="printSingleInvoice('${b.id}')">Print</button>
+                                <a href="${waLink}" target="_blank" class="btn-wa-inv" style="background:#25d366;">WA</a>
+                                <button type="button" class="btn-edit-bill" onclick="openEditBillModal('${b.id}')">Edit</button>
+                                <button type="button" class="btn-del" onclick="deleteBill('${b.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            document.getElementById('patientBillsModal').style.display = 'flex';
+        }
+        function closePatientBillsModal() { document.getElementById('patientBillsModal').style.display = 'none'; }
+
+        // TAB 4: Reports & Collections
+        async function loadReports() {
+            try {
+                const res = await fetch('/api/reports/collection');
+                const json = await res.json();
+                visitsList = json.data || [];
+                renderReports(visitsList, json.summary);
+            } catch (e) { console.error('Error loading reports:', e); }
+        }
+
+        function renderReports(list, summary) {
+            const tbody = document.getElementById('reportsTableBody');
+            tbody.innerHTML = '';
+            let totalBiz = 0, totalDisc = 0, totalPaid = 0, totalBal = 0;
+
+            list.forEach(v => {
+                const tot = parseFloat(v.total_amount) || 0;
+                const disc = parseFloat(v.concession) || 0;
+                const paid = parseFloat(v.paid_amount) || 0;
+                const bal = parseFloat(v.balance_amount) || 0;
+                totalBiz += tot;
+                totalDisc += disc;
+                totalPaid += paid;
+                totalBal += bal;
+
+                const isPaid = bal <= 0;
+                const statusBadge = isPaid ? `<span class="badge-paid">Paid</span>` : `<span class="badge-pending">Pending</span>`;
+                const waInv = v.phone ? `https://wa.me/91${v.phone.replace(/\D/g,'')}?text=${encodeURIComponent(`Invoice ${v.invoice_number}: Total ₹${tot}, Paid ₹${paid}, Due ₹${bal}`)}` : '#';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${new Date(v.created_at).toLocaleString()}</td>
+                        <td>${v.centre_name || 'Main Centre'}</td>
+                        <td><strong>${v.full_name}</strong></td>
+                        <td>₹${tot.toFixed(2)}</td>
+                        <td>₹${disc.toFixed(2)}</td>
+                        <td>₹${paid.toFixed(2)}</td>
+                        <td>₹${bal.toFixed(2)}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <a href="${waInv}" target="_blank" class="btn-wa-inv">WA</a>
+                            <button type="button" class="btn-edit-bill" onclick="openEditBillModal('${v.visit_id}')">Edit</button>
+                            <button type="button" class="btn-del" onclick="deleteBill('${v.visit_id}')">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('repSummaryBanner').innerHTML = `
+                Total Business: ₹${totalBiz.toFixed(2)} | Total Discount: ₹${totalDisc.toFixed(2)} | Total Paid: ₹${totalPaid.toFixed(2)} | Balance Due: ₹${totalBal.toFixed(2)} | Total Records: ${list.length}
+            `;
+        }
+
+        async function filterReports() {
+            const start = document.getElementById('repStartDate').value;
+            const end = document.getElementById('repEndDate').value;
+            const month = document.getElementById('repMonth').value;
+            const pName = document.getElementById('repPatientName').value.trim();
+
+            let url = `/api/reports/collection?startDate=${start}&endDate=${end}&month=${month}&patientName=${encodeURIComponent(pName)}`;
+            const res = await fetch(url);
+            const json = await res.json();
+            renderReports(json.data || [], json.summary);
+        }
+
+        // TAB 5: Doctor Business
+        async function loadBusiness() {
+            try {
+                const res = await fetch('/api/reports/doctor-detailed');
+                const json = await res.json();
+                renderBusiness(json.data || []);
+            } catch (e) { console.error('Error loading business:', e); }
+        }
+
+        function renderBusiness(list) {
+            const tbody = document.getElementById('businessTableBody');
+            tbody.innerHTML = '';
+            let totalBiz = 0, totalCuts = 0;
+
+            list.forEach(v => {
+                const biz = parseFloat(v.total_amount) || 0;
+                const cut = parseFloat(v.doctor_commission) || 0;
+                totalBiz += biz;
+                totalCuts += cut;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${new Date(v.created_at).toLocaleString()}</td>
+                        <td><strong>${v.doctor_name}</strong> (${v.hospital_clinic_name || 'Clinic'})</td>
+                        <td>${v.full_name}</td>
+                        <td>${v.invoice_number}</td>
+                        <td>₹${biz.toFixed(2)}</td>
+                        <td style="color: green; font-weight: bold;">₹${cut.toFixed(2)}</td>
+                        <td><button type="button" class="btn-edit-patient" onclick="startEditDoctor('${v.doctor_id}')">Edit Doctor</button></td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('busSummaryBanner').innerHTML = `
+                Doctor Commission Summary | Total Business: ₹${totalBiz.toFixed(2)} | Total Cuts: ₹${totalCuts.toFixed(2)} | Records: ${list.length}
+            `;
+        }
+
+        async function filterBusiness() {
+            const docId = document.getElementById('busDocSelect').value;
+            const start = document.getElementById('busStartDate').value;
+            const end = document.getElementById('busEndDate').value;
+            const month = document.getElementById('busMonth').value;
+            const pName = document.getElementById('busPatientName').value.trim();
+
+            let url = `/api/reports/doctor-detailed?doctorId=${docId}&startDate=${start}&endDate=${end}&month=${month}&patientName=${encodeURIComponent(pName)}`;
+            const res = await fetch(url);
+            const json = await res.json();
+            renderBusiness(json.data || []);
+        }
+
+        // Bill Editing Modal
+        function openEditBillModal(id) {
+            document.getElementById('editBillRowId').value = id;
+            document.getElementById('editBillModal').style.display = 'flex';
+        }
+        function closeEditBillModal() { document.getElementById('editBillModal').style.display = 'none'; }
+
+        async function submitEditBill() {
+            const id = document.getElementById('editBillRowId').value;
+            const formData = new FormData();
+            formData.append('concession', document.getElementById('editBillDisc').value);
+            formData.append('paidAmount', document.getElementById('editBillPaid').value);
+
+            const file = document.getElementById('editBillFile').files[0];
+            if (file) formData.append('reportFile', file);
+
+            const res = await fetch(`/api/visits/${id}`, {
+                method: 'PUT',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Bill updated successfully!');
+                closeEditBillModal();
+                loadReports();
+                closePatientBillsModal();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        }
+
+        async function deleteBill(id) {
+            if (!confirm('Are you sure you want to delete this bill record?')) return;
+            const res = await fetch(`/api/visits/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                alert('Bill record deleted.');
+                loadReports();
+                closePatientBillsModal();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        }
+    </script>
+</body>
+</html>

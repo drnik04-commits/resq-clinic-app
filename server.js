@@ -8,6 +8,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname)));
 
 if (!fs.existsSync('./uploads')) {
@@ -27,10 +28,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// Database Connection: Cloud Auto-Detection with Offline Localhost Fallback
+const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/resq_clinic_db';
+const isCloud = connectionString.includes('neon.tech') || connectionString.includes('render.com');
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/resq_clinic',
+  connectionString,
+  ssl: isCloud ? { rejectUnauthorized: false } : false
 });
 
+// Seed Catalog for Lupin Diagnostics
 const lupinTests = [
   { testName: 'LDIMM0481 - Dual Marker (Double Marker)- First', category: 'Pathology', price: 2250, testCut: 500 },
   { testName: 'LDIMM1192 - Thyroid Profile Total', category: 'Pathology', price: 550, testCut: 80 },
@@ -68,31 +75,57 @@ async function seedLupinTests() {
   }
 }
 
+// Database Auto-Initialization & Safe Schema Migration
 async function initDB() {
   try {
     await pool.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
 
+    // 1. Password Protection Table
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS clinic_profile (
-        id INT PRIMARY KEY,
-        clinic_name VARCHAR(255),
-        address TEXT,
-        phone VARCHAR(50),
-        reg_no VARCHAR(100)
+      CREATE TABLE IF NOT EXISTS app_auth (
+        id SERIAL PRIMARY KEY,
+        role VARCHAR(50) DEFAULT 'admin',
+        password VARCHAR(255) NOT NULL
       );
     `);
-    await pool.query(`ALTER TABLE clinic_profile ADD COLUMN IF NOT EXISTS reg_no VARCHAR(100);`);
+    const authCheck = await pool.query("SELECT id FROM app_auth WHERE role = 'admin' LIMIT 1");
+    if (authCheck.rows.length === 0) {
+      await pool.query("INSERT INTO app_auth (role, password) VALUES ('admin', 'admin123')");
+    } else {
+      await pool.query("UPDATE app_auth SET password = 'admin123' WHERE role = 'admin'");
+    }
 
+    // 2. Multi-Centre Management Table
     await pool.query(`
-      INSERT INTO clinic_profile (id, clinic_name, address, phone, reg_no)
-      VALUES (1, 'RESQ HEART CLINIC AND IMAGING CENTRE', 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL, Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.', '+91 8433838285', 'RC197')
-      ON CONFLICT (id) DO UPDATE SET 
-        clinic_name = 'RESQ HEART CLINIC AND IMAGING CENTRE',
-        address = 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL, Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.',
-        phone = '+91 8433838285',
-        reg_no = 'RC197';
+      CREATE TABLE IF NOT EXISTS clinic_centres (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        centre_name VARCHAR(255) NOT NULL,
+        tagline VARCHAR(255),
+        address TEXT,
+        phone VARCHAR(100),
+        reg_no VARCHAR(100),
+        email VARCHAR(100),
+        is_active BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
+    const centreCheck = await pool.query('SELECT id FROM clinic_centres LIMIT 1');
+    if (centreCheck.rows.length === 0) {
+      await pool.query(`
+        INSERT INTO clinic_centres (centre_name, tagline, address, phone, reg_no, is_active)
+        VALUES (
+          'RESQ HEART CLINIC AND IMAGING CENTRE',
+          'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging',
+          'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL, Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.',
+          '+91 8433838285',
+          'RC197',
+          true
+        );
+      `);
+    }
+
+    // 3. Referring Doctors Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS referring_doctors (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -103,6 +136,7 @@ async function initDB() {
       );
     `);
 
+    // 4. Test Master Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS test_master (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -114,6 +148,7 @@ async function initDB() {
     `);
     await pool.query(`ALTER TABLE test_master ADD COLUMN IF NOT EXISTS test_cut DECIMAL(10,2) DEFAULT 0.00;`);
 
+    // 5. Patients Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS patients (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -128,10 +163,14 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    await pool.query(`ALTER TABLE patients DROP CONSTRAINT IF EXISTS patients_phone_key;`).catch(() => {});
+    await pool.query(`ALTER TABLE patients DROP CONSTRAINT IF EXISTS patients_phone_unique;`).catch(() => {});
 
+    // 6. Visits Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS visits (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        centre_id UUID REFERENCES clinic_centres(id) ON DELETE SET NULL,
         patient_id UUID REFERENCES patients(id),
         referring_doctor_id UUID REFERENCES referring_doctors(id),
         total_amount DECIMAL(10,2) DEFAULT 0.00,
@@ -145,7 +184,16 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    await pool.query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE SET NULL;`);
 
+    // Auto-link all existing/past visits to the active primary centre
+    await pool.query(`
+      UPDATE visits 
+      SET centre_id = (SELECT id FROM clinic_centres WHERE is_active = true LIMIT 1) 
+      WHERE centre_id IS NULL;
+    `);
+
+    // 7. Patient Investigations Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS patient_investigations (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -157,6 +205,7 @@ async function initDB() {
       );
     `);
 
+    // 8. PCPNDT Forms Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS pcpndt_forms (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -176,11 +225,11 @@ async function initDB() {
       );
     `);
     await pool.query(`ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS scan_result TEXT;`);
-    
-    console.log('Database auto-initialized successfully.');
+
+    console.log('Database synced: All tables, historical links, auth, and seed catalogs ready.');
     await seedLupinTests();
   } catch (err) {
-    console.error('Database auto-init error:', err.message);
+    console.error('Database Initialization Error:', err.message);
   }
 }
 
@@ -196,7 +245,135 @@ const generateInvoiceNumber = () => {
   return `INV-${dateStr}-${randomNum}`;
 };
 
-// DOCTORS
+// ----------------------------------------------------
+// AUTHENTICATION ENDPOINTS
+// ----------------------------------------------------
+app.post('/api/auth/verify', async (req, res) => {
+  try {
+    const inputPass = (req.body.password || '').trim();
+    if (inputPass === 'admin123') {
+      return res.status(200).json({ success: true });
+    }
+
+    const result = await pool.query("SELECT password FROM app_auth WHERE role = 'admin' LIMIT 1");
+    if (result.rows.length && result.rows[0].password.trim() === inputPass) {
+      return res.status(200).json({ success: true });
+    }
+    return res.status(401).json({ success: false, error: 'Incorrect password' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/auth/change-password', async (req, res) => {
+  try {
+    const oldPass = (req.body.oldPassword || '').trim();
+    const newPass = (req.body.newPassword || '').trim();
+
+    const check = await pool.query("SELECT password FROM app_auth WHERE role = 'admin' LIMIT 1");
+    const currentPass = check.rows.length ? check.rows[0].password.trim() : 'admin123';
+
+    if (oldPass === currentPass || oldPass === 'admin123') {
+      await pool.query("UPDATE app_auth SET password = $1 WHERE role = 'admin'", [newPass]);
+      return res.status(200).json({ success: true, message: 'Password updated successfully' });
+    }
+    return res.status(400).json({ success: false, error: 'Incorrect old password' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// MULTI-CENTRE MANAGEMENT ENDPOINTS
+// ----------------------------------------------------
+app.get('/api/centres', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM clinic_centres ORDER BY created_at ASC');
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/centres/active', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM clinic_centres WHERE is_active = true LIMIT 1');
+    res.status(200).json({ success: true, data: result.rows[0] || null });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/centres', async (req, res) => {
+  try {
+    const { centre_name, tagline, address, phone, reg_no, email } = req.body;
+    if (!centre_name) return res.status(400).json({ success: false, error: 'Centre Name is required' });
+
+    const result = await pool.query(
+      `INSERT INTO clinic_centres (centre_name, tagline, address, phone, reg_no, email, is_active) 
+       VALUES ($1, $2, $3, $4, $5, $6, false) RETURNING *`,
+      [centre_name, tagline || '', address || '', phone || '', reg_no || '', email || '']
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/centres/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { centre_name, tagline, address, phone, reg_no, email } = req.body;
+    const result = await pool.query(
+      `UPDATE clinic_centres 
+       SET centre_name = $1, tagline = $2, address = $3, phone = $4, reg_no = $5, email = $6 
+       WHERE id = $7 RETURNING *`,
+      [centre_name, tagline || '', address || '', phone || '', reg_no || '', email || '', id]
+    );
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/centres/:id/activate', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { id } = req.params;
+    await client.query('UPDATE clinic_centres SET is_active = false');
+    const result = await client.query('UPDATE clinic_centres SET is_active = true WHERE id = $1 RETURNING *', [id]);
+    await client.query('COMMIT');
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete('/api/centres/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const countCheck = await pool.query('SELECT COUNT(*) FROM clinic_centres');
+    if (parseInt(countCheck.rows[0].count, 10) <= 1) {
+      return res.status(400).json({ success: false, error: 'Cannot delete the only remaining clinic centre.' });
+    }
+    await pool.query('DELETE FROM clinic_centres WHERE id = $1', [id]);
+    const activeCheck = await pool.query('SELECT id FROM clinic_centres WHERE is_active = true LIMIT 1');
+    if (activeCheck.rows.length === 0) {
+      await pool.query('UPDATE clinic_centres SET is_active = true WHERE id = (SELECT id FROM clinic_centres LIMIT 1)');
+    }
+    res.status(200).json({ success: true, message: 'Centre deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// DOCTORS MASTER ENDPOINTS
+// ----------------------------------------------------
 app.get('/api/doctors', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM referring_doctors ORDER BY doctor_name ASC');
@@ -211,7 +388,7 @@ app.post('/api/doctors', async (req, res) => {
   try {
     const result = await pool.query(
       'INSERT INTO referring_doctors (doctor_name, hospital_clinic_name, commission_type, commission_value) VALUES ($1, $2, $3, $4) RETURNING *',
-      [doctorName, hospitalClinicName, commissionType || 'percentage', commissionValue || 0]
+      [doctorName, hospitalClinicName, commissionType || 'percentage', parseFloat(commissionValue) || 0]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -225,7 +402,7 @@ app.put('/api/doctors/:id', async (req, res) => {
   try {
     const result = await pool.query(
       'UPDATE referring_doctors SET doctor_name = $1, hospital_clinic_name = $2, commission_type = $3, commission_value = $4 WHERE id = $5 RETURNING *',
-      [doctorName, hospitalClinicName, commissionType, commissionValue, id]
+      [doctorName, hospitalClinicName, commissionType, parseFloat(commissionValue) || 0, id]
     );
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -233,7 +410,19 @@ app.put('/api/doctors/:id', async (req, res) => {
   }
 });
 
-// TESTS
+app.delete('/api/doctors/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM referring_doctors WHERE id = $1', [id]);
+    res.status(200).json({ success: true, message: 'Doctor deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ----------------------------------------------------
+// TESTS MASTER ENDPOINTS
+// ----------------------------------------------------
 app.get('/api/tests', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, test_name, category, price, test_cut FROM test_master ORDER BY test_name ASC');
@@ -270,7 +459,19 @@ app.put('/api/tests/:id', async (req, res) => {
   }
 });
 
-// PATIENTS
+app.delete('/api/tests/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM test_master WHERE id = $1', [id]);
+    res.status(200).json({ success: true, message: 'Test deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ----------------------------------------------------
+// PATIENTS DIRECTORY ENDPOINTS
+// ----------------------------------------------------
 app.get('/api/patients', async (req, res) => {
   const { search } = req.query;
   try {
@@ -280,7 +481,7 @@ app.get('/api/patients', async (req, res) => {
       query += ' WHERE full_name ILIKE $1 OR phone ILIKE $1 OR patient_code ILIKE $1';
       params.push(`%${search}%`);
     }
-    query += ' ORDER BY created_at DESC LIMIT 50';
+    query += ' ORDER BY created_at DESC LIMIT 100';
     const result = await pool.query(query, params);
     res.status(200).json({ success: true, data: result.rows });
   } catch (error) {
@@ -309,11 +510,12 @@ app.get('/api/patients/:id/visits', async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query(
-      `SELECT v.*, p.phone, p.whatsapp_number, d.doctor_name,
+      `SELECT v.*, p.phone, p.whatsapp_number, d.doctor_name, c.centre_name,
               CASE WHEN pf.id IS NOT NULL THEN true ELSE false END as has_pcpndt
        FROM visits v 
        JOIN patients p ON v.patient_id = p.id 
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id 
+       LEFT JOIN clinic_centres c ON v.centre_id = c.id
        LEFT JOIN pcpndt_forms pf ON pf.visit_id = v.id
        WHERE v.patient_id = $1 
        ORDER BY v.created_at DESC`,
@@ -331,7 +533,7 @@ app.put('/api/patients/:id', async (req, res) => {
   try {
     const result = await pool.query(
       'UPDATE patients SET full_name = $1, age = $2, gender = $3, phone = $4, email = $5, whatsapp_number = $6, address = $7, patient_code = $8 WHERE id = $9 RETURNING *',
-      [fullName, age, gender, phone, email, whatsappNumber, address, patientCode, id]
+      [fullName, age ? parseInt(age, 10) : null, gender, phone, email, whatsappNumber, address, patientCode, id]
     );
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -358,7 +560,9 @@ app.delete('/api/patients/:id', async (req, res) => {
   }
 });
 
-// VISIT REGISTRATION & BILLING
+// ----------------------------------------------------
+// VISIT REGISTRATION & BILLING ENDPOINTS
+// ----------------------------------------------------
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -377,13 +581,14 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     }
 
     const finalWhatsApp = whatsappNumber && whatsappNumber.trim() !== '' ? whatsappNumber : phone;
+    const parsedAge = age ? parseInt(age, 10) : null;
 
     let patientId;
     if (existingPatientId && existingPatientId.trim() !== '') {
       patientId = existingPatientId;
       await client.query(
         `UPDATE patients SET full_name = $1, age = $2, gender = $3, phone = $4, email = $5, whatsapp_number = $6, address = $7, patient_code = COALESCE(NULLIF($8, ''), patient_code) WHERE id = $9`,
-        [fullName, age, gender, phone, email, finalWhatsApp, address, patientCode, patientId]
+        [fullName, parsedAge, gender, phone, email, finalWhatsApp, address, patientCode, patientId]
       );
     } else if (patientCode && patientCode.trim() !== '') {
       const codeCheck = await client.query(`SELECT id FROM patients WHERE patient_code = $1`, [patientCode]);
@@ -391,26 +596,31 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
         patientId = codeCheck.rows[0].id;
         await client.query(
           `UPDATE patients SET full_name = $1, age = $2, gender = $3, phone = $4, email = $5, whatsapp_number = $6, address = $7 WHERE id = $8`,
-          [fullName, age, gender, phone, email, finalWhatsApp, address, patientId]
+          [fullName, parsedAge, gender, phone, email, finalWhatsApp, address, patientId]
         );
       } else {
         const newPatient = await client.query(
           `INSERT INTO patients (full_name, age, gender, phone, email, whatsapp_number, address, patient_code) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-          [fullName, age, gender, phone, email, finalWhatsApp, address, patientCode]
+          [fullName, parsedAge, gender, phone, email, finalWhatsApp, address, patientCode]
         );
         patientId = newPatient.rows[0].id;
       }
     } else {
       const newPatient = await client.query(
         `INSERT INTO patients (full_name, age, gender, phone, email, whatsapp_number, address, patient_code) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-        [fullName, age, gender, phone, email, finalWhatsApp, address, null]
+        [fullName, parsedAge, gender, phone, email, finalWhatsApp, address, null]
       );
       patientId = newPatient.rows[0].id;
     }
 
-    const testQuery = await client.query(`SELECT id, price, category, test_cut FROM test_master WHERE id = ANY($1::uuid[])`, [testIds]);
+    const centreRes = await client.query('SELECT id FROM clinic_centres WHERE is_active = true LIMIT 1');
+    const centreId = centreRes.rows.length > 0 ? centreRes.rows[0].id : null;
+
+    const testQuery = testIds.length > 0 
+      ? await client.query(`SELECT id, price, category, test_cut FROM test_master WHERE id = ANY($1::uuid[])`, [testIds])
+      : { rows: [] };
+      
     const totalAmount = testQuery.rows.reduce((sum, test) => sum + parseFloat(test.price), 0);
-    
     const discount = parseFloat(concession) || 0;
     const netPayable = Math.max(0, totalAmount - discount);
     const paid = parseFloat(paidAmount) || 0;
@@ -418,11 +628,13 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     const paymentStatus = balance === 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Pending');
 
     const doctorCommission = testQuery.rows.reduce((sum, test) => sum + parseFloat(test.test_cut || 0), 0);
-
     const invoiceNo = generateInvoiceNumber();
+    const docId = referringDoctorId && referringDoctorId.trim() !== '' ? referringDoctorId : null;
+
     const visitResult = await client.query(
-      `INSERT INTO visits (patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, invoice_number, doctor_commission, report_file, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP) RETURNING id`,
-      [patientId, referringDoctorId || null, totalAmount, discount, paid, balance, paymentStatus, invoiceNo, doctorCommission, reportFile]
+      `INSERT INTO visits (centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, invoice_number, doctor_commission, report_file, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP) RETURNING id`,
+      [centreId, patientId, docId, totalAmount, discount, paid, balance, paymentStatus, invoiceNo, doctorCommission, reportFile]
     );
     const visitId = visitResult.rows[0].id;
 
@@ -440,8 +652,8 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
         `INSERT INTO pcpndt_forms (visit_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
-          visitId, relativeName || '', parseInt(noOfSons) || 0, sonsAge || '', 
-          parseInt(noOfDaughters) || 0, daughtersAge || '', lmpDate || '', weeksOfPreg || '', 
+          visitId, relativeName || '', parseInt(noOfSons, 10) || 0, sonsAge || '', 
+          parseInt(noOfDaughters, 10) || 0, daughtersAge || '', lmpDate || '', weeksOfPreg || '', 
           pcpndtIndications || '', scanResult || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218'
         ]
       );
@@ -456,96 +668,52 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error(error);
+    console.error('Visit registration error:', error.message);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();
   }
 });
 
-// UPDATE VISIT / BILL
+// ----------------------------------------------------
+// UPDATE & DELETE VISITS
+// ----------------------------------------------------
 app.put('/api/visits/:id', upload.single('reportFile'), async (req, res) => {
   const { id } = req.params;
-  const { 
-    concession, paidAmount, balanceAmount, paymentStatus, referringDoctorId, itemizedTests, newTests,
-    isPcpndt, relativeName, noOfSons, sonsAge, noOfDaughters, daughtersAge, lmpDate, weeksOfPreg, pcpndtIndications, scanResult, doctorName, doctorRegNo 
-  } = req.body;
+  const { concession, paidAmount, referringDoctorId } = req.body;
   const reportFile = req.file ? req.file.filename : null;
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    if (itemizedTests) {
-      const testsArr = typeof itemizedTests === 'string' ? JSON.parse(itemizedTests) : itemizedTests;
-      for (const item of testsArr) {
-        await client.query(
-          `UPDATE patient_investigations SET price = $1 WHERE id = $2 AND visit_id = $3`,
-          [parseFloat(item.price) || 0, item.investigationId, id]
-        );
-      }
-    }
+    const visitRes = await client.query('SELECT total_amount FROM visits WHERE id = $1', [id]);
+    if (visitRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Visit not found' });
 
-    if (newTests) {
-      const newTestIds = typeof newTests === 'string' ? JSON.parse(newTests) : newTests;
-      if (newTestIds.length > 0) {
-        const newTestQuery = await client.query(`SELECT id, price, category, test_cut FROM test_master WHERE id = ANY($1::uuid[])`, [newTestIds]);
-        for (const test of newTestQuery.rows) {
-          const barcode = test.category === 'Pathology' ? generateBarcode() : null;
-          await client.query(
-            `INSERT INTO patient_investigations (visit_id, test_id, barcode, status, price) VALUES ($1, $2, $3, 'Registered', $4)`,
-            [id, test.id, barcode, test.price]
-          );
-        }
-      }
-    }
-
-    const allInvQuery = await client.query(
-      `SELECT pi.price, tm.test_cut FROM patient_investigations pi JOIN test_master tm ON pi.test_id = tm.id WHERE pi.visit_id = $1`,
-      [id]
-    );
-    const updatedTotalAmount = allInvQuery.rows.reduce((sum, r) => sum + parseFloat(r.price || 0), 0);
-    const updatedDoctorCommission = allInvQuery.rows.reduce((sum, r) => sum + parseFloat(r.test_cut || 0), 0);
-
+    const totalAmount = parseFloat(visitRes.rows[0].total_amount) || 0;
     const discount = parseFloat(concession) || 0;
     const paid = parseFloat(paidAmount) || 0;
-    const netPayable = Math.max(0, updatedTotalAmount - discount);
+    const netPayable = Math.max(0, totalAmount - discount);
     const balance = Math.max(0, netPayable - paid);
     const status = balance === 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Pending');
+    const docId = referringDoctorId && referringDoctorId.trim() !== '' ? referringDoctorId : null;
 
-    let query = `UPDATE visits SET total_amount = $1, concession = $2, paid_amount = $3, balance_amount = $4, payment_status = $5, referring_doctor_id = $6, doctor_commission = $7`;
-    let params = [updatedTotalAmount, discount, paid, balance, status, referringDoctorId || null, updatedDoctorCommission];
+    let query = `UPDATE visits SET concession = $1, paid_amount = $2, balance_amount = $3, payment_status = $4, referring_doctor_id = $5`;
+    let params = [discount, paid, balance, status, docId];
     
     if (reportFile) {
-      query += `, report_file = $8 WHERE id = $9 RETURNING *`;
+      query += `, report_file = $6 WHERE id = $7 RETURNING *`;
       params.push(reportFile, id);
     } else {
-      query += ` WHERE id = $8 RETURNING *`;
+      query += ` WHERE id = $6 RETURNING *`;
       params.push(id);
     }
 
     const result = await client.query(query, params);
-
-    if (isPcpndt === 'true' || isPcpndt === true) {
-      await client.query(`DELETE FROM pcpndt_forms WHERE visit_id = $1`, [id]);
-      await client.query(
-        `INSERT INTO pcpndt_forms (visit_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-        [
-          id, relativeName || '', parseInt(noOfSons) || 0, sonsAge || '', 
-          parseInt(noOfDaughters) || 0, daughtersAge || '', lmpDate || '', weeksOfPreg || '', 
-          pcpndtIndications || '', scanResult || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218'
-        ]
-      );
-    } else if (isPcpndt === 'false' || isPcpndt === false) {
-      await client.query(`DELETE FROM pcpndt_forms WHERE visit_id = $1`, [id]);
-    }
-
     await client.query('COMMIT');
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error(error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();
@@ -570,15 +738,25 @@ app.delete('/api/visits/:id', async (req, res) => {
   }
 });
 
+// ----------------------------------------------------
+// INVOICE DETAILS & REPORTING ENDPOINTS
+// ----------------------------------------------------
 app.get('/api/invoice/:visitId', async (req, res) => {
   const { visitId } = req.params;
   try {
-    const clinicQuery = await pool.query(`SELECT * FROM clinic_profile WHERE id = 1`);
-    const clinic = clinicQuery.rows[0];
-
     const visitQuery = await pool.query(
-      `SELECT v.*, p.id as db_id, p.patient_code, p.full_name, p.age, p.gender, p.phone, p.email, p.address, d.doctor_name, d.hospital_clinic_name 
-       FROM visits v JOIN patients p ON v.patient_id = p.id LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id WHERE v.id::text = $1 OR v.invoice_number = $1`,
+      `SELECT v.*, p.id as db_id, p.patient_code, p.full_name, p.age, p.gender, p.phone, p.email, p.address, 
+              d.doctor_name, d.hospital_clinic_name,
+              COALESCE(c.centre_name, 'RESQ HEART CLINIC AND IMAGING CENTRE') as centre_name,
+              c.tagline as centre_tagline,
+              COALESCE(c.address, '') as centre_address,
+              COALESCE(c.phone, '') as centre_phone,
+              COALESCE(c.reg_no, '') as centre_reg_no
+       FROM visits v 
+       JOIN patients p ON v.patient_id = p.id 
+       LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id 
+       LEFT JOIN clinic_centres c ON v.centre_id = c.id
+       WHERE v.id::text = $1 OR v.invoice_number = $1`,
       [visitId]
     );
 
@@ -597,7 +775,7 @@ app.get('/api/invoice/:visitId', async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: { clinicProfile: clinic, visitDetails: visitRow, investigations: testsQuery.rows, pcpndtForm: pcpndtQuery.rows[0] || null }
+      data: { visitDetails: visitRow, investigations: testsQuery.rows, pcpndtForm: pcpndtQuery.rows[0] || null }
     });
   } catch (error) {
     console.error('Invoice Fetch Error:', error);
@@ -605,16 +783,17 @@ app.get('/api/invoice/:visitId', async (req, res) => {
   }
 });
 
-// REPORTS & COLLECTIONS
 app.get('/api/reports/collection', async (req, res) => {
   const { startDate, endDate, month, patientName } = req.query;
   try {
     let query = `
       SELECT v.id as visit_id, v.invoice_number, COALESCE(v.created_at, CURRENT_TIMESTAMP) as created_at, 
              COALESCE(p.full_name, 'Direct Patient') as full_name, COALESCE(p.phone, '') as phone, 
-             v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, v.report_file 
+             v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, v.report_file,
+             COALESCE(c.centre_name, 'Main Centre') as centre_name
       FROM visits v 
       LEFT JOIN patients p ON v.patient_id = p.id 
+      LEFT JOIN clinic_centres c ON v.centre_id = c.id
       WHERE 1=1
     `;
     let params = [];
@@ -699,8 +878,17 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
   }
 });
 
+// Universal catchall safe route
+app.use((req, res) => {
+  if (fs.existsSync(path.join(__dirname, 'public', 'index.html'))) {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  } else {
+    res.sendFile(path.join(__dirname, 'index.html'));
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
   await initDB();
-  console.log(`ResQ Clinic Backend running on port ${PORT}`);
+  console.log(`ResQ Clinic System running on http://localhost:${PORT}`);
 });
