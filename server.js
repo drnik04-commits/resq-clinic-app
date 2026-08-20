@@ -37,8 +37,10 @@ const pool = new Pool({
   ssl: isCloud ? { rejectUnauthorized: false } : false
 });
 
-// Test Catalog Seed Data
+// Test Catalog Seed Data with Pathology, Imaging, and Consulting categories
 const lupinTests = [
+  { testName: 'Doctor Consultation / Cardiology OPD', category: 'Consulting', price: 800, testCut: 200 },
+  { testName: 'Doctor Consultation / General Follow-up', category: 'Consulting', price: 500, testCut: 100 },
   { testName: 'LDIMM0481 - Dual Marker (Double Marker)- First', category: 'Pathology', price: 2250, testCut: 500 },
   { testName: 'LDIMM1192 - Thyroid Profile Total', category: 'Pathology', price: 550, testCut: 80 },
   { testName: 'LDIMM1195 - Thyroid Stimulating Hormone (TSH)', category: 'Pathology', price: 350, testCut: 50 },
@@ -55,8 +57,10 @@ const lupinTests = [
   { testName: 'LDIMM1112 - Quadruple Marker- Second Trimester', category: 'Pathology', price: 3000, testCut: 800 },
   { testName: 'LDIMM1191 - Thyroid Profile Free', category: 'Pathology', price: 750, testCut: 150 },
   { testName: 'LDBIO0408 - Creatinine Serum', category: 'Pathology', price: 220, testCut: 60 },
+  { testName: '2D Echocardiography (2D Echo)', category: 'Imaging', price: 1800, testCut: 400 },
   { testName: 'USG Obstetric / Pregnancy Ultrasound', category: 'Imaging', price: 1500, testCut: 300 },
-  { testName: 'USG Pelvis / Anomaly Scan', category: 'Imaging', price: 2000, testCut: 400 }
+  { testName: 'USG Pelvis / Anomaly Scan', category: 'Imaging', price: 2000, testCut: 400 },
+  { testName: 'USG Abdomen & Pelvis', category: 'Imaging', price: 1600, testCut: 300 }
 ];
 
 async function seedLupinTests() {
@@ -75,7 +79,7 @@ async function seedLupinTests() {
   }
 }
 
-// Database Initialization & Schema Synchronization
+// Database Auto-Initialization & Schema Synchronization
 async function initDB() {
   try {
     await pool.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
@@ -141,7 +145,7 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS test_master (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         test_name VARCHAR(255) NOT NULL,
-        category VARCHAR(100),
+        category VARCHAR(100) DEFAULT 'Pathology',
         price DECIMAL(10,2) DEFAULT 0.00,
         test_cut DECIMAL(10,2) DEFAULT 0.00
       );
@@ -228,7 +232,7 @@ async function initDB() {
     `);
     await pool.query(`ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS scan_result TEXT;`);
 
-    console.log('Database synced: All tables, payment mode, auth, and seed catalogs ready.');
+    console.log('Database synced: All tables, category reports, and payment modes ready.');
     await seedLupinTests();
   } catch (err) {
     console.error('Database Initialization Error:', err.message);
@@ -743,7 +747,7 @@ app.delete('/api/visits/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// INVOICE DETAILS & REPORTING ENDPOINTS
+// INVOICE DETAILS & REPORTING (With Category Breakdown)
 // ----------------------------------------------------
 app.get('/api/invoice/:visitId', async (req, res) => {
   const { visitId } = req.params;
@@ -787,18 +791,23 @@ app.get('/api/invoice/:visitId', async (req, res) => {
   }
 });
 
+// Category-Aware Collections Report
 app.get('/api/reports/collection', async (req, res) => {
-  const { startDate, endDate, month, patientName } = req.query;
+  const { startDate, endDate, month, patientName, category } = req.query;
   try {
     let query = `
       SELECT v.id as visit_id, v.invoice_number, COALESCE(v.created_at, CURRENT_TIMESTAMP) as created_at, 
              COALESCE(p.full_name, 'Direct Patient') as full_name, COALESCE(p.phone, '') as phone, 
              v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, 
              COALESCE(v.payment_mode, 'Cash') as payment_mode, v.report_file,
-             COALESCE(c.centre_name, 'Main Centre') as centre_name
+             COALESCE(c.centre_name, 'Main Centre') as centre_name,
+             COALESCE(string_agg(DISTINCT tm.category, ', '), 'General') as categories,
+             COALESCE(string_agg(DISTINCT tm.test_name, ', '), '') as test_names
       FROM visits v 
       LEFT JOIN patients p ON v.patient_id = p.id 
       LEFT JOIN clinic_centres c ON v.centre_id = c.id
+      LEFT JOIN patient_investigations pi ON pi.visit_id = v.id
+      LEFT JOIN test_master tm ON pi.test_id = tm.id
       WHERE 1=1
     `;
     let params = [];
@@ -821,8 +830,56 @@ app.get('/api/reports/collection', async (req, res) => {
       query += ` AND p.full_name ILIKE $${params.length}`;
     }
 
-    query += ` ORDER BY v.created_at DESC`;
+    if (category && category.trim() !== '') {
+      params.push(`%${category.trim()}%`);
+      query += ` AND v.id IN (
+        SELECT pi2.visit_id 
+        FROM patient_investigations pi2 
+        JOIN test_master tm2 ON pi2.test_id = tm2.id 
+        WHERE tm2.category ILIKE $${params.length}
+      )`;
+    }
+
+    query += ` GROUP BY v.id, p.full_name, p.phone, c.centre_name ORDER BY v.created_at DESC`;
     const result = await pool.query(query, params);
+
+    // Calculate Category Wise Totals across all matching investigations
+    let catSummaryQuery = `
+      SELECT tm.category, SUM(COALESCE(pi.price, tm.price, 0)) as cat_total
+      FROM patient_investigations pi
+      JOIN visits v ON pi.visit_id = v.id
+      LEFT JOIN patients p ON v.patient_id = p.id
+      JOIN test_master tm ON pi.test_id = tm.id
+      WHERE 1=1
+    `;
+    let catParams = [];
+    if (startDate && startDate.trim() !== '') {
+      if (endDate && endDate.trim() !== '') {
+        catParams.push(startDate, endDate);
+        catSummaryQuery += ` AND v.created_at::date >= $${catParams.length - 1}::date AND v.created_at::date <= $${catParams.length}::date`;
+      } else {
+        catParams.push(startDate);
+        catSummaryQuery += ` AND v.created_at::date = $${catParams.length}::date`;
+      }
+    } else if (month && month.trim() !== '') {
+      catParams.push(month);
+      catSummaryQuery += ` AND TO_CHAR(v.created_at, 'YYYY-MM') = $${catParams.length}`;
+    }
+    if (patientName && patientName.trim() !== '') {
+      catParams.push(`%${patientName.trim()}%`);
+      catSummaryQuery += ` AND p.full_name ILIKE $${catParams.length}`;
+    }
+    catSummaryQuery += ` GROUP BY tm.category`;
+    const catResult = await pool.query(catSummaryQuery, catParams);
+
+    let pathologyTotal = 0, imagingTotal = 0, consultingTotal = 0;
+    catResult.rows.forEach(r => {
+      const c = (r.category || '').toLowerCase();
+      const val = parseFloat(r.cat_total || 0);
+      if (c.includes('pathology')) pathologyTotal += val;
+      else if (c.includes('imaging') || c.includes('radiology') || c.includes('usg') || c.includes('echo')) imagingTotal += val;
+      else if (c.includes('consult')) consultingTotal += val;
+    });
 
     const totalCollection = result.rows.reduce((sum, r) => sum + parseFloat(r.paid_amount || 0), 0);
     const totalPending = result.rows.reduce((sum, r) => sum + parseFloat(r.balance_amount || 0), 0);
@@ -830,7 +887,14 @@ app.get('/api/reports/collection', async (req, res) => {
     res.status(200).json({
       success: true,
       data: result.rows,
-      summary: { totalCollection, totalPending, recordCount: result.rows.length }
+      summary: { 
+        totalCollection, 
+        totalPending, 
+        pathologyTotal,
+        imagingTotal,
+        consultingTotal,
+        recordCount: result.rows.length 
+      }
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
