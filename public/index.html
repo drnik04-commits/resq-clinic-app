@@ -1,4 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResQ Clinic - Management & Billing System</title>
+    <style>
+        :root {
+            --primary: #19486a;
+            --primary-dark: #123352;
+            --tab-active: #2196f3;
+            --tab-inactive: #90caf9;
+            --bg: #f4f7f9;
+            --card-bg: #ffffff;
+            --border: #ccd7e2;
+            --text: #2c3e50;
+            --green: #28a745;
+            --purple: #8e24aa;
+            --orange: #f59e0b;
+            --btn-blue: #1976d2;
+            --danger: #dc3545;
+        }
 
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+        /* Lock Screen */
+        #appLockScreen {
+            position: fixed;
+            inset: 0;
+            background: #123352;
+            z-index: 99999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .lock-box {
             background: white;
             padding: 30px;
             border-radius: 6px;
@@ -608,7 +644,7 @@
         </div>
     </div>
 
-    <!-- FULL DYNAMIC EDIT BILL MODAL (Edit Tests, Rates, Doctor, Discount, Mode) -->
+    <!-- FULL DYNAMIC EDIT BILL MODAL -->
     <div id="editBillModal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">
@@ -617,13 +653,11 @@
             </div>
             <input type="hidden" id="editBillRowId">
             
-            <!-- Referring Doctor in Edit Mode -->
             <div class="form-group full-width" style="margin-bottom: 10px;">
                 <label>Referring Doctor:</label>
                 <select id="editBillDocSelect"></select>
             </div>
 
-            <!-- Add More Tests to This Bill -->
             <div style="background: #f8fafc; border: 1px solid var(--border); padding: 10px; border-radius: 4px; margin-bottom: 12px;">
                 <label style="font-size: 0.85rem; font-weight: bold; color: #1a365d;">Add Investigation / Service to this Bill:</label>
                 <div style="display: flex; gap: 8px; margin-top: 4px;">
@@ -632,7 +666,6 @@
                 </div>
             </div>
 
-            <!-- Tests in this Bill with Editable Charges -->
             <label style="font-size: 0.9rem; font-weight: bold; color: #1a365d;">Bill Items & Charges (Edit Rate directly or click X to remove):</label>
             <table style="margin-bottom: 10px;">
                 <thead>
@@ -646,7 +679,6 @@
                 <tbody id="editBillItemsTableBody"></tbody>
             </table>
 
-            <!-- Financial Live Summary for Edit Modal -->
             <div class="rates-summary-panel" style="margin-bottom: 14px;">
                 <div class="subtotal">Gross Total: <span id="editDispGross">₹0.00</span></div>
                 <div class="concession">Concession / Discount: <span id="editDispDisc">- ₹0.00</span></div>
