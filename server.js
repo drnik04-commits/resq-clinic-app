@@ -37,7 +37,7 @@ const pool = new Pool({
   ssl: isCloud ? { rejectUnauthorized: false } : false
 });
 
-// Test Catalog Seed Data with Pathology, Imaging, and Consulting categories
+// Seed Catalog for Lupin Diagnostics
 const lupinTests = [
   { testName: 'Doctor Consultation / Cardiology OPD', category: 'Consulting', price: 800, testCut: 200 },
   { testName: 'Doctor Consultation / General Follow-up', category: 'Consulting', price: 500, testCut: 100 },
@@ -79,7 +79,7 @@ async function seedLupinTests() {
   }
 }
 
-// Database Auto-Initialization & Schema Synchronization
+// Database Initialization & Schema Synchronizations
 async function initDB() {
   try {
     await pool.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
@@ -199,17 +199,19 @@ async function initDB() {
       WHERE centre_id IS NULL;
     `);
 
-    // 7. Patient Investigations Table
+    // 7. Patient Investigations Table (Ensure cascade on test deletion)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS patient_investigations (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         visit_id UUID REFERENCES visits(id) ON DELETE CASCADE,
-        test_id UUID REFERENCES test_master(id),
+        test_id UUID REFERENCES test_master(id) ON DELETE SET NULL,
         barcode VARCHAR(100),
         status VARCHAR(50) DEFAULT 'Registered',
         price DECIMAL(10, 2)
       );
     `);
+    await pool.query(`ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_test_id_fkey;`).catch(()=>{});
+    await pool.query(`ALTER TABLE patient_investigations ADD CONSTRAINT patient_investigations_test_id_fkey FOREIGN KEY (test_id) REFERENCES test_master(id) ON DELETE SET NULL;`).catch(()=>{});
 
     // 8. PCPNDT Forms Table
     await pool.query(`
@@ -232,7 +234,7 @@ async function initDB() {
     `);
     await pool.query(`ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS scan_result TEXT;`);
 
-    console.log('Database synced: All tables, category reports, and payment modes ready.');
+    console.log('Database synced: All tables, dynamic bill editing, and cascade test deletions ready.');
     await seedLupinTests();
   } catch (err) {
     console.error('Database Initialization Error:', err.message);
@@ -427,7 +429,7 @@ app.delete('/api/doctors/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// TESTS MASTER ENDPOINTS
+// TESTS MASTER ENDPOINTS (With Safe Deletion Support)
 // ----------------------------------------------------
 app.get('/api/tests', async (req, res) => {
   try {
@@ -467,11 +469,20 @@ app.put('/api/tests/:id', async (req, res) => {
 
 app.delete('/api/tests/:id', async (req, res) => {
   const { id } = req.params;
+  const client = await pool.connect();
   try {
-    await pool.query('DELETE FROM test_master WHERE id = $1', [id]);
-    res.status(200).json({ success: true, message: 'Test deleted' });
+    await client.query('BEGIN');
+    // Safely uncouple prior visits so historical bills remain intact while removing the master test
+    await client.query('UPDATE patient_investigations SET test_id = NULL WHERE test_id = $1', [id]);
+    await client.query('DELETE FROM test_master WHERE id = $1', [id]);
+    await client.query('COMMIT');
+    res.status(200).json({ success: true, message: 'Test deleted successfully' });
   } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Delete test error:', error);
     res.status(500).json({ success: false, error: error.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -581,9 +592,9 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
 
     const reportFile = req.file ? req.file.filename : null;
 
-    let testIds = [];
+    let testItems = [];
     if (tests) {
-      testIds = typeof tests === 'string' ? JSON.parse(tests) : tests;
+      testItems = typeof tests === 'string' ? JSON.parse(tests) : tests;
     }
 
     const finalWhatsApp = whatsappNumber && whatsappNumber.trim() !== '' ? whatsappNumber : phone;
@@ -623,18 +634,32 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     const centreRes = await client.query('SELECT id FROM clinic_centres WHERE is_active = true LIMIT 1');
     const centreId = centreRes.rows.length > 0 ? centreRes.rows[0].id : null;
 
-    const testQuery = testIds.length > 0 
-      ? await client.query(`SELECT id, price, category, test_cut FROM test_master WHERE id = ANY($1::uuid[])`, [testIds])
-      : { rows: [] };
-      
-    const totalAmount = testQuery.rows.reduce((sum, test) => sum + parseFloat(test.price), 0);
+    // Process test items (can be array of IDs or array of objects with custom rate)
+    let totalAmount = 0;
+    let doctorCommission = 0;
+    const finalInvestigations = [];
+
+    for (const item of testItems) {
+      const testId = typeof item === 'object' ? item.id : item;
+      const tRes = await client.query('SELECT id, test_name, category, price, test_cut FROM test_master WHERE id = $1', [testId]);
+      if (tRes.rows.length > 0) {
+        const t = tRes.rows[0];
+        const assignedPrice = (typeof item === 'object' && item.price !== undefined) ? parseFloat(item.price) : parseFloat(t.price);
+        totalAmount += assignedPrice;
+        doctorCommission += parseFloat(t.test_cut || 0);
+        finalInvestigations.push({
+          test_id: t.id,
+          category: t.category,
+          price: assignedPrice
+        });
+      }
+    }
+
     const discount = parseFloat(concession) || 0;
     const netPayable = Math.max(0, totalAmount - discount);
     const paid = parseFloat(paidAmount) || 0;
     const balance = Math.max(0, netPayable - paid);
     const paymentStatus = balance === 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Pending');
-
-    const doctorCommission = testQuery.rows.reduce((sum, test) => sum + parseFloat(test.test_cut || 0), 0);
     const invoiceNo = generateInvoiceNumber();
     const docId = referringDoctorId && referringDoctorId.trim() !== '' ? referringDoctorId : null;
 
@@ -645,14 +670,13 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     );
     const visitId = visitResult.rows[0].id;
 
-    const investigationPromises = testQuery.rows.map(async (test) => {
-      const barcode = test.category === 'Pathology' ? generateBarcode() : null;
-      return client.query(
+    for (const inv of finalInvestigations) {
+      const barcode = inv.category === 'Pathology' ? generateBarcode() : null;
+      await client.query(
         `INSERT INTO patient_investigations (visit_id, test_id, barcode, status, price) VALUES ($1, $2, $3, 'Registered', $4)`,
-        [visitId, test.id, barcode, test.price]
+        [visitId, inv.test_id, barcode, inv.price]
       );
-    });
-    await Promise.all(investigationPromises);
+    }
 
     if (isPcpndt === 'true' || isPcpndt === true) {
       await client.query(
@@ -683,37 +707,76 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
 });
 
 // ----------------------------------------------------
-// UPDATE & DELETE VISITS
+// FULL DYNAMIC BILL EDITING & CHARGES ENDPOINT
 // ----------------------------------------------------
 app.put('/api/visits/:id', upload.single('reportFile'), async (req, res) => {
   const { id } = req.params;
-  const { concession, paidAmount, paymentMode, referringDoctorId } = req.body;
+  const { concession, paidAmount, paymentMode, referringDoctorId, tests } = req.body;
   const reportFile = req.file ? req.file.filename : null;
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const visitRes = await client.query('SELECT total_amount FROM visits WHERE id = $1', [id]);
-    if (visitRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Visit not found' });
+    const visitCheck = await client.query('SELECT * FROM visits WHERE id = $1', [id]);
+    if (visitCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Visit record not found' });
 
-    const totalAmount = parseFloat(visitRes.rows[0].total_amount) || 0;
+    let parsedTests = null;
+    if (tests) {
+      parsedTests = typeof tests === 'string' ? JSON.parse(tests) : tests;
+    }
+
+    let totalAmount = 0;
+    let doctorCommission = 0;
+
+    if (parsedTests && Array.isArray(parsedTests) && parsedTests.length > 0) {
+      // 1. Clear old investigations
+      await client.query('DELETE FROM patient_investigations WHERE visit_id = $1', [id]);
+
+      // 2. Re-insert updated tests & custom rates
+      for (const t of parsedTests) {
+        const itemPrice = parseFloat(t.price) || 0;
+        totalAmount += itemPrice;
+
+        let testCut = 0;
+        let category = t.category || 'Pathology';
+        if (t.id) {
+          const mTest = await client.query('SELECT category, test_cut FROM test_master WHERE id = $1', [t.id]);
+          if (mTest.rows.length > 0) {
+            testCut = parseFloat(mTest.rows[0].test_cut) || 0;
+            category = mTest.rows[0].category;
+          }
+        }
+        doctorCommission += testCut;
+
+        const barcode = category === 'Pathology' ? generateBarcode() : null;
+        await client.query(
+          `INSERT INTO patient_investigations (visit_id, test_id, barcode, status, price) VALUES ($1, $2, $3, 'Registered', $4)`,
+          [id, t.id || null, barcode, itemPrice]
+        );
+      }
+    } else {
+      // Keep existing total
+      totalAmount = parseFloat(visitCheck.rows[0].total_amount) || 0;
+      doctorCommission = parseFloat(visitCheck.rows[0].doctor_commission) || 0;
+    }
+
     const discount = parseFloat(concession) || 0;
-    const paid = parseFloat(paidAmount) || 0;
     const netPayable = Math.max(0, totalAmount - discount);
+    const paid = parseFloat(paidAmount) || 0;
     const balance = Math.max(0, netPayable - paid);
     const status = balance === 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Pending');
     const mode = paymentMode || 'Cash';
     const docId = referringDoctorId && referringDoctorId.trim() !== '' ? referringDoctorId : null;
 
-    let query = `UPDATE visits SET concession = $1, paid_amount = $2, balance_amount = $3, payment_status = $4, payment_mode = $5, referring_doctor_id = $6`;
-    let params = [discount, paid, balance, status, mode, docId];
-    
+    let query = `UPDATE visits SET total_amount = $1, concession = $2, paid_amount = $3, balance_amount = $4, payment_status = $5, payment_mode = $6, referring_doctor_id = $7, doctor_commission = $8`;
+    let params = [totalAmount, discount, paid, balance, status, mode, docId, doctorCommission];
+
     if (reportFile) {
-      query += `, report_file = $7 WHERE id = $8 RETURNING *`;
+      query += `, report_file = $9 WHERE id = $10 RETURNING *`;
       params.push(reportFile, id);
     } else {
-      query += ` WHERE id = $7 RETURNING *`;
+      query += ` WHERE id = $9 RETURNING *`;
       params.push(id);
     }
 
@@ -722,6 +785,7 @@ app.put('/api/visits/:id', upload.single('reportFile'), async (req, res) => {
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
     await client.query('ROLLBACK');
+    console.error('Update Visit Error:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();
@@ -772,9 +836,12 @@ app.get('/api/invoice/:visitId', async (req, res) => {
 
     const visitRow = visitQuery.rows[0];
     const testsQuery = await pool.query(
-      `SELECT pi.id as investigation_id, pi.visit_id, pi.test_id, pi.barcode, pi.status, tm.test_name, tm.category, COALESCE(pi.price, tm.price, 0) as price 
+      `SELECT pi.id as investigation_id, pi.visit_id, pi.test_id, pi.barcode, pi.status, 
+              COALESCE(tm.test_name, 'Investigation Service') as test_name, 
+              COALESCE(tm.category, 'General') as category, 
+              COALESCE(pi.price, tm.price, 0) as price 
        FROM patient_investigations pi 
-       JOIN test_master tm ON pi.test_id = tm.id 
+       LEFT JOIN test_master tm ON pi.test_id = tm.id 
        WHERE pi.visit_id = $1`,
       [visitRow.id]
     );

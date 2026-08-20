@@ -1,40 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ResQ Clinic - Management & Billing System</title>
-    <style>
-        :root {
-            --primary: #19486a;
-            --primary-dark: #123352;
-            --tab-active: #2196f3;
-            --tab-inactive: #90caf9;
-            --bg: #f4f7f9;
-            --card-bg: #ffffff;
-            --border: #ccd7e2;
-            --text: #2c3e50;
-            --green: #28a745;
-            --purple: #8e24aa;
-            --orange: #f59e0b;
-            --btn-blue: #1976d2;
-            --danger: #dc3545;
-        }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
-        body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
-
-        /* Lock Screen */
-        #appLockScreen {
-            position: fixed;
-            inset: 0;
-            background: #123352;
-            z-index: 99999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .lock-box {
             background: white;
             padding: 30px;
             border-radius: 6px;
@@ -468,7 +432,7 @@
                         </div>
                     </div>
 
-                    <!-- Existing Tests with Search Option -->
+                    <!-- Existing Tests with Search Option & Direct Deletion -->
                     <div class="card">
                         <div class="card-title">Existing Tests & Services</div>
                         <div class="search-row" style="margin-bottom: 8px;">
@@ -507,7 +471,7 @@
             </div>
         </div>
 
-        <!-- TAB 4: COLLECTIONS & REPORTS (With Category Filter & Breakdown) -->
+        <!-- TAB 4: COLLECTIONS & REPORTS -->
         <div id="tab-reports" class="tab-content">
             <div class="card">
                 <div class="card-title">Daily & Monthly Collection Reports</div>
@@ -644,17 +608,55 @@
         </div>
     </div>
 
-    <!-- EDIT BILL MODAL -->
+    <!-- FULL DYNAMIC EDIT BILL MODAL (Edit Tests, Rates, Doctor, Discount, Mode) -->
     <div id="editBillModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">
-                <h3>Edit Bill / Payment Follow-up</h3>
+                <h3 id="editBillModalTitle">Edit Bill & Charges</h3>
                 <button type="button" onclick="closeEditBillModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
             </div>
             <input type="hidden" id="editBillRowId">
+            
+            <!-- Referring Doctor in Edit Mode -->
+            <div class="form-group full-width" style="margin-bottom: 10px;">
+                <label>Referring Doctor:</label>
+                <select id="editBillDocSelect"></select>
+            </div>
+
+            <!-- Add More Tests to This Bill -->
+            <div style="background: #f8fafc; border: 1px solid var(--border); padding: 10px; border-radius: 4px; margin-bottom: 12px;">
+                <label style="font-size: 0.85rem; font-weight: bold; color: #1a365d;">Add Investigation / Service to this Bill:</label>
+                <div style="display: flex; gap: 8px; margin-top: 4px;">
+                    <select id="editBillAddTestSelect" style="flex: 1; padding: 7px; border: 1px solid var(--border); border-radius: 4px;"></select>
+                    <button type="button" class="btn-add-test" onclick="addTestToCurrentEditBill()">+ Add to Bill</button>
+                </div>
+            </div>
+
+            <!-- Tests in this Bill with Editable Charges -->
+            <label style="font-size: 0.9rem; font-weight: bold; color: #1a365d;">Bill Items & Charges (Edit Rate directly or click X to remove):</label>
+            <table style="margin-bottom: 10px;">
+                <thead>
+                    <tr>
+                        <th>Investigation / Service Name</th>
+                        <th style="width: 120px;">Category</th>
+                        <th style="width: 160px;">Charge / Rate (₹)</th>
+                        <th style="width: 60px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="editBillItemsTableBody"></tbody>
+            </table>
+
+            <!-- Financial Live Summary for Edit Modal -->
+            <div class="rates-summary-panel" style="margin-bottom: 14px;">
+                <div class="subtotal">Gross Total: <span id="editDispGross">₹0.00</span></div>
+                <div class="concession">Concession / Discount: <span id="editDispDisc">- ₹0.00</span></div>
+                <div class="payable">Net Payable: <span id="editDispNet">₹0.00</span></div>
+                <div class="balance">Balance Due: <span id="editDispBal">₹0.00</span></div>
+            </div>
+
             <div class="form-grid">
-                <div class="form-group"><label>Concession / Discount (₹):</label><input type="number" id="editBillDisc"></div>
-                <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="editBillPaid"></div>
+                <div class="form-group"><label>Concession / Discount (₹):</label><input type="number" id="editBillDisc" oninput="recalcEditBillTotals()"></div>
+                <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="editBillPaid" oninput="recalcEditBillTotals()"></div>
                 <div class="form-group">
                     <label>Payment Mode:</label>
                     <select id="editBillPaymentMode">
@@ -663,12 +665,12 @@
                         <option value="Card">Card</option>
                     </select>
                 </div>
-                <div class="form-group full-width">
-                    <label>Attach Updated Report (PDF/Word):</label>
+                <div class="form-group">
+                    <label>Attach / Update Report (PDF/Word):</label>
                     <input type="file" id="editBillFile">
                 </div>
             </div>
-            <button type="button" class="btn-complete-reg" style="margin-top: 14px; width: 100%;" onclick="submitEditBill()">Update Bill</button>
+            <button type="button" class="btn-complete-reg" style="margin-top: 14px; width: 100%; padding: 12px;" onclick="submitFullEditBill()">Save & Update Bill</button>
         </div>
     </div>
 
@@ -749,7 +751,7 @@
         </div>
 
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
-            <thead><tr><th>Investigation</th><th style="width: 100px;">Amount (₹)</th></tr></thead>
+            <thead><tr><th>Investigation / Service</th><th style="width: 100px;">Amount (₹)</th></tr></thead>
             <tbody id="prtItemsBody"></tbody>
         </table>
 
@@ -784,6 +786,7 @@
         let centresList = [];
         let selectedBillTests = [];
         let activeCentre = null;
+        let activeEditingBillTests = [];
 
         function escapeHtml(str) {
             if (!str) return '';
@@ -1018,11 +1021,17 @@
 
                 const sel = document.getElementById('referringDoctorSelect');
                 const busSel = document.getElementById('busDocSelect');
+                const editBillDocSel = document.getElementById('editBillDocSelect');
+
                 sel.innerHTML = '<option value="">Select Doctor</option>';
                 busSel.innerHTML = '<option value="">All Doctors</option>';
+                if (editBillDocSel) editBillDocSel.innerHTML = '<option value="">Direct / Self</option>';
+
                 doctorsList.forEach(d => {
-                    sel.innerHTML += `<option value="${d.id}">${d.doctor_name} (${d.hospital_clinic_name || 'General'})</option>`;
+                    const opt = `<option value="${d.id}">${d.doctor_name} (${d.hospital_clinic_name || 'General'})</option>`;
+                    sel.innerHTML += opt;
                     busSel.innerHTML += `<option value="${d.id}">${d.doctor_name}</option>`;
+                    if (editBillDocSel) editBillDocSel.innerHTML += opt;
                 });
 
                 const tbody = document.getElementById('doctorsTableBody');
@@ -1102,7 +1111,7 @@
             loadDoctors();
         }
 
-        // 4. Tests Master & Existing Tests Search
+        // 4. Tests Master & Unconstrained Delete
         async function loadTests() {
             try {
                 const res = await fetch('/api/tests');
@@ -1110,6 +1119,15 @@
                 testsList = json.data || [];
                 populateTestDropdown(testsList);
                 renderExistingTestsTable(testsList);
+
+                // Populate Edit Bill Add Dropdown
+                const editAddSel = document.getElementById('editBillAddTestSelect');
+                if (editAddSel) {
+                    editAddSel.innerHTML = '<option value="">-- Choose investigation to add --</option>';
+                    testsList.forEach(t => {
+                        editAddSel.innerHTML += `<option value="${t.id}">[${t.category || 'Pathology'}] ${t.test_name} - ₹${t.price}</option>`;
+                    });
+                }
             } catch (e) { console.error('Error loading tests:', e); }
         }
 
@@ -1223,9 +1241,15 @@
         }
 
         async function deleteTest(id) {
-            if (!confirm('Delete test?')) return;
-            await fetch(`/api/tests/${id}`, { method: 'DELETE' });
-            loadTests();
+            if (!confirm('Are you sure you want to delete this test from the catalog?')) return;
+            const res = await fetch(`/api/tests/${id}`, { method: 'DELETE' });
+            const json = await res.json();
+            if (json.success) {
+                alert('Test deleted successfully!');
+                loadTests();
+            } else {
+                alert('Failed to delete test: ' + json.error);
+            }
         }
 
         // Test Selection & Totals
@@ -1234,14 +1258,14 @@
             if (!testId) return alert('Please select a test from dropdown.');
             const t = testsList.find(x => String(x.id) === String(testId));
             if (t && !selectedBillTests.some(item => String(item.id) === String(t.id))) {
-                selectedBillTests.push(t);
+                selectedBillTests.push({ ...t });
                 renderSelectedTests();
             }
         }
 
         function addAllTests() {
             if (testsList.length === 0) return alert('No tests in catalog.');
-            selectedBillTests = [...testsList];
+            selectedBillTests = testsList.map(t => ({ ...t }));
             renderSelectedTests();
         }
 
@@ -1327,7 +1351,7 @@
             formData.append('address', document.getElementById('patientAddress').value);
             formData.append('patientCode', document.getElementById('patientCode').value);
             formData.append('referringDoctorId', document.getElementById('referringDoctorSelect').value);
-            formData.append('tests', JSON.stringify(selectedBillTests.map(t => t.id)));
+            formData.append('tests', JSON.stringify(selectedBillTests.map(t => ({ id: t.id, price: t.price }))));
             formData.append('concession', document.getElementById('inputDiscount').value);
             formData.append('paidAmount', document.getElementById('inputPaid').value);
             formData.append('paymentMode', document.getElementById('inputPaymentMode').value);
@@ -1546,7 +1570,7 @@
                             <td>
                                 <button type="button" class="btn-wa-inv" onclick="printSingleInvoice('${b.id}')">Print</button>
                                 <a href="${waLink}" target="_blank" class="btn-wa-inv" style="background:#25d366;">WA</a>
-                                <button type="button" class="btn-edit-bill" onclick="openEditBillModal('${b.id}')">Edit</button>
+                                <button type="button" class="btn-edit-bill" onclick="openEditBillModal('${b.id}')">Edit Bill & Tests</button>
                                 <button type="button" class="btn-del" onclick="deleteBill('${b.id}')">Delete</button>
                             </td>
                         </tr>
@@ -1699,19 +1723,121 @@
             renderBusiness(json.data || []);
         }
 
-        // Bill Editing Modal
-        function openEditBillModal(id) {
-            document.getElementById('editBillRowId').value = id;
-            document.getElementById('editBillModal').style.display = 'flex';
-        }
-        function closeEditBillModal() { document.getElementById('editBillModal').style.display = 'none'; }
+        // ----------------------------------------------------
+        // DYNAMIC BILL & TEST ITEMS EDITING ENGINE
+        // ----------------------------------------------------
+        async function openEditBillModal(id) {
+            try {
+                const res = await fetch(`/api/invoice/${id}`);
+                const json = await res.json();
+                if (!json.success) return alert('Failed to fetch invoice details.');
 
-        async function submitEditBill() {
+                const data = json.data;
+                const v = data.visitDetails || {};
+                const invs = data.investigations || [];
+
+                document.getElementById('editBillRowId').value = v.id;
+                document.getElementById('editBillModalTitle').textContent = `Edit Bill & Charges - ${v.invoice_number} (${v.full_name})`;
+                document.getElementById('editBillDisc').value = v.concession || 0;
+                document.getElementById('editBillPaid').value = v.paid_amount || 0;
+                document.getElementById('editBillPaymentMode').value = v.payment_mode || 'Cash';
+                if (document.getElementById('editBillDocSelect')) {
+                    document.getElementById('editBillDocSelect').value = v.referring_doctor_id || '';
+                }
+
+                // Clone investigations into editable state
+                activeEditingBillTests = invs.map(item => ({
+                    id: item.test_id,
+                    test_name: item.test_name,
+                    category: item.category || 'Pathology',
+                    price: parseFloat(item.price) || 0
+                }));
+
+                renderEditBillTestsTable();
+                document.getElementById('editBillModal').style.display = 'flex';
+            } catch (e) {
+                alert('Error loading bill: ' + e.message);
+            }
+        }
+
+        function closeEditBillModal() { 
+            document.getElementById('editBillModal').style.display = 'none'; 
+            activeEditingBillTests = [];
+        }
+
+        function renderEditBillTestsTable() {
+            const tbody = document.getElementById('editBillItemsTableBody');
+            tbody.innerHTML = '';
+
+            if (activeEditingBillTests.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#888;padding:10px;">No tests in this bill. Use dropdown above to add tests.</td></tr>`;
+            } else {
+                activeEditingBillTests.forEach((t, idx) => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${t.test_name}</strong></td>
+                            <td><span class="badge-cat">${t.category || 'Pathology'}</span></td>
+                            <td>
+                                <input type="number" value="${t.price}" style="width: 130px; padding: 5px; font-weight: bold;" oninput="updateEditBillTestPrice(${idx}, this.value)">
+                            </td>
+                            <td>
+                                <button type="button" class="btn-del" onclick="removeTestFromEditBill(${idx})">X</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            recalcEditBillTotals();
+        }
+
+        function addTestToCurrentEditBill() {
+            const selId = document.getElementById('editBillAddTestSelect').value;
+            if (!selId) return alert('Select a test to add to this bill.');
+            const t = testsList.find(x => String(x.id) === String(selId));
+            if (t) {
+                activeEditingBillTests.push({
+                    id: t.id,
+                    test_name: t.test_name,
+                    category: t.category || 'Pathology',
+                    price: parseFloat(t.price) || 0
+                });
+                renderEditBillTestsTable();
+            }
+        }
+
+        function removeTestFromEditBill(idx) {
+            activeEditingBillTests.splice(idx, 1);
+            renderEditBillTestsTable();
+        }
+
+        function updateEditBillTestPrice(idx, newPrice) {
+            activeEditingBillTests[idx].price = parseFloat(newPrice) || 0;
+            recalcEditBillTotals();
+        }
+
+        function recalcEditBillTotals() {
+            const gross = activeEditingBillTests.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
+            const disc = parseFloat(document.getElementById('editBillDisc').value) || 0;
+            const net = Math.max(0, gross - disc);
+            const paid = parseFloat(document.getElementById('editBillPaid').value) || 0;
+            const bal = Math.max(0, net - paid);
+
+            document.getElementById('editDispGross').textContent = `₹${gross.toFixed(2)}`;
+            document.getElementById('editDispDisc').textContent = `- ₹${disc.toFixed(2)}`;
+            document.getElementById('editDispNet').textContent = `₹${net.toFixed(2)}`;
+            document.getElementById('editDispBal').textContent = `₹${bal.toFixed(2)}`;
+        }
+
+        async function submitFullEditBill() {
             const id = document.getElementById('editBillRowId').value;
+            if (activeEditingBillTests.length === 0) return alert('Bill must contain at least one test / investigation.');
+
             const formData = new FormData();
             formData.append('concession', document.getElementById('editBillDisc').value);
             formData.append('paidAmount', document.getElementById('editBillPaid').value);
             formData.append('paymentMode', document.getElementById('editBillPaymentMode').value);
+            formData.append('referringDoctorId', document.getElementById('editBillDocSelect').value);
+            formData.append('tests', JSON.stringify(activeEditingBillTests));
 
             const file = document.getElementById('editBillFile').files[0];
             if (file) formData.append('reportFile', file);
@@ -1722,12 +1848,12 @@
             });
             const data = await res.json();
             if (data.success) {
-                alert('Bill updated successfully!');
+                alert('Bill, tests, and rates updated successfully!');
                 closeEditBillModal();
                 loadReports();
                 closePatientBillsModal();
             } else {
-                alert('Error: ' + data.error);
+                alert('Error updating bill: ' + data.error);
             }
         }
 
