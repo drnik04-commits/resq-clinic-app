@@ -1143,7 +1143,7 @@
             loadDoctors();
         }
 
-        // 4. Tests Master & Unconstrained Delete
+        // 4. Tests Master & Safe Catalog Deletions
         async function loadTests() {
             try {
                 const res = await fetch('/api/tests');
@@ -1152,7 +1152,6 @@
                 populateTestDropdown(testsList);
                 renderExistingTestsTable(testsList);
 
-                // Populate Edit Bill Add Dropdown
                 const editAddSel = document.getElementById('editBillAddTestSelect');
                 if (editAddSel) {
                     editAddSel.innerHTML = '<option value="">-- Choose investigation to add --</option>';
@@ -1777,7 +1776,6 @@
                     document.getElementById('editBillDocSelect').value = v.referring_doctor_id || '';
                 }
 
-                // Clone investigations into editable state
                 activeEditingBillTests = invs.map(item => ({
                     id: item.test_id,
                     test_name: item.test_name,

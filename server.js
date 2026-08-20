@@ -28,16 +28,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// Database Connection: Cloud Auto-Detection with Offline Fallback
+// Database Connection: Auto-detects Cloud DB (Neon / Render) with local fallback
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/resq_clinic_db';
-const isCloud = connectionString.includes('neon.tech') || connectionString.includes('render.com');
+const isCloud = connectionString.includes('neon.tech') || connectionString.includes('render.com') || connectionString.includes('aws');
 
 const pool = new Pool({
   connectionString,
   ssl: isCloud ? { rejectUnauthorized: false } : false
 });
 
-// Seed Catalog for Lupin Diagnostics
+// Seed Catalog for Lupin Diagnostics & Imaging
 const lupinTests = [
   { testName: 'Doctor Consultation / Cardiology OPD', category: 'Consulting', price: 800, testCut: 200 },
   { testName: 'Doctor Consultation / General Follow-up', category: 'Consulting', price: 500, testCut: 100 },
@@ -79,12 +79,12 @@ async function seedLupinTests() {
   }
 }
 
-// Database Initialization & Schema Synchronizations
+// Database Initialization & Non-Destructive Schema Synchronizations
 async function initDB() {
   try {
     await pool.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
 
-    // 1. Password Protection Table
+    // 1. Password Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS app_auth (
         id SERIAL PRIMARY KEY,
@@ -192,14 +192,14 @@ async function initDB() {
     await pool.query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE SET NULL;`);
     await pool.query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS payment_mode VARCHAR(50) DEFAULT 'Cash';`);
 
-    // Auto-link historical visits to the active centre
+    // Link historical visits to primary centre
     await pool.query(`
       UPDATE visits 
       SET centre_id = (SELECT id FROM clinic_centres WHERE is_active = true LIMIT 1) 
       WHERE centre_id IS NULL;
     `);
 
-    // 7. Patient Investigations Table (Ensure cascade on test deletion)
+    // 7. Patient Investigations Table (With safe SET NULL on test deletion)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS patient_investigations (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -210,8 +210,8 @@ async function initDB() {
         price DECIMAL(10, 2)
       );
     `);
-    await pool.query(`ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_test_id_fkey;`).catch(()=>{});
-    await pool.query(`ALTER TABLE patient_investigations ADD CONSTRAINT patient_investigations_test_id_fkey FOREIGN KEY (test_id) REFERENCES test_master(id) ON DELETE SET NULL;`).catch(()=>{});
+    await pool.query(`ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_test_id_fkey;`).catch(() => {});
+    await pool.query(`ALTER TABLE patient_investigations ADD CONSTRAINT patient_investigations_test_id_fkey FOREIGN KEY (test_id) REFERENCES test_master(id) ON DELETE SET NULL;`).catch(() => {});
 
     // 8. PCPNDT Forms Table
     await pool.query(`
@@ -472,7 +472,6 @@ app.delete('/api/tests/:id', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Safely uncouple prior visits so historical bills remain intact while removing the master test
     await client.query('UPDATE patient_investigations SET test_id = NULL WHERE test_id = $1', [id]);
     await client.query('DELETE FROM test_master WHERE id = $1', [id]);
     await client.query('COMMIT');
@@ -634,7 +633,6 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     const centreRes = await client.query('SELECT id FROM clinic_centres WHERE is_active = true LIMIT 1');
     const centreId = centreRes.rows.length > 0 ? centreRes.rows[0].id : null;
 
-    // Process test items (can be array of IDs or array of objects with custom rate)
     let totalAmount = 0;
     let doctorCommission = 0;
     const finalInvestigations = [];
@@ -730,10 +728,8 @@ app.put('/api/visits/:id', upload.single('reportFile'), async (req, res) => {
     let doctorCommission = 0;
 
     if (parsedTests && Array.isArray(parsedTests) && parsedTests.length > 0) {
-      // 1. Clear old investigations
       await client.query('DELETE FROM patient_investigations WHERE visit_id = $1', [id]);
 
-      // 2. Re-insert updated tests & custom rates
       for (const t of parsedTests) {
         const itemPrice = parseFloat(t.price) || 0;
         totalAmount += itemPrice;
@@ -756,7 +752,6 @@ app.put('/api/visits/:id', upload.single('reportFile'), async (req, res) => {
         );
       }
     } else {
-      // Keep existing total
       totalAmount = parseFloat(visitCheck.rows[0].total_amount) || 0;
       doctorCommission = parseFloat(visitCheck.rows[0].doctor_commission) || 0;
     }
@@ -910,7 +905,6 @@ app.get('/api/reports/collection', async (req, res) => {
     query += ` GROUP BY v.id, p.full_name, p.phone, c.centre_name ORDER BY v.created_at DESC`;
     const result = await pool.query(query, params);
 
-    // Calculate Category Wise Totals across all matching investigations
     let catSummaryQuery = `
       SELECT tm.category, SUM(COALESCE(pi.price, tm.price, 0)) as cat_total
       FROM patient_investigations pi
@@ -1023,7 +1017,7 @@ app.use((req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, async () => {
   await initDB();
   console.log(`ResQ Clinic System running on http://localhost:${PORT}`);
