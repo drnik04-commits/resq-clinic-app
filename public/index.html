@@ -206,13 +206,94 @@
         .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 850px; max-height: 90vh; overflow-y: auto; padding: 20px; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 14px; }
 
-        /* Print Layouts */
+        /* ========================================================
+           EXACT 2-PAGE STATUTORY PCPNDT FORM F PRINT ENGINE
+        ======================================================== */
         @media print {
             body * { visibility: hidden; }
-            #invoicePrintArea, #invoicePrintArea *, #pcpndtPrintArea, #pcpndtPrintArea * { visibility: visible; }
+            #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc * { visibility: visible; }
             .print-active { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
-            @page { size: A4 portrait; margin: 10mm; }
+            
+            .doc-page {
+                page-break-after: always;
+                break-after: page;
+                margin: 0;
+                padding: 12mm 15mm;
+                box-sizing: border-box;
+                font-family: Arial, sans-serif !important;
+                color: #000 !important;
+                background: #fff !important;
+            }
+            @page {
+                size: A4 portrait;
+                margin: 0;
+            }
         }
+
+        .doc-page {
+            font-family: Arial, sans-serif;
+            font-size: 8.8pt;
+            line-height: 1.25;
+            color: #000;
+            background: #fff;
+            padding: 20px 24px;
+        }
+
+        .doc-header-title {
+            text-align: center;
+            font-size: 9.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            letter-spacing: -0.2px;
+        }
+
+        .doc-sec-heading {
+            font-weight: bold;
+            text-decoration: underline;
+            margin-top: 5px;
+            margin-bottom: 3px;
+        }
+
+        .doc-line-item {
+            display: flex;
+            margin-bottom: 2px;
+        }
+        .doc-line-item .label {
+            min-width: 250px;
+        }
+        .doc-line-item .val {
+            flex: 1;
+            font-weight: 600;
+        }
+
+        .indications-grid {
+            margin-left: 18px;
+            margin-top: 2px;
+            margin-bottom: 4px;
+            font-size: 7.8pt;
+            line-height: 1.15;
+        }
+        .indication-row {
+            display: flex;
+            margin-bottom: 1px;
+        }
+        .ind-num { min-width: 24px; }
+        .ind-text { flex: 1; }
+
+        .sec-c-grid {
+            margin-left: 12px;
+            font-size: 8.2pt;
+            line-height: 1.2;
+        }
+
+        .doc-sign-box {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 14px;
+            font-size: 8.5pt;
+        }
+
         .print-paper { display: none; background: white; padding: 20px; border: 1px solid #333; color: #000; }
     </style>
 </head>
@@ -319,7 +400,7 @@
                     <div id="pcpndtFields" style="display: none; margin-top: 14px;">
                         <div class="form-grid">
                             <div class="form-group">
-                                <label>Husband / Father / Relative Name:</label>
+                                <label>Husband / Father / Mother / Relative Name:</label>
                                 <input type="text" id="pcpndtRelativeName" placeholder="Relative Name">
                             </div>
                             <div class="form-group">
@@ -333,14 +414,14 @@
                             <div class="form-group">
                                 <label>No. of Living Sons & Age:</label>
                                 <div style="display: flex; gap: 6px;">
-                                    <input type="number" id="pcpndtNoOfSons" placeholder="Count (e.g. 1)" style="width: 100px;">
+                                    <input type="number" id="pcpndtNoOfSons" placeholder="Count" style="width: 90px;">
                                     <input type="text" id="pcpndtSonsAge" placeholder="Age(s) e.g. 4 Yrs">
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>No. of Living Daughters & Age:</label>
                                 <div style="display: flex; gap: 6px;">
-                                    <input type="number" id="pcpndtNoOfDaughters" placeholder="Count (e.g. 0)" style="width: 100px;">
+                                    <input type="number" id="pcpndtNoOfDaughters" placeholder="Count" style="width: 90px;">
                                     <input type="text" id="pcpndtDaughtersAge" placeholder="Age(s) e.g. 2 Yrs">
                                 </div>
                             </div>
@@ -350,7 +431,7 @@
                             </div>
                             <div class="form-group full-width">
                                 <label>Ultrasound Findings / Manual Observations *:</label>
-                                <textarea id="pcpndtFindings" rows="3" placeholder="Enter custom ultrasound scan observations / findings..."></textarea>
+                                <textarea id="pcpndtFindings" rows="3" placeholder="Single live intrauterine fetus with adequate liquor and normal cardiac activity..."></textarea>
                             </div>
                             <div class="form-group">
                                 <label>Performing Doctor Name:</label>
@@ -854,53 +935,310 @@
         </div>
     </div>
 
-    <!-- PRINT LAYOUT 2: STATUTORY PCPNDT FORM F -->
-    <div id="pcpndtPrintArea" class="print-paper" style="font-size: 0.82rem; line-height: 1.45;">
-        <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 8px;">
-            <h2 style="font-size: 1.15rem; margin-bottom: 2px;">FORM F</h2>
-            <div style="font-size: 0.75rem; font-weight: bold;">[See Section 4(3), 5(1A), 6(2), 29 and Rule 9(4), 10(1A)]</div>
-            <div style="font-size: 0.8rem; font-weight: bold;">MAINTENANCE OF RECORD IN RESPECT OF PREGNANT WOMAN BY GENETIC CLINIC / ULTRASOUND CLINIC / IMAGING CENTRE</div>
-        </div>
-
-        <div style="border: 1px solid #000; padding: 6px; margin-bottom: 6px;">
-            <div><strong>1. Name & Address of Genetic Clinic / Ultrasound Clinic:</strong> <span id="fClinicName">RESQ HEART CLINIC AND IMAGING CENTRE</span>, <span id="fClinicAddress"></span></div>
-            <div><strong>2. Registration No. under PCPNDT Act:</strong> <span id="fClinicReg" style="font-weight: bold;">RS197</span></div>
-            <div><strong>3. Patient Serial / Invoice No:</strong> <span id="fInvNo"></span> | <strong>Date:</strong> <span id="fDate"></span></div>
-        </div>
-
-        <div style="border: 1px solid #000; padding: 6px; margin-bottom: 6px;">
-            <div style="font-weight: bold; text-decoration: underline; margin-bottom: 4px;">SECTION A: PATIENT DETAILS</div>
-            <div><strong>Patient Name:</strong> <span id="fPatName"></span> | <strong>Age:</strong> <span id="fPatAge"></span> Yrs</div>
-            <div><strong>Husband's / Father's Name:</strong> <span id="fRelName"></span></div>
-            <div><strong>Contact No:</strong> <span id="fPatPhone"></span> | <strong>Full Address:</strong> <span id="fPatAddr"></span></div>
-            <div><strong>No. of Living Children:</strong> (a) Sons: <span id="fSons"></span> (b) Daughters: <span id="fDaughters"></span></div>
-            <div><strong>Last Menstrual Period (LMP):</strong> <span id="fLMP"></span> | <strong>Weeks of Gestation:</strong> <span id="fWeeks"></span></div>
-            <div><strong>Referred By (Doctor / Self):</strong> <span id="fRefDoc"></span></div>
-        </div>
-
-        <div style="border: 1px solid #000; padding: 6px; margin-bottom: 6px;">
-            <div style="font-weight: bold; text-decoration: underline; margin-bottom: 4px;">SECTION B: ULTRASONOGRAPHY EVALUATION & FINDINGS</div>
-            <div><strong>Clinical Indication for Ultrasound:</strong> <span id="fIndication"></span></div>
-            <div style="margin-top: 4px;">
-                <strong>Observations / Diagnostic Scan Findings:</strong>
-                <div id="fFindings" style="white-space: pre-wrap; font-family: monospace; background: #fafafa; padding: 6px; border: 1px dashed #777; margin-top: 2px;"></div>
+    <!-- ========================================================
+         EXACT STATUTORY 2-PAGE PCPNDT FORM F DOCUMENT LAYOUT
+    ======================================================== -->
+    <div id="exactPcpndtDoc" style="display: none;">
+        
+        <!-- PAGE 1: SECTIONS A, B & SECTION C TOP -->
+        <div class="doc-page">
+            <div class="doc-header-title">
+                FORM FOR MAINTENANCE OF RECORD IN CASE OF PRENATAL DIAGNOSTIC TEST /PROCEDURE BY GENETIC CLINIC/ULTRASOUND CLINIC/IMAGING CENTRE
             </div>
-            <div style="margin-top: 4px;"><strong>Doctor Performing Diagnostic Ultrasonography:</strong> <span id="fDocName">Dr NIKUNJ KOTHIA</span> (MCI/MMC Reg: <span id="fDocReg">2009/09/3218</span>)</div>
-        </div>
+            <div style="border-top: 1px solid #000; margin-bottom: 4px;"></div>
 
-        <div style="border: 1px solid #000; padding: 6px; margin-bottom: 6px;">
-            <div style="font-weight: bold; text-decoration: underline; margin-bottom: 4px;">SECTION C: STATUTORY DECLARATION UNDER PCPNDT ACT</div>
-            <p style="font-size: 0.76rem; margin-bottom: 4px;">
-                <strong>Declaration by Person undergoing Ultrasonography:</strong> I declare that I have not been made aware of the sex of the fetus in any manner, nor did I seek any information regarding sex selection / determination.
-            </p>
-            <p style="font-size: 0.76rem;">
-                <strong>Declaration by Doctor / Sonologist:</strong> I, <span id="fDocName2">Dr NIKUNJ KOTHIA</span>, declare that while conducting ultrasonography, I have neither detected nor disclosed the sex of the fetus to anyone in any manner.
-            </p>
-            <div style="display: flex; justify-content: space-between; margin-top: 22px; padding: 0 10px;">
-                <div>_______________________________<br>Signature / Thumb Impression of Pregnant Woman</div>
-                <div style="text-align: right;">_______________________________<br>Signature & Seal of Doctor / Sonologist</div>
+            <div class="doc-sec-heading">Section A :</div>
+            
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 190px;">1.&nbsp;&nbsp;Name and Address of Clinic :</div>
+                <div class="val" style="font-size: 8.4pt;">
+                    <span id="docClinicName">RESQ HEART CLINIC AND IMAGING CENTRE</span> <span id="docClinicAddress">Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL, Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.</span>
+                </div>
+            </div>
+
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 190px;">2.&nbsp;&nbsp;Reg No :</div>
+                <div class="val" id="docClinicReg" style="font-weight: bold;">RS197</div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                <div style="display: flex; flex: 1;">
+                    <div style="min-width: 190px;">3.&nbsp;&nbsp;Patient's Name :</div>
+                    <div style="font-weight: bold;" id="docPatName"></div>
+                </div>
+                <div style="min-width: 180px; text-align: right;">
+                    Age : <strong id="docPatAge"></strong> yrs
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                <div style="min-width: 190px;">4.&nbsp;&nbsp;No of Children :</div>
+                <div style="flex: 1; display: flex; justify-content: space-around;">
+                    <div>Male : <strong id="docMaleKids"></strong></div>
+                    <div>Female : <strong id="docFemaleKids"></strong></div>
+                </div>
+            </div>
+
+            <div style="margin-left: 18px; margin-bottom: 2px;">
+                <div>a. No of Sons with age of each living son: <strong id="docSonsDetail"></strong></div>
+                <div>b. No of Daughters with age of each living Daughter: <strong id="docDaughtersDetail"></strong></div>
+            </div>
+
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 250px;">5.&nbsp;&nbsp;Husband's/Wife's/Father's/Mother's Name :</div>
+                <div class="val" id="docRelativeName"></div>
+            </div>
+
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 250px;">6.&nbsp;&nbsp;Full Address with Tel No :</div>
+                <div class="val"><span id="docPatAddress"></span>, Tel: <span id="docPatPhone"></span></div>
+            </div>
+
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 250px;">7(a). Referred by :</div>
+                <div class="val" id="docRefDoc"></div>
+            </div>
+
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 250px;">7(b). Self Referral :</div>
+                <div class="val" id="docSelfRef"></div>
+            </div>
+
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 250px;">8.&nbsp;&nbsp;Last Menstrual Period/wks of Preg :</div>
+                <div class="val"><span id="docLmp"></span> / <span id="docWeeks"></span></div>
+            </div>
+
+            <div style="border-top: 1px solid #000; margin-top: 4px; margin-bottom: 2px;"></div>
+
+            <div class="doc-sec-heading">Section B :</div>
+            
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 280px;">9.&nbsp;&nbsp;Name of the doctor performing the procedures:</div>
+                <div class="val" id="docDoctorName">Dr NIKUNJ KOTHIA</div>
+            </div>
+
+            <div style="margin-bottom: 2px;">10. Indication/s for diagnosis procedure:</div>
+
+            <div class="indications-grid">
+                <div class="indication-row"><div class="ind-num">i.</div><div class="ind-text">To diagnose intra-uterine and/or ectopic pregnancy and confirm viability.</div></div>
+                <div class="indication-row"><div class="ind-num">ii.</div><div class="ind-text">Estimation of gestational age (dating).</div></div>
+                <div class="indication-row"><div class="ind-num">iii.</div><div class="ind-text">Detection of number of foetuses and their chorionicity.</div></div>
+                <div class="indication-row"><div class="ind-num">iv.</div><div class="ind-text">Suspected pregnancy with IUCD in-situ or suspected pregnancy following contraceptive failure/MTP failure.</div></div>
+                <div class="indication-row"><div class="ind-num">v.</div><div class="ind-text">Vaginal bleeding / leaking.</div></div>
+                <div class="indication-row"><div class="ind-num">vi.</div><div class="ind-text">Follow-up of cases of abortion.</div></div>
+                <div class="indication-row"><div class="ind-num">vii.</div><div class="ind-text">Assessment of cervical canal and diameter of internal os.</div></div>
+                <div class="indication-row"><div class="ind-num">viii.</div><div class="ind-text">Discrepancy between uterine size and period of amenorrhoea.</div></div>
+                <div class="indication-row"><div class="ind-num">ix.</div><div class="ind-text">Any suspected adenexal or uterine pathology / abnormality.</div></div>
+                <div class="indication-row"><div class="ind-num">x.</div><div class="ind-text">Detection of chromosomal abnormalities, foetal structural defects and other abnormalities and their follow-up.</div></div>
+                <div class="indication-row"><div class="ind-num">xi.</div><div class="ind-text">To evaluate foetal presentation and position.</div></div>
+                <div class="indication-row"><div class="ind-num">xii.</div><div class="ind-text">Assessment of liquor amnii.</div></div>
+                <div class="indication-row"><div class="ind-num">xiii.</div><div class="ind-text">Preterm labour / preterm premature rupture of membranes.</div></div>
+                <div class="indication-row"><div class="ind-num">xiv.</div><div class="ind-text">Evaluation of placental position, thickness, grading and abnormalities (placenta praevia, retroplacental haemorrhage, abnormal adherance etc.).</div></div>
+                <div class="indication-row"><div class="ind-num">xv.</div><div class="ind-text">Evaluation of umbilical cord - presentation, insertion, nuchal encirclement, number of vessels and presence of true knot.</div></div>
+                <div class="indication-row"><div class="ind-num">xvi.</div><div class="ind-text">Evaluation of previous Caesarean Section scars.</div></div>
+                <div class="indication-row"><div class="ind-num">xvii.</div><div class="ind-text">Evaluation of foetal growth parameters, foetal weight and foetal well being.</div></div>
+                <div class="indication-row"><div class="ind-num">xviii.</div><div class="ind-text">Colour flow mapping and duplex Doppler studies.</div></div>
+                <div class="indication-row"><div class="ind-num">xix.</div><div class="ind-text">Ultrasound guided procedures such as medical termination of pregnancy, external cephalic version etc. and their follow-up.</div></div>
+                <div class="indication-row"><div class="ind-num">xx.</div><div class="ind-text">Adjunct to diagnostic and therapeutic invasive interventions such as chorionic villus sampling (CVS), amniocenteses, foetal blood samples, foetal skin biopsy, amnioinfusion, intrauterine infusion, placement of shunts etc.</div></div>
+                <div class="indication-row"><div class="ind-num">xxi.</div><div class="ind-text">Observation of intra-partum events.</div></div>
+                <div class="indication-row"><div class="ind-num">xxii.</div><div class="ind-text">Medical/surgical conditions complicating pregnancy.</div></div>
+                <div class="indication-row"><div class="ind-num">xxiii.</div><div class="ind-text">Research/scientific studies in recognised institutions.</div></div>
+            </div>
+
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 250px;">11 i. Procedures carried out (Non-Invasive) :</div>
+                <div class="val">Ultrasonography</div>
+            </div>
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 250px;">11 ii. Any other (specify) :</div>
+                <div class="val">-</div>
+            </div>
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 320px;">12. Date on which declaration of preg woman /person obtained :</div>
+                <div class="val" id="docDeclDate"></div>
+            </div>
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 320px;">13. Date(s) on which procedures carried out :</div>
+                <div class="val" id="docProcDate"></div>
+            </div>
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 250px;">14. Result of non invasive proc carried out :</div>
+                <div class="val" id="docProcResult" style="font-family: monospace; font-size: 8.5pt;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <div class="doc-line-item" style="flex: 1;">
+                    <div class="label" style="min-width: 280px;">15. The result of Pre Natal Diagnostic procedure conveyed :</div>
+                    <div class="val">on: <span id="docConveyDate"></span></div>
+                </div>
+            </div>
+            <div class="doc-line-item">
+                <div class="label" style="min-width: 280px;">16. Any indication for MTP as per abnormality detected :</div>
+                <div class="val">NONE</div>
+            </div>
+
+            <div class="doc-sign-box">
+                <div>
+                    Date - <span id="docSignDate"></span><br><br>
+                    Place - Kandivali West
+                </div>
+                <div style="text-align: right;">
+                    <strong id="docSignDocName">Dr NIKUNJ KOTHIA</strong>&nbsp;&nbsp;<strong id="docSignDocReg">2009/09/3218</strong><br>
+                    <span style="font-size: 7.5pt;">Name/Sign/Reg No of Gynaecologist/Radiologist/Reg Med<br>Practitioner performing diagnostic procedures</span>
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid #000; margin-top: 4px; margin-bottom: 2px;"></div>
+
+            <div style="font-weight: bold; text-decoration: underline;">Section C : To be filled for performing invasive Procedures / Tests only</div>
+            <div style="margin-left: 20px; font-weight: bold;">NOT APPLICABLE</div>
+
+            <div style="display: flex; justify-content: space-between; font-size: 8pt; margin-top: 2px;">
+                <div>17. Name of the doctor performing the procedure :</div>
+                <div style="font-weight: bold;">Not Applicable</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 8pt;">
+                <div>18. History of genetic/medical disease in the family (specify) :</div>
+                <div style="font-weight: bold;">Not Applicable</div>
+            </div>
+            <div class="sec-c-grid">
+                <div>Basis of diagnosis :</div>
+                <div style="display: flex; justify-content: space-between;"><div>(a) Clinical :</div><div><strong>Not Applicable</strong></div></div>
+                <div style="display: flex; justify-content: space-between;"><div>(b) Bio-Chemical :</div><div><strong>Not Applicable</strong></div></div>
+                <div style="display: flex; justify-content: space-between;"><div>(c) Cytogenetic :</div><div><strong>Not Applicable</strong></div></div>
+                <div style="display: flex; justify-content: space-between;"><div>(d) Other(eg Radiological, USG etc specify) :</div><div><strong>Not Applicable</strong></div></div>
             </div>
         </div>
+
+        <!-- PAGE 2: SECTION C CONTINUED, SECTION D & SIGNATURE DECLARATIONS -->
+        <div class="doc-page">
+            <div class="sec-c-grid" style="margin-left: 0;">
+                <div>19. Indication for the Diagnostic procedure :</div>
+                <div style="margin-left: 14px;">
+                    <div>A. Previous Child/Children with :</div>
+                    <div style="margin-left: 14px;">
+                        <div style="display: flex; justify-content: space-between;"><div>(i) Chromosomal Disorders:</div><div><strong>Not Applicable</strong></div></div>
+                        <div style="display: flex; justify-content: space-between;"><div>(ii) Metabolic Disorders:</div><div><strong>Not Applicable</strong></div></div>
+                        <div style="display: flex; justify-content: space-between;"><div>(iii) Congenital Anomaly:</div><div><strong>Not Applicable</strong></div></div>
+                        <div style="display: flex; justify-content: space-between;"><div>(iv) Mental Retardation:</div><div><strong>Not Applicable</strong></div></div>
+                        <div style="display: flex; justify-content: space-between;"><div>(v) Haemoglobinopathy:</div><div><strong>Not Applicable</strong></div></div>
+                        <div style="display: flex; justify-content: space-between;"><div>(vi) Sex Linked Disorders:</div><div><strong>Not Applicable</strong></div></div>
+                        <div style="display: flex; justify-content: space-between;"><div>(vii) Single gene Disorder:</div><div><strong>Not Applicable</strong></div></div>
+                        <div style="display: flex; justify-content: space-between;"><div>(viii) Any other (specify):</div><div><strong>Not Applicable</strong></div></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 1px;"><div>B. Advanced Maternal Age (35 yrs) :</div><div><strong>No</strong></div></div>
+                    <div style="display: flex; justify-content: space-between;"><div>C. Mother/Father/Sibling has Genetic Disease(specify) :</div><div><strong>Not Applicable</strong></div></div>
+                    <div style="display: flex; justify-content: space-between;"><div>D. Other(specify) :</div><div><strong>Not Applicable</strong></div></div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-top: 2px;">
+                    <div>20. Date on which consent of the pregnant woman / person was obtained in Form G :</div>
+                    <div><strong>Not Applicable</strong></div>
+                </div>
+
+                <div>21. Invasive procedures carried out :</div>
+                <div style="margin-left: 14px;">
+                    <div style="display: flex; justify-content: space-between;"><div>(i) Amniocentesis :</div><div><strong>Not Applicable</strong></div></div>
+                    <div style="display: flex; justify-content: space-between;"><div>(ii) Chorionic Villi Aspiration :</div><div><strong>Not Applicable</strong></div></div>
+                    <div style="display: flex; justify-content: space-between;"><div>(iii) Foetal Biopsy :</div><div><strong>Not Applicable</strong></div></div>
+                    <div style="display: flex; justify-content: space-between;"><div>(iv) Cordocentesis :</div><div><strong>Not Applicable</strong></div></div>
+                    <div style="display: flex; justify-content: space-between;"><div>(v) Any other (specify) :</div><div><strong>Not Applicable</strong></div></div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-top: 1px;">
+                    <div>22. Any Complication of invasive Procedure - please specify :</div>
+                    <div><strong>Not Applicable</strong></div>
+                </div>
+
+                <div>23. Laboratory Tests Recommended :</div>
+                <div style="margin-left: 14px;">
+                    <div style="display: flex; justify-content: space-between;"><div>(i) Chromosomal Studies :</div><div><strong>Not Applicable</strong></div></div>
+                    <div style="display: flex; justify-content: space-between;"><div>(ii) Biochemical Studies :</div><div><strong>Not Applicable</strong></div></div>
+                    <div style="display: flex; justify-content: space-between;"><div>(iii) Molecular Studies :</div><div><strong>Not Applicable</strong></div></div>
+                    <div style="display: flex; justify-content: space-between;"><div>(iv) Pre-implantation gender diagnosis :</div><div><strong>Not Applicable</strong></div></div>
+                    <div style="display: flex; justify-content: space-between;"><div>(v) Any other (specify) :</div><div><strong>Not Applicable</strong></div></div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-top: 1px;">
+                    <div>24. Result of the procedure / tests carried out :</div>
+                    <div><strong>Not Applicable</strong></div>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <div>25. Date(s) on which procedures carried out :</div>
+                    <div><strong>Not Applicable</strong></div>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <div>26. The result of Pre Natal Diagnostic procedure conveyed to :</div>
+                    <div><strong>Not Applicable</strong>&nbsp;&nbsp;on:&nbsp;<strong>Not Applicable</strong></div>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <div>27. Any indication for MTP as per abnormality detected :</div>
+                    <div><strong>NONE</strong></div>
+                </div>
+            </div>
+
+            <div class="doc-sign-box" style="margin-top: 8px;">
+                <div>
+                    Date - <span id="docSignDate2"></span><br><br>
+                    Place - Kandivali West
+                </div>
+                <div style="text-align: right;">
+                    <strong id="docSignDocName2">Dr NIKUNJ KOTHIA</strong>&nbsp;&nbsp;<strong id="docSignDocReg2">2009/09/3218</strong><br>
+                    <span style="font-size: 7.5pt;">Name/Sign/Reg No of Gynaecologist/Radiologist/Reg Med<br>Practitioner performing diagnostic procedures</span>
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid #000; margin-top: 6px; margin-bottom: 4px;"></div>
+
+            <!-- SECTION D : DECLARATIONS IN ENGLISH, MARATHI, HINDI -->
+            <div class="doc-sec-heading" style="margin-top: 2px;">Section D : Declaration</div>
+
+            <div style="text-align: center; font-weight: bold; font-size: 8.5pt; text-decoration: underline; margin-bottom: 4px;">
+                DECLARATION OF THE PERSON UNDERGOING PRENATAL DIAGNOSTIC TEST / PROCEDURE
+            </div>
+
+            <div style="font-size: 8.2pt; line-height: 1.3; margin-bottom: 8px;">
+                <p>I declare that by undergoing ultrasonography /image scanning etc. I do not want to know the sex of my foetus.</p>
+                <p style="font-family: Arial, sans-serif; margin-top: 2px;">मी घोषित करते की अल्ट्रासोनोग्राफी / इमेजिंग स्कॅनिंग करून मी माझ्या गर्भाचे लिंग जाणून घेऊ इच्छित नाही.</p>
+                <p style="font-family: Arial, sans-serif; margin-top: 2px;">मैं घोषणा करती हूँ की अल्ट्रा-सोनोग्राफी / इमेजिंग स्कैनिंग कराके में मेरे गर्भ के लिंग की जांच करना नहीं चाहती.</p>
+            </div>
+
+            <div style="text-align: right; font-size: 8pt; margin-bottom: 8px;">
+                ____________________________________________________________________<br>
+                Signature / Thumb impression of person undergoing the Prenatal Diagnostic Test / Procedure
+            </div>
+
+            <div style="font-size: 7.8pt; border: 1px dashed #777; padding: 4px; margin-bottom: 6px;">
+                <strong>In case of Thumb impression :</strong><br>
+                Identified by (Name) : __________________________________ Age : ________ Sex : ________<br>
+                Relation (if any) : ________________ Address & Contact number : __________________________________<br>
+                Signature of a person attesting thumb impression : ________________________ Date : <span id="docThumbDate"></span>
+            </div>
+
+            <div style="text-align: center; font-weight: bold; font-size: 8.5pt; text-decoration: underline; margin-top: 6px; margin-bottom: 4px;">
+                DECLARATION OF THE DOCTOR / PERSON CONDUCTING PRENATAL DIAGNOSTIC TEST / PROCEDURE
+            </div>
+
+            <div style="font-size: 8.2pt; line-height: 1.3; margin-bottom: 12px;">
+                I, <strong id="docDeclDoctor">Dr NIKUNJ KOTHIA</strong> <strong id="docDeclDocReg">2009/09/3218</strong> declare that by conducting ultrasonography/image scanning I have neither detected nor disclosed the sex of her foetus to anybody in any manner.
+            </div>
+
+            <div style="text-align: right; font-size: 8pt; margin-bottom: 10px;">
+                ____________________________________________________________________<br>
+                Name, Registration number with seal of the Gynaecologist / Radiologist / Reg. Medical Practitioner conducting diagnostic procedure<br>
+                <strong id="docDeclDoctorBottom">Dr NIKUNJ KOTHIA</strong> <strong id="docDeclDocRegBottom">2009/09/3218</strong>
+            </div>
+
+            <div style="border-top: 1px dotted #000; padding-top: 6px; font-size: 7.8pt; line-height: 1.25;">
+                I declare that I have received a copy of the declaration from <strong id="docAckClinic">RESQ HEART CLINIC AND IMAGING CENTRE</strong> <span id="docAckAddress">Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL, Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.</span>
+                <div style="text-align: right; margin-top: 14px;">
+                    ____________________________________________<br>
+                    Signature / Thumb Impression of Patient
+                </div>
+            </div>
+
+        </div>
+
     </div>
 
     <!-- MAIN CLIENT APPLICATION SCRIPT -->
@@ -1597,7 +1935,7 @@
                 alert(`Registration & Billing Complete! Invoice: ${json.data.invoiceNumber}`);
                 if (shouldPrintInvoice) {
                     if (isPcpndt) {
-                        const opt = confirm("Visit saved! Click OK to Print Form F, or Cancel to Print Standard Invoice.");
+                        const opt = confirm("Visit saved! Click OK to Print Statutory Form F (2 Pages), or Cancel to Print Standard Invoice.");
                         if (opt) printPCPNDTForm(json.data.visitId);
                         else printSingleInvoice(json.data.visitId);
                     } else {
@@ -1671,7 +2009,9 @@
             }
         }
 
-        // Dedicated Statutory PCPNDT Form F Print
+        // ========================================================
+        // DEDICATED EXACT 2-PAGE PCPNDT FORM F PRINT HANDLER
+        // ========================================================
         async function printPCPNDTForm(visitId) {
             try {
                 const res = await fetch(`/api/invoice/${visitId}`);
@@ -1682,35 +2022,59 @@
                 const v = data.visitDetails || {};
                 const f = data.pcpndtForm;
 
-                if (!f) return alert('No PCPNDT Form F records attached to this visit.');
+                if (!f) return alert('No PCPNDT Form F record attached to this visit.');
 
-                document.getElementById('fClinicName').textContent = v.centre_name || activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
-                document.getElementById('fClinicAddress').textContent = v.centre_address || activeCentre?.address || '';
-                document.getElementById('fClinicReg').textContent = f.clinic_reg_no || v.centre_reg_no || 'RS197';
-                document.getElementById('fInvNo').textContent = v.invoice_number;
-                document.getElementById('fDate').textContent = new Date(v.created_at).toLocaleDateString();
+                const cName = v.centre_name || activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
+                const cAddr = v.centre_address || activeCentre?.address || 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL, Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.';
+                const cReg = f.clinic_reg_no || v.centre_reg_no || 'RS197';
+                const vDate = new Date(v.created_at).toLocaleDateString('en-GB');
 
-                document.getElementById('fPatName').textContent = v.full_name || '';
-                document.getElementById('fPatAge').textContent = v.age || 'N/A';
-                document.getElementById('fRelName').textContent = f.relative_name || 'N/A';
-                document.getElementById('fPatPhone').textContent = v.phone || 'N/A';
-                document.getElementById('fPatAddr').textContent = v.address || 'N/A';
-                document.getElementById('fSons').textContent = `${f.no_of_sons || 0} (${f.sons_age || 'N/A'})`;
-                document.getElementById('fDaughters').textContent = `${f.no_of_daughters || 0} (${f.daughters_age || 'N/A'})`;
-                document.getElementById('fLMP').textContent = f.lmp_date || 'N/A';
-                document.getElementById('fWeeks').textContent = f.weeks_of_preg || 'N/A';
-                document.getElementById('fRefDoc').textContent = v.doctor_name || 'Self / Direct';
+                // Bind Section A
+                document.getElementById('docClinicName').textContent = cName;
+                document.getElementById('docClinicAddress').textContent = cAddr;
+                document.getElementById('docClinicReg').textContent = cReg;
+                document.getElementById('docPatName').textContent = v.full_name || '';
+                document.getElementById('docPatAge').textContent = v.age || 'N/A';
+                document.getElementById('docMaleKids').textContent = f.no_of_sons || '0';
+                document.getElementById('docFemaleKids').textContent = f.no_of_daughters || '0';
+                document.getElementById('docSonsDetail').textContent = f.sons_age ? `${f.no_of_sons || 0} (${f.sons_age})` : (f.no_of_sons || '0');
+                document.getElementById('docDaughtersDetail').textContent = f.daughters_age ? `${f.no_of_daughters || 0} (${f.daughters_age})` : (f.no_of_daughters || '0');
+                document.getElementById('docRelativeName').textContent = f.relative_name || '-';
+                document.getElementById('docPatAddress').textContent = v.address || 'Kandivali West Mumbai';
+                document.getElementById('docPatPhone').textContent = v.phone || '-';
+                document.getElementById('docRefDoc').textContent = v.doctor_name ? `${v.doctor_name} (${v.hospital_clinic_name || 'Clinic'})` : 'Self / Direct';
+                document.getElementById('docSelfRef').textContent = v.doctor_name ? 'No' : 'Yes';
+                document.getElementById('docLmp').textContent = f.lmp_date ? `LMP: ${f.lmp_date}` : 'LMP: -';
+                document.getElementById('docWeeks').textContent = f.weeks_of_preg ? `${f.weeks_of_preg}` : '-';
 
-                document.getElementById('fIndication').textContent = f.indications || 'Routine Diagnostic Evaluation';
-                document.getElementById('fFindings').textContent = f.scan_result || 'No manual remarks entered.';
-                document.getElementById('fDocName').textContent = f.doctor_name || 'Dr NIKUNJ KOTHIA';
-                document.getElementById('fDocName2').textContent = f.doctor_name || 'Dr NIKUNJ KOTHIA';
-                document.getElementById('fDocReg').textContent = f.doctor_reg_no || '2009/09/3218';
+                // Bind Section B
+                const dName = f.doctor_name || 'Dr NIKUNJ KOTHIA';
+                const dReg = f.doctor_reg_no || '2009/09/3218';
+                document.getElementById('docDoctorName').textContent = dName;
+                document.getElementById('docDeclDate').textContent = vDate;
+                document.getElementById('docProcDate').textContent = vDate;
+                document.getElementById('docProcResult').textContent = f.scan_result || 'Single live intrauterine fetus of normal gestational parameters.';
+                document.getElementById('docConveyDate').textContent = vDate;
+                document.getElementById('docSignDate').textContent = vDate;
+                document.getElementById('docSignDocName').textContent = dName;
+                document.getElementById('docSignDocReg').textContent = dReg;
 
-                const pcpndtPrintArea = document.getElementById('pcpndtPrintArea');
-                pcpndtPrintArea.classList.add('print-active');
+                // Bind Section C / D (Page 2)
+                document.getElementById('docSignDate2').textContent = vDate;
+                document.getElementById('docSignDocName2').textContent = dName;
+                document.getElementById('docSignDocReg2').textContent = dReg;
+                document.getElementById('docThumbDate').textContent = vDate;
+                document.getElementById('docDeclDoctor').textContent = dName;
+                document.getElementById('docDeclDocReg').textContent = dReg;
+                document.getElementById('docDeclDoctorBottom').textContent = dName;
+                document.getElementById('docDeclDocRegBottom').textContent = dReg;
+                document.getElementById('docAckClinic').textContent = cName;
+                document.getElementById('docAckAddress').textContent = cAddr;
+
+                const docContainer = document.getElementById('exactPcpndtDoc');
+                docContainer.classList.add('print-active');
                 window.print();
-                pcpndtPrintArea.classList.remove('print-active');
+                docContainer.classList.remove('print-active');
             } catch (e) {
                 alert('Error printing Form F: ' + e.message);
             }
