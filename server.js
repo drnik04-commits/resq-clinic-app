@@ -28,7 +28,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Database Connection: Auto-detects Cloud DB (Neon / Render) with local fallback
+// Database Connection: Cloud Auto-Detection with local fallback
 const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_Gmo8JSix3TAt@ep-shy-scene-axrfju67.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require';
 const isCloud = connectionString.includes('neon.tech') || connectionString.includes('render.com') || connectionString.includes('aws');
 
@@ -37,7 +37,7 @@ const pool = new Pool({
   ssl: isCloud ? { rejectUnauthorized: false } : false
 });
 
-// Seed Catalog for Lupin Diagnostics & Imaging
+// Test Catalog Seed Data
 const lupinTests = [
   { testName: 'Doctor Consultation / Cardiology OPD', category: 'Consulting', price: 800, testCut: 200 },
   { testName: 'Doctor Consultation / General Follow-up', category: 'Consulting', price: 500, testCut: 100 },
@@ -75,11 +75,11 @@ async function seedLupinTests() {
       }
     }
   } catch (err) {
-    console.error('Error auto-seeding tests:', err.message);
+    console.error('Error seeding tests:', err.message);
   }
 }
 
-// Database Initialization & Non-Destructive Schema Synchronizations
+// Database Initialization & Non-Destructive Synchronizations
 async function initDB() {
   try {
     await pool.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
@@ -95,11 +95,9 @@ async function initDB() {
     const authCheck = await pool.query("SELECT id FROM app_auth WHERE role = 'admin' LIMIT 1");
     if (authCheck.rows.length === 0) {
       await pool.query("INSERT INTO app_auth (role, password) VALUES ('admin', 'admin123')");
-    } else {
-      await pool.query("UPDATE app_auth SET password = 'admin123' WHERE role = 'admin'");
     }
 
-    // 2. Multi-Centre Management Table
+    // 2. Multi-Centre Management Table (Updated to RS197)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS clinic_centres (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -114,6 +112,9 @@ async function initDB() {
       );
     `);
 
+    // Update existing default reg_no to RS197
+    await pool.query(`UPDATE clinic_centres SET reg_no = 'RS197' WHERE reg_no = 'RC197' OR reg_no IS NULL;`);
+
     const centreCheck = await pool.query('SELECT id FROM clinic_centres LIMIT 1');
     if (centreCheck.rows.length === 0) {
       await pool.query(`
@@ -123,7 +124,7 @@ async function initDB() {
           'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging',
           'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL, Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.',
           '+91 8433838285',
-          'RC197',
+          'RS197',
           true
         );
       `);
@@ -192,14 +193,13 @@ async function initDB() {
     await pool.query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE SET NULL;`);
     await pool.query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS payment_mode VARCHAR(50) DEFAULT 'Cash';`);
 
-    // Link historical visits to primary centre
     await pool.query(`
       UPDATE visits 
       SET centre_id = (SELECT id FROM clinic_centres WHERE is_active = true LIMIT 1) 
       WHERE centre_id IS NULL;
     `);
 
-    // 7. Patient Investigations Table (With safe SET NULL on test deletion)
+    // 7. Patient Investigations Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS patient_investigations (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -213,7 +213,7 @@ async function initDB() {
     await pool.query(`ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_test_id_fkey;`).catch(() => {});
     await pool.query(`ALTER TABLE patient_investigations ADD CONSTRAINT patient_investigations_test_id_fkey FOREIGN KEY (test_id) REFERENCES test_master(id) ON DELETE SET NULL;`).catch(() => {});
 
-    // 8. PCPNDT Forms Table
+    // 8. PCPNDT Forms Table (Updated with RS197 Clinic Reg No)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS pcpndt_forms (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -229,12 +229,15 @@ async function initDB() {
         scan_result TEXT,
         doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA',
         doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218',
+        clinic_reg_no VARCHAR(100) DEFAULT 'RS197',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
     await pool.query(`ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS scan_result TEXT;`);
+    await pool.query(`ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS clinic_reg_no VARCHAR(100) DEFAULT 'RS197';`);
+    await pool.query(`UPDATE pcpndt_forms SET clinic_reg_no = 'RS197' WHERE clinic_reg_no = 'RC197' OR clinic_reg_no IS NULL;`);
 
-    console.log('Database synced: All tables, dynamic bill editing, and cascade test deletions ready.');
+    console.log('Database synced: All tables, instant search, RS197 reg no, and PCPNDT ready.');
     await seedLupinTests();
   } catch (err) {
     console.error('Database Initialization Error:', err.message);
@@ -320,7 +323,7 @@ app.post('/api/centres', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO clinic_centres (centre_name, tagline, address, phone, reg_no, email, is_active) 
        VALUES ($1, $2, $3, $4, $5, $6, false) RETURNING *`,
-      [centre_name, tagline || '', address || '', phone || '', reg_no || '', email || '']
+      [centre_name, tagline || '', address || '', phone || '', reg_no || 'RS197', email || '']
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) {
@@ -336,7 +339,7 @@ app.put('/api/centres/:id', async (req, res) => {
       `UPDATE clinic_centres 
        SET centre_name = $1, tagline = $2, address = $3, phone = $4, reg_no = $5, email = $6 
        WHERE id = $7 RETURNING *`,
-      [centre_name, tagline || '', address || '', phone || '', reg_no || '', email || '', id]
+      [centre_name, tagline || '', address || '', phone || '', reg_no || 'RS197', email || '', id]
     );
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) {
@@ -429,7 +432,7 @@ app.delete('/api/doctors/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// TESTS MASTER ENDPOINTS (With Safe Deletion Support)
+// TESTS MASTER ENDPOINTS
 // ----------------------------------------------------
 app.get('/api/tests', async (req, res) => {
   try {
@@ -577,7 +580,7 @@ app.delete('/api/patients/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// VISIT REGISTRATION & BILLING ENDPOINTS
+// VISIT REGISTRATION & PCPNDT ENDPOINTS
 // ----------------------------------------------------
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
@@ -586,7 +589,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     const { 
       existingPatientId, fullName, age, gender, phone, email, whatsappNumber, address, patientCode, 
       referringDoctorId, tests, concession, paidAmount, paymentMode,
-      isPcpndt, relativeName, noOfSons, sonsAge, noOfDaughters, daughtersAge, lmpDate, weeksOfPreg, pcpndtIndications, scanResult, doctorName, doctorRegNo
+      isPcpndt, relativeName, noOfSons, sonsAge, noOfDaughters, daughtersAge, lmpDate, weeksOfPreg, pcpndtIndications, scanResult, doctorName, doctorRegNo, clinicRegNo
     } = req.body;
 
     const reportFile = req.file ? req.file.filename : null;
@@ -676,14 +679,25 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
       );
     }
 
-    if (isPcpndt === 'true' || isPcpndt === true) {
+    // Save PCPNDT Form F if checked
+    if (isPcpndt === 'true' || isPcpndt === true || isPcpndt === '1') {
       await client.query(
-        `INSERT INTO pcpndt_forms (visit_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        `INSERT INTO pcpndt_forms (visit_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
-          visitId, relativeName || '', parseInt(noOfSons, 10) || 0, sonsAge || '', 
-          parseInt(noOfDaughters, 10) || 0, daughtersAge || '', lmpDate || '', weeksOfPreg || '', 
-          pcpndtIndications || '', scanResult || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218'
+          visitId, 
+          relativeName || '', 
+          parseInt(noOfSons, 10) || 0, 
+          sonsAge || '', 
+          parseInt(noOfDaughters, 10) || 0, 
+          daughtersAge || '', 
+          lmpDate || '', 
+          weeksOfPreg || '', 
+          pcpndtIndications || '', 
+          scanResult || '', 
+          doctorName || 'Dr NIKUNJ KOTHIA', 
+          doctorRegNo || '2009/09/3218',
+          clinicRegNo || 'RS197'
         ]
       );
     }
@@ -693,7 +707,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     res.status(201).json({ 
       success: true, 
       message: 'Visit registered successfully', 
-      data: { visitId, invoiceNumber: invoiceNo, patientId, totalAmount, concession: discount, netPayable, paidAmount: paid, balanceAmount: balance, paymentMode: selectedMode, doctorCommission }
+      data: { visitId, invoiceNumber: invoiceNo, patientId, totalAmount, concession: discount, netPayable, paidAmount: paid, balanceAmount: balance, paymentMode: selectedMode, doctorCommission, hasPcpndt: (isPcpndt === 'true' || isPcpndt === true) }
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -705,11 +719,14 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
 });
 
 // ----------------------------------------------------
-// FULL DYNAMIC BILL EDITING & CHARGES ENDPOINT
+// FULL DYNAMIC BILL & PCPNDT EDITING ENDPOINT
 // ----------------------------------------------------
 app.put('/api/visits/:id', upload.single('reportFile'), async (req, res) => {
   const { id } = req.params;
-  const { concession, paidAmount, paymentMode, referringDoctorId, tests } = req.body;
+  const { 
+    concession, paidAmount, paymentMode, referringDoctorId, tests,
+    isPcpndt, relativeName, noOfSons, sonsAge, noOfDaughters, daughtersAge, lmpDate, weeksOfPreg, pcpndtIndications, scanResult, doctorName, doctorRegNo, clinicRegNo
+  } = req.body;
   const reportFile = req.file ? req.file.filename : null;
 
   const client = await pool.connect();
@@ -776,6 +793,34 @@ app.put('/api/visits/:id', upload.single('reportFile'), async (req, res) => {
     }
 
     const result = await client.query(query, params);
+
+    // Upsert PCPNDT form if fields supplied
+    if (isPcpndt === 'true' || isPcpndt === true) {
+      const pCheck = await client.query('SELECT id FROM pcpndt_forms WHERE visit_id = $1', [id]);
+      if (pCheck.rows.length > 0) {
+        await client.query(
+          `UPDATE pcpndt_forms 
+           SET relative_name = $1, no_of_sons = $2, sons_age = $3, no_of_daughters = $4, daughters_age = $5, lmp_date = $6, weeks_of_preg = $7, indications = $8, scan_result = $9, doctor_name = $10, doctor_reg_no = $11, clinic_reg_no = $12
+           WHERE visit_id = $13`,
+          [
+            relativeName || '', parseInt(noOfSons, 10) || 0, sonsAge || '', 
+            parseInt(noOfDaughters, 10) || 0, daughtersAge || '', lmpDate || '', weeksOfPreg || '', 
+            pcpndtIndications || '', scanResult || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', clinicRegNo || 'RS197', id
+          ]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO pcpndt_forms (visit_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [
+            id, relativeName || '', parseInt(noOfSons, 10) || 0, sonsAge || '', 
+            parseInt(noOfDaughters, 10) || 0, daughtersAge || '', lmpDate || '', weeksOfPreg || '', 
+            pcpndtIndications || '', scanResult || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', clinicRegNo || 'RS197'
+          ]
+        );
+      }
+    }
+
     await client.query('COMMIT');
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -806,7 +851,7 @@ app.delete('/api/visits/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// INVOICE DETAILS & REPORTING (With Category Breakdown)
+// INVOICE & PCPNDT FETCHING
 // ----------------------------------------------------
 app.get('/api/invoice/:visitId', async (req, res) => {
   const { visitId } = req.params;
@@ -818,7 +863,7 @@ app.get('/api/invoice/:visitId', async (req, res) => {
               c.tagline as centre_tagline,
               COALESCE(c.address, '') as centre_address,
               COALESCE(c.phone, '') as centre_phone,
-              COALESCE(c.reg_no, '') as centre_reg_no
+              COALESCE(c.reg_no, 'RS197') as centre_reg_no
        FROM visits v 
        JOIN patients p ON v.patient_id = p.id 
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id 
@@ -864,12 +909,14 @@ app.get('/api/reports/collection', async (req, res) => {
              COALESCE(v.payment_mode, 'Cash') as payment_mode, v.report_file,
              COALESCE(c.centre_name, 'Main Centre') as centre_name,
              COALESCE(string_agg(DISTINCT tm.category, ', '), 'General') as categories,
-             COALESCE(string_agg(DISTINCT tm.test_name, ', '), '') as test_names
+             COALESCE(string_agg(DISTINCT tm.test_name, ', '), '') as test_names,
+             CASE WHEN pf.id IS NOT NULL THEN true ELSE false END as has_pcpndt
       FROM visits v 
       LEFT JOIN patients p ON v.patient_id = p.id 
       LEFT JOIN clinic_centres c ON v.centre_id = c.id
       LEFT JOIN patient_investigations pi ON pi.visit_id = v.id
       LEFT JOIN test_master tm ON pi.test_id = tm.id
+      LEFT JOIN pcpndt_forms pf ON pf.visit_id = v.id
       WHERE 1=1
     `;
     let params = [];
@@ -902,7 +949,7 @@ app.get('/api/reports/collection', async (req, res) => {
       )`;
     }
 
-    query += ` GROUP BY v.id, p.full_name, p.phone, c.centre_name ORDER BY v.created_at DESC`;
+    query += ` GROUP BY v.id, p.full_name, p.phone, c.centre_name, pf.id ORDER BY v.created_at DESC`;
     const result = await pool.query(query, params);
 
     let catSummaryQuery = `
@@ -1008,7 +1055,7 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
   }
 });
 
-// Universal catchall safe route
+// Universal catchall
 app.use((req, res) => {
   if (fs.existsSync(path.join(__dirname, 'public', 'index.html'))) {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -1020,5 +1067,5 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', async () => {
   await initDB();
-  console.log(`ResQ Clinic System running on port ${PORT}`);
+  console.log(`ResQ Clinic System running on http://localhost:${PORT}`);
 });
