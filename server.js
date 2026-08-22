@@ -97,7 +97,7 @@ async function initDB() {
       await pool.query("INSERT INTO app_auth (role, password) VALUES ('admin', 'admin123')");
     }
 
-    // 2. Multi-Centre Management Table (Updated to RS197)
+    // 2. Multi-Centre Management Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS clinic_centres (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -111,8 +111,6 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-
-    // Update existing default reg_no to RS197
     await pool.query(`UPDATE clinic_centres SET reg_no = 'RS197' WHERE reg_no = 'RC197' OR reg_no IS NULL;`);
 
     const centreCheck = await pool.query('SELECT id FROM clinic_centres LIMIT 1');
@@ -213,7 +211,7 @@ async function initDB() {
     await pool.query(`ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_test_id_fkey;`).catch(() => {});
     await pool.query(`ALTER TABLE patient_investigations ADD CONSTRAINT patient_investigations_test_id_fkey FOREIGN KEY (test_id) REFERENCES test_master(id) ON DELETE SET NULL;`).catch(() => {});
 
-    // 8. PCPNDT Forms Table (Updated with RS197 Clinic Reg No)
+    // 8. PCPNDT Forms Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS pcpndt_forms (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -237,7 +235,7 @@ async function initDB() {
     await pool.query(`ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS clinic_reg_no VARCHAR(100) DEFAULT 'RS197';`);
     await pool.query(`UPDATE pcpndt_forms SET clinic_reg_no = 'RS197' WHERE clinic_reg_no = 'RC197' OR clinic_reg_no IS NULL;`);
 
-    console.log('Database synced: All tables, instant search, RS197 reg no, and PCPNDT ready.');
+    console.log('Database synced: All tables, standalone PCPNDT Form F CRUD, and RS197 clinic registration ready.');
     await seedLupinTests();
   } catch (err) {
     console.error('Database Initialization Error:', err.message);
@@ -530,7 +528,8 @@ app.get('/api/patients/:id/visits', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT v.*, COALESCE(v.payment_mode, 'Cash') as payment_mode, p.phone, p.whatsapp_number, d.doctor_name, c.centre_name,
-              CASE WHEN pf.id IS NOT NULL THEN true ELSE false END as has_pcpndt
+              CASE WHEN pf.id IS NOT NULL THEN true ELSE false END as has_pcpndt,
+              pf.id as pcpndt_id
        FROM visits v 
        JOIN patients p ON v.patient_id = p.id 
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id 
@@ -580,7 +579,111 @@ app.delete('/api/patients/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// VISIT REGISTRATION & PCPNDT ENDPOINTS
+// DEDICATED PCPNDT FORM F REGISTER & CRUD ENDPOINTS
+// ----------------------------------------------------
+app.get('/api/pcpndt', async (req, res) => {
+  const { startDate, endDate, month, search } = req.query;
+  try {
+    let query = `
+      SELECT pf.*, v.invoice_number, COALESCE(pf.created_at, v.created_at) as form_date,
+             p.full_name as patient_name, p.age as patient_age, p.phone as patient_phone, p.address as patient_address,
+             c.centre_name, c.address as centre_address, COALESCE(pf.clinic_reg_no, c.reg_no, 'RS197') as effective_reg_no,
+             d.doctor_name as ref_doctor_name, d.hospital_clinic_name as ref_doctor_hospital
+      FROM pcpndt_forms pf
+      JOIN visits v ON pf.visit_id = v.id
+      JOIN patients p ON v.patient_id = p.id
+      LEFT JOIN clinic_centres c ON v.centre_id = c.id
+      LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
+      WHERE 1=1
+    `;
+    let params = [];
+
+    if (startDate && startDate.trim() !== '') {
+      if (endDate && endDate.trim() !== '') {
+        params.push(startDate, endDate);
+        query += ` AND COALESCE(pf.created_at, v.created_at)::date >= $${params.length - 1}::date AND COALESCE(pf.created_at, v.created_at)::date <= $${params.length}::date`;
+      } else {
+        params.push(startDate);
+        query += ` AND COALESCE(pf.created_at, v.created_at)::date = $${params.length}::date`;
+      }
+    } else if (month && month.trim() !== '') {
+      params.push(month);
+      query += ` AND TO_CHAR(COALESCE(pf.created_at, v.created_at), 'YYYY-MM') = $${params.length}`;
+    }
+
+    if (search && search.trim() !== '') {
+      params.push(`%${search.trim()}%`);
+      query += ` AND (p.full_name ILIKE $${params.length} OR pf.relative_name ILIKE $${params.length} OR v.invoice_number ILIKE $${params.length})`;
+    }
+
+    query += ` ORDER BY form_date DESC`;
+    const result = await pool.query(query, params);
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/pcpndt/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT pf.*, v.invoice_number, COALESCE(pf.created_at, v.created_at) as form_date,
+              p.full_name as patient_name, p.age as patient_age, p.phone as patient_phone, p.address as patient_address,
+              c.centre_name, c.address as centre_address, COALESCE(pf.clinic_reg_no, c.reg_no, 'RS197') as effective_reg_no,
+              d.doctor_name as ref_doctor_name, d.hospital_clinic_name as ref_doctor_hospital
+       FROM pcpndt_forms pf
+       JOIN visits v ON pf.visit_id = v.id
+       JOIN patients p ON v.patient_id = p.id
+       LEFT JOIN clinic_centres c ON v.centre_id = c.id
+       LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
+       WHERE pf.id = $1`,
+      [id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'PCPNDT Form record not found' });
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/pcpndt/:id', async (req, res) => {
+  const { id } = req.params;
+  const { 
+    relativeName, noOfSons, sonsAge, noOfDaughters, daughtersAge, 
+    lmpDate, weeksOfPreg, pcpndtIndications, scanResult, doctorName, doctorRegNo, clinicRegNo 
+  } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE pcpndt_forms 
+       SET relative_name = $1, no_of_sons = $2, sons_age = $3, no_of_daughters = $4, daughters_age = $5,
+           lmp_date = $6, weeks_of_preg = $7, indications = $8, scan_result = $9, doctor_name = $10, doctor_reg_no = $11, clinic_reg_no = $12
+       WHERE id = $13 RETURNING *`,
+      [
+        relativeName || '', parseInt(noOfSons, 10) || 0, sonsAge || '', 
+        parseInt(noOfDaughters, 10) || 0, daughtersAge || '', 
+        lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', 
+        scanResult || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', clinicRegNo || 'RS197', id
+      ]
+    );
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/pcpndt/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM pcpndt_forms WHERE id = $1', [id]);
+    res.status(200).json({ success: true, message: 'PCPNDT Form F record deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// VISIT REGISTRATION & BILLING ENDPOINTS
 // ----------------------------------------------------
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
@@ -679,7 +782,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
       );
     }
 
-    // Save PCPNDT Form F if checked
+    // Save PCPNDT Form F if enabled
     if (isPcpndt === 'true' || isPcpndt === true || isPcpndt === '1') {
       await client.query(
         `INSERT INTO pcpndt_forms (visit_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no) 
@@ -719,7 +822,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
 });
 
 // ----------------------------------------------------
-// FULL DYNAMIC BILL & PCPNDT EDITING ENDPOINT
+// FULL DYNAMIC BILL EDITING ENDPOINT
 // ----------------------------------------------------
 app.put('/api/visits/:id', upload.single('reportFile'), async (req, res) => {
   const { id } = req.params;
@@ -794,7 +897,7 @@ app.put('/api/visits/:id', upload.single('reportFile'), async (req, res) => {
 
     const result = await client.query(query, params);
 
-    // Upsert PCPNDT form if fields supplied
+    // Upsert PCPNDT form if checked
     if (isPcpndt === 'true' || isPcpndt === true) {
       const pCheck = await client.query('SELECT id FROM pcpndt_forms WHERE visit_id = $1', [id]);
       if (pCheck.rows.length > 0) {
@@ -910,7 +1013,8 @@ app.get('/api/reports/collection', async (req, res) => {
              COALESCE(c.centre_name, 'Main Centre') as centre_name,
              COALESCE(string_agg(DISTINCT tm.category, ', '), 'General') as categories,
              COALESCE(string_agg(DISTINCT tm.test_name, ', '), '') as test_names,
-             CASE WHEN pf.id IS NOT NULL THEN true ELSE false END as has_pcpndt
+             CASE WHEN pf.id IS NOT NULL THEN true ELSE false END as has_pcpndt,
+             pf.id as pcpndt_id
       FROM visits v 
       LEFT JOIN patients p ON v.patient_id = p.id 
       LEFT JOIN clinic_centres c ON v.centre_id = c.id

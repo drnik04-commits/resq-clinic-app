@@ -60,6 +60,20 @@
         .header-title p { font-size: 0.8rem; color: #a9c7e2; }
         .centre-nav { display: flex; align-items: center; gap: 10px; }
         .centre-nav select { padding: 6px 10px; border-radius: 4px; border: none; font-weight: bold; background: #fff; color: var(--primary-dark); cursor: pointer; }
+        .btn-gov-portal {
+            background-color: #d97706;
+            color: white;
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: background 0.2s;
+        }
+        .btn-gov-portal:hover { background-color: #b45309; }
         .btn-settings { background: #008080; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; font-weight: bold; }
 
         /* Navigation Tabs */
@@ -75,8 +89,8 @@
             color: #0d47a1;
             border: none;
             outline: none;
-            padding: 10px 18px;
-            font-size: 0.9rem;
+            padding: 10px 16px;
+            font-size: 0.88rem;
             font-weight: 600;
             cursor: pointer;
             border-radius: 4px 4px 0 0;
@@ -309,22 +323,26 @@
         </div>
     </div>
 
-    <!-- HEADER WITH MULTI-CENTRE SWITCHER -->
+    <!-- HEADER WITH MULTI-CENTRE SWITCHER & MAHARASHTRA GOVT PCPNDT PORTAL LINK -->
     <header>
         <div class="header-title">
             <h1 id="topCentreTitle">RESQ HEART CLINIC AND IMAGING CENTRE</h1>
             <p id="topCentreTagline">Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging</p>
         </div>
         <div class="centre-nav">
+            <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" class="btn-gov-portal" title="Open Government Public Health Department PCPNDT Portal">
+                🏛️ Maha Govt PCPNDT Portal
+            </a>
             <label style="font-size: 0.85rem; font-weight: bold;">Active Centre:</label>
             <select id="activeCentreSelector" onchange="switchCentre(this.value)"></select>
             <button type="button" class="btn-settings" onclick="openAdminModal()">⚙ Settings & Centres</button>
         </div>
     </header>
 
-    <!-- 5 NAVIGATION TABS -->
+    <!-- 6 NAVIGATION TABS (INCLUDING DEDICATED PCPNDT FORM F REGISTER) -->
     <div class="tab-nav">
         <button class="tab-btn active" onclick="openTab('tab-billing', this)">Billing & Registration</button>
+        <button class="tab-btn" onclick="openTab('tab-pcpndt-register', this)">📝 PCPNDT Form F Register</button>
         <button class="tab-btn" onclick="openTab('tab-masters', this)">Edit Doctors & Tests</button>
         <button class="tab-btn" onclick="openTab('tab-patients', this)">Manage Patients & Bills</button>
         <button class="tab-btn" onclick="openTab('tab-reports', this)">Collections & Reports</button>
@@ -514,7 +532,66 @@
             </div>
         </div>
 
-        <!-- TAB 2: EDIT DOCTORS & TESTS -->
+        <!-- TAB 2: DEDICATED PCPNDT FORM F REGISTER & MANAGEMENT -->
+        <div id="tab-pcpndt-register" class="tab-content">
+            <div class="card">
+                <div class="card-title">
+                    <span>Statutory PCPNDT Form F Register</span>
+                    <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" class="btn-gov-portal">
+                        🏛️ Direct Link: pcpndt.maharashtra.gov.in
+                    </a>
+                </div>
+
+                <!-- Direct Portal Helper Banner -->
+                <div style="background: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 4px; margin-bottom: 15px; font-size: 0.88rem; line-height: 1.5;">
+                    <strong>Government Online Reporting:</strong> All obstetric ultrasound records maintained below can be filed directly to the Maharashtra Public Health Department PCPNDT Portal at 
+                    <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" style="color: #b45309; font-weight: bold; text-decoration: underline;">
+                        pcpndt.maharashtra.gov.in/HOME/Login.aspx
+                    </a> 
+                    under Clinic Registration Number: <strong>RS197</strong>.
+                </div>
+
+                <!-- Filter Controls -->
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px;">
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: bold;">Start Date:</label><br>
+                        <input type="date" id="pcpndtFilterStart" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: bold;">End Date:</label><br>
+                        <input type="date" id="pcpndtFilterEnd" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: bold;">OR Month:</label><br>
+                        <input type="month" id="pcpndtFilterMonth" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: bold;">Search Patient / Relative / Invoice:</label><br>
+                        <input type="text" id="pcpndtFilterSearch" placeholder="Name or Invoice No" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                    <button type="button" class="btn-search" onclick="filterPcpndtRegister()">🔍 Filter</button>
+                    <button type="button" class="btn-edit-patient" onclick="resetPcpndtRegisterFilters()">Show All</button>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Invoice</th>
+                            <th>Patient Name & Age</th>
+                            <th>Husband / Relative</th>
+                            <th>LMP & Gestation</th>
+                            <th>Children (M/F)</th>
+                            <th>Doctor & Reg No</th>
+                            <th style="width: 250px;">Statutory Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pcpndtRegisterTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 3: EDIT DOCTORS & TESTS -->
         <div id="tab-masters" class="tab-content">
             <div class="dashboard-grid">
                 <div>
@@ -608,7 +685,7 @@
             </div>
         </div>
 
-        <!-- TAB 3: MANAGE PATIENTS & BILLS -->
+        <!-- TAB 4: MANAGE PATIENTS & BILLS -->
         <div id="tab-patients" class="tab-content">
             <div class="card">
                 <div class="card-title">Manage Patients & Individual Bills By Date</div>
@@ -630,7 +707,7 @@
             </div>
         </div>
 
-        <!-- TAB 4: COLLECTIONS & REPORTS -->
+        <!-- TAB 5: COLLECTIONS & REPORTS -->
         <div id="tab-reports" class="tab-content">
             <div class="card">
                 <div class="card-title">Daily & Monthly Collection Reports</div>
@@ -676,7 +753,7 @@
             </div>
         </div>
 
-        <!-- TAB 5: DOCTOR BUSINESS & CUTS -->
+        <!-- TAB 6: DOCTOR BUSINESS & CUTS -->
         <div id="tab-business" class="tab-content">
             <div class="card">
                 <div class="card-title">Doctor Business & Date-by-Date Details</div>
@@ -712,6 +789,69 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- DEDICATED EDIT PCPNDT FORM F MODAL -->
+    <div id="editPcpndtStandaloneModal" class="modal">
+        <div class="modal-content" style="max-width: 850px;">
+            <div class="modal-header">
+                <h3 id="editPcpndtModalTitle">Edit Statutory PCPNDT Form F Record</h3>
+                <button type="button" onclick="closeEditPcpndtModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
+            <input type="hidden" id="standalonePcpndtId">
+            <input type="hidden" id="standalonePcpndtVisitId">
+
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label>Husband's / Father's / Mother's / Relative's Name:</label>
+                    <input type="text" id="fRelNameInput">
+                </div>
+                <div class="form-group">
+                    <label>L.M.P Date:</label>
+                    <input type="date" id="fLmpInput">
+                </div>
+                <div class="form-group">
+                    <label>Weeks of Gestation:</label>
+                    <input type="text" id="fWeeksInput">
+                </div>
+                <div class="form-group">
+                    <label>Living Sons & Age:</label>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="number" id="fSonsCountInput" placeholder="Count" style="width: 90px;">
+                        <input type="text" id="fSonsAgeInput" placeholder="Age(s) e.g. 4 Yrs">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Living Daughters & Age:</label>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="number" id="fDaughtersCountInput" placeholder="Count" style="width: 90px;">
+                        <input type="text" id="fDaughtersAgeInput" placeholder="Age(s) e.g. 2 Yrs">
+                    </div>
+                </div>
+                <div class="form-group full-width">
+                    <label>Clinical Indications:</label>
+                    <input type="text" id="fIndicationInput">
+                </div>
+                <div class="form-group full-width">
+                    <label>Ultrasound Observations / Scan Findings:</label>
+                    <textarea id="fFindingsInput" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Performing Doctor Name:</label>
+                    <input type="text" id="fDocNameInput" value="Dr NIKUNJ KOTHIA">
+                </div>
+                <div class="form-group">
+                    <label>Doctor Reg No:</label>
+                    <input type="text" id="fDocRegInput" value="2009/09/3218">
+                </div>
+                <div class="form-group">
+                    <label>Clinic Registration No:</label>
+                    <input type="text" id="fClinicRegInput" value="RS197">
+                </div>
+            </div>
+
+            <button type="button" class="btn-complete-reg" style="margin-top: 16px; width: 100%; padding: 12px;" onclick="saveStandalonePcpndtForm()">Update PCPNDT Form F</button>
+        </div>
     </div>
 
     <!-- EDIT PATIENT MODAL -->
@@ -1037,7 +1177,7 @@
                 <div class="indication-row"><div class="ind-num">xiv.</div><div class="ind-text">Evaluation of placental position, thickness, grading and abnormalities (placenta praevia, retroplacental haemorrhage, abnormal adherance etc.).</div></div>
                 <div class="indication-row"><div class="ind-num">xv.</div><div class="ind-text">Evaluation of umbilical cord - presentation, insertion, nuchal encirclement, number of vessels and presence of true knot.</div></div>
                 <div class="indication-row"><div class="ind-num">xvi.</div><div class="ind-text">Evaluation of previous Caesarean Section scars.</div></div>
-                <div class="indication-row"><div class="ind-num">xvii.</div><div class="ind-text">Evaluation of foetal growth parameters, foetal weight and foetal well being.</div></div>
+                <div class="indication-row"><div class="ind-num">xxi.</div><div class="ind-text">Evaluation of foetal growth parameters, foetal weight and foetal well being.</div></div>
                 <div class="indication-row"><div class="ind-num">xviii.</div><div class="ind-text">Colour flow mapping and duplex Doppler studies.</div></div>
                 <div class="indication-row"><div class="ind-num">xix.</div><div class="ind-text">Ultrasound guided procedures such as medical termination of pregnancy, external cephalic version etc. and their follow-up.</div></div>
                 <div class="indication-row"><div class="ind-num">xx.</div><div class="ind-text">Adjunct to diagnostic and therapeutic invasive interventions such as chorionic villus sampling (CVS), amniocenteses, foetal blood samples, foetal skin biopsy, amnioinfusion, intrauterine infusion, placement of shunts etc.</div></div>
@@ -1247,6 +1387,7 @@
         let doctorsList = [];
         let patientsList = [];
         let visitsList = [];
+        let pcpndtRegisterList = [];
         let centresList = [];
         let selectedBillTests = [];
         let activeCentre = null;
@@ -1275,6 +1416,7 @@
                     loadTests();
                     loadPatientsDirectory();
                     loadReports();
+                    loadPcpndtRegister();
                 } else {
                     alert('Incorrect administrative password.');
                 }
@@ -1289,6 +1431,7 @@
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
             btn.classList.add('active');
+            if (tabId === 'tab-pcpndt-register') loadPcpndtRegister();
             if (tabId === 'tab-reports') loadReports();
             if (tabId === 'tab-business') loadBusiness();
             if (tabId === 'tab-masters') { loadDoctors(); loadTests(); }
@@ -1592,7 +1735,6 @@
             } catch (e) { console.error('Error loading tests:', e); }
         }
 
-        // Main Tab Live Search
         function onLiveTestSearchInput(query) {
             const box = document.getElementById('liveSearchResultsBox');
             const q = query.toLowerCase().trim();
@@ -1637,7 +1779,6 @@
             box.style.display = 'block';
         }
 
-        // Edit Modal Live Search
         function onEditBillLiveTestSearchInput(query) {
             const box = document.getElementById('editBillLiveSearchResultsBox');
             const q = query.toLowerCase().trim();
@@ -1682,7 +1823,6 @@
             box.style.display = 'block';
         }
 
-        // Close search boxes when clicking outside
         document.addEventListener('click', (e) => {
             const mainContainer = document.querySelector('#tab-billing .live-search-container');
             if (mainContainer && !mainContainer.contains(e.target)) {
@@ -1959,6 +2099,7 @@
                 renderSelectedTests();
                 loadReports();
                 loadPatientsDirectory();
+                loadPcpndtRegister();
             } else {
                 alert('Error: ' + json.error);
             }
@@ -2080,7 +2221,152 @@
             }
         }
 
-        // TAB 3: Patients Directory
+        // ========================================================
+        // TAB 2: PCPNDT REGISTER & DEDICATED CRUD ENGINE
+        // ========================================================
+        async function loadPcpndtRegister() {
+            try {
+                const res = await fetch('/api/pcpndt');
+                const json = await res.json();
+                pcpndtRegisterList = json.data || [];
+                renderPcpndtRegister(pcpndtRegisterList);
+            } catch (e) {
+                console.error('Error loading PCPNDT register:', e);
+            }
+        }
+
+        function renderPcpndtRegister(list) {
+            const tbody = document.getElementById('pcpndtRegisterTableBody');
+            tbody.innerHTML = '';
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #888; padding: 16px;">No PCPNDT Form F records found.</td></tr>`;
+                return;
+            }
+
+            list.forEach(f => {
+                const fDate = new Date(f.form_date).toLocaleDateString('en-GB');
+                const sonsStr = f.sons_age ? `${f.no_of_sons || 0} (${f.sons_age})` : (f.no_of_sons || 0);
+                const daughtersStr = f.daughters_age ? `${f.no_of_daughters || 0} (${f.daughters_age})` : (f.no_of_daughters || 0);
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${fDate}</td>
+                        <td><strong>${f.invoice_number}</strong></td>
+                        <td><strong>${escapeHtml(f.patient_name)}</strong><br><small>${f.patient_age ? f.patient_age + ' Yrs' : ''} | ${f.patient_phone || '-'}</small></td>
+                        <td>${escapeHtml(f.relative_name || '-')}</td>
+                        <td><strong>LMP:</strong> ${f.lmp_date || '-'}<br><small><strong>Wks:</strong> ${f.weeks_of_preg || '-'}</small></td>
+                        <td>Sons: ${sonsStr}<br>Daughters: ${daughtersStr}</td>
+                        <td>${f.doctor_name || 'Dr NIKUNJ KOTHIA'}<br><small>Reg: ${f.clinic_reg_no || 'RS197'}</small></td>
+                        <td>
+                            <button type="button" class="btn-pcpndt-btn" onclick="printPCPNDTForm('${f.visit_id}')">🖨️ Form F</button>
+                            <button type="button" class="btn-edit-bill" onclick="openEditPcpndtStandaloneModal('${f.id}')">✏️ Edit</button>
+                            <button type="button" class="btn-del" onclick="deleteStandalonePcpndtForm('${f.id}')">🗑️ Del</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function filterPcpndtRegister() {
+            const start = document.getElementById('pcpndtFilterStart').value;
+            const end = document.getElementById('pcpndtFilterEnd').value;
+            const month = document.getElementById('pcpndtFilterMonth').value;
+            const search = document.getElementById('pcpndtFilterSearch').value.trim();
+
+            let url = `/api/pcpndt?startDate=${start}&endDate=${end}&month=${month}&search=${encodeURIComponent(search)}`;
+            const res = await fetch(url);
+            const json = await res.json();
+            renderPcpndtRegister(json.data || []);
+        }
+
+        function resetPcpndtRegisterFilters() {
+            document.getElementById('pcpndtFilterStart').value = '';
+            document.getElementById('pcpndtFilterEnd').value = '';
+            document.getElementById('pcpndtFilterMonth').value = '';
+            document.getElementById('pcpndtFilterSearch').value = '';
+            loadPcpndtRegister();
+        }
+
+        async function openEditPcpndtStandaloneModal(id) {
+            try {
+                const res = await fetch(`/api/pcpndt/${id}`);
+                const json = await res.json();
+                if (!json.success) return alert('Failed to fetch Form F record');
+
+                const f = json.data;
+                document.getElementById('standalonePcpndtId').value = f.id;
+                document.getElementById('standalonePcpndtVisitId').value = f.visit_id;
+                document.getElementById('editPcpndtModalTitle').textContent = `Edit PCPNDT Form F - ${f.patient_name} (${f.invoice_number})`;
+
+                document.getElementById('fRelNameInput').value = f.relative_name || '';
+                document.getElementById('fLmpInput').value = f.lmp_date || '';
+                document.getElementById('fWeeksInput').value = f.weeks_of_preg || '';
+                document.getElementById('fSonsCountInput').value = f.no_of_sons || 0;
+                document.getElementById('fSonsAgeInput').value = f.sons_age || '';
+                document.getElementById('fDaughtersCountInput').value = f.no_of_daughters || 0;
+                document.getElementById('fDaughtersAgeInput').value = f.daughters_age || '';
+                document.getElementById('fIndicationInput').value = f.indications || '';
+                document.getElementById('fFindingsInput').value = f.scan_result || '';
+                document.getElementById('fDocNameInput').value = f.doctor_name || 'Dr NIKUNJ KOTHIA';
+                document.getElementById('fDocRegInput').value = f.doctor_reg_no || '2009/09/3218';
+                document.getElementById('fClinicRegInput').value = f.clinic_reg_no || 'RS197';
+
+                document.getElementById('editPcpndtStandaloneModal').style.display = 'flex';
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        function closeEditPcpndtModal() {
+            document.getElementById('editPcpndtStandaloneModal').style.display = 'none';
+        }
+
+        async function saveStandalonePcpndtForm() {
+            const id = document.getElementById('standalonePcpndtId').value;
+            const payload = {
+                relativeName: document.getElementById('fRelNameInput').value.trim(),
+                lmpDate: document.getElementById('fLmpInput').value,
+                weeksOfPreg: document.getElementById('fWeeksInput').value.trim(),
+                noOfSons: document.getElementById('fSonsCountInput').value,
+                sonsAge: document.getElementById('fSonsAgeInput').value.trim(),
+                noOfDaughters: document.getElementById('fDaughtersCountInput').value,
+                daughtersAge: document.getElementById('fDaughtersAgeInput').value.trim(),
+                pcpndtIndications: document.getElementById('fIndicationInput').value.trim(),
+                scanResult: document.getElementById('fFindingsInput').value.trim(),
+                doctorName: document.getElementById('fDocNameInput').value.trim(),
+                doctorRegNo: document.getElementById('fDocRegInput').value.trim(),
+                clinicRegNo: document.getElementById('fClinicRegInput').value.trim() || 'RS197'
+            };
+
+            const res = await fetch(`/api/pcpndt/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert('PCPNDT Form F record updated successfully!');
+                closeEditPcpndtModal();
+                loadPcpndtRegister();
+            } else {
+                alert('Error updating PCPNDT record: ' + json.error);
+            }
+        }
+
+        async function deleteStandalonePcpndtForm(id) {
+            if (!confirm('Are you sure you want to delete this PCPNDT Form F record?')) return;
+            const res = await fetch(`/api/pcpndt/${id}`, { method: 'DELETE' });
+            const json = await res.json();
+            if (json.success) {
+                alert('PCPNDT Form F deleted.');
+                loadPcpndtRegister();
+                loadReports();
+            } else {
+                alert('Error: ' + json.error);
+            }
+        }
+
+        // TAB 4: Patients Directory
         async function loadPatientsDirectory() {
             try {
                 const res = await fetch('/api/patients');
@@ -2111,7 +2397,7 @@
 
         function filterPatientsDirectory() {
             const q = document.getElementById('patientDirectorySearch').value.toLowerCase().trim();
-            if (!q) return renderPatientsDirectory(patientsList);
+            if (!query) return renderPatientsDirectory(patientsList);
             const filtered = patientsList.filter(p => 
                 (p.full_name && p.full_name.toLowerCase().includes(q)) ||
                 (p.phone && p.phone.includes(q)) ||
@@ -2200,7 +2486,7 @@
         }
         function closePatientBillsModal() { document.getElementById('patientBillsModal').style.display = 'none'; }
 
-        // TAB 4: Reports & Collections with Category Support
+        // TAB 5: Reports & Collections with Category Support
         async function loadReports() {
             try {
                 const res = await fetch('/api/reports/collection');
@@ -2293,7 +2579,7 @@
             loadReports();
         }
 
-        // TAB 5: Doctor Business
+        // TAB 6: Doctor Business
         async function loadBusiness() {
             try {
                 const res = await fetch('/api/reports/doctor-detailed');
@@ -2344,9 +2630,7 @@
             renderBusiness(json.data || []);
         }
 
-        // ----------------------------------------------------
-        // DYNAMIC BILL & TEST ITEMS EDITING ENGINE
-        // ----------------------------------------------------
+        // Dynamic Bill Editing
         async function openEditBillModal(id) {
             try {
                 const res = await fetch(`/api/invoice/${id}`);
@@ -2482,6 +2766,7 @@
                 closeEditBillModal();
                 loadReports();
                 closePatientBillsModal();
+                loadPcpndtRegister();
             } else {
                 alert('Error updating bill: ' + data.error);
             }
@@ -2495,6 +2780,7 @@
                 alert('Bill record deleted.');
                 loadReports();
                 closePatientBillsModal();
+                loadPcpndtRegister();
             } else {
                 alert('Error: ' + data.error);
             }
