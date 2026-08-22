@@ -685,7 +685,7 @@
         </div>
     </div>
 
-    <!-- EDIT BILL & PCPNDT MODAL -->
+    <!-- EDIT BILL & PCPNDT MODAL WITH INSTANT SEARCH -->
     <div id="editBillModal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">
@@ -699,11 +699,12 @@
                 <select id="editBillDocSelect"></select>
             </div>
 
-            <div style="background: #f8fafc; border: 1px solid var(--border); padding: 10px; border-radius: 4px; margin-bottom: 12px;">
-                <label style="font-size: 0.85rem; font-weight: bold; color: #1a365d;">Add Investigation / Service to this Bill:</label>
-                <div style="display: flex; gap: 8px; margin-top: 4px;">
-                    <select id="editBillAddTestSelect" style="flex: 1; padding: 7px; border: 1px solid var(--border); border-radius: 4px;"></select>
-                    <button type="button" class="btn-add-test" style="background:#28a745;color:#fff;border:none;padding:6px 12px;border-radius:4px;font-weight:bold;cursor:pointer;" onclick="addTestToCurrentEditBill()">+ Add to Bill</button>
+            <!-- Instant Live Search Test in Edit Bill Modal -->
+            <div style="background: #f8fafc; border: 1px solid var(--border); padding: 12px; border-radius: 4px; margin-bottom: 12px;">
+                <label style="font-size: 0.88rem; font-weight: bold; color: #1a365d;">Search & Add Investigation / Service to this Bill (Live Instant Filter):</label>
+                <div class="live-search-container" style="margin-top: 6px;">
+                    <input type="text" id="editBillLiveTestInput" placeholder="🔍 Start typing test name or service (e.g. CBC, Echo, USG)..." oninput="onEditBillLiveTestSearchInput(this.value)" autocomplete="off" style="width: 100%; padding: 9px 12px; border: 1px solid #90caf9; border-radius: 4px; outline: none; font-size: 0.92rem;">
+                    <div id="editBillLiveSearchResultsBox" class="live-search-box"></div>
                 </div>
             </div>
 
@@ -1243,25 +1244,17 @@
             loadDoctors();
         }
 
-        // 4. Tests Master & Real-Time Live Search
+        // 4. Tests Master & Real-Time Live Search Engine
         async function loadTests() {
             try {
                 const res = await fetch('/api/tests');
                 const json = await res.json();
                 testsList = json.data || [];
                 renderExistingTestsTable(testsList);
-
-                const editAddSel = document.getElementById('editBillAddTestSelect');
-                if (editAddSel) {
-                    editAddSel.innerHTML = '<option value="">-- Choose investigation to add --</option>';
-                    testsList.forEach(t => {
-                        editAddSel.innerHTML += `<option value="${t.id}">[${t.category || 'Pathology'}] ${t.test_name} - ₹${t.price}</option>`;
-                    });
-                }
             } catch (e) { console.error('Error loading tests:', e); }
         }
 
-        // Real-Time Search Handler that shows matching tests immediately
+        // Main Tab Live Search
         function onLiveTestSearchInput(query) {
             const box = document.getElementById('liveSearchResultsBox');
             const q = query.toLowerCase().trim();
@@ -1306,12 +1299,63 @@
             box.style.display = 'block';
         }
 
-        // Close search box if clicked outside
+        // Edit Modal Live Search
+        function onEditBillLiveTestSearchInput(query) {
+            const box = document.getElementById('editBillLiveSearchResultsBox');
+            const q = query.toLowerCase().trim();
+            if (!q) {
+                box.style.display = 'none';
+                box.innerHTML = '';
+                return;
+            }
+
+            const matches = testsList.filter(t => 
+                (t.test_name && t.test_name.toLowerCase().includes(q)) ||
+                (t.category && t.category.toLowerCase().includes(q))
+            );
+
+            if (matches.length === 0) {
+                box.innerHTML = `<div style="padding: 10px; text-align: center; color: #888;">No investigations match "${escapeHtml(query)}"</div>`;
+                box.style.display = 'block';
+                return;
+            }
+
+            box.innerHTML = '';
+            matches.forEach(t => {
+                const item = document.createElement('div');
+                item.className = 'live-search-item';
+                item.innerHTML = `
+                    <div>
+                        <strong>${escapeHtml(t.test_name)}</strong>
+                        <span class="badge-cat" style="margin-left: 6px;">${escapeHtml(t.category || 'Pathology')}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <strong style="color: #00897b;">₹${parseFloat(t.price).toFixed(2)}</strong>
+                        <span style="background: #28a745; color: white; padding: 2px 7px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">+ Add</span>
+                    </div>
+                `;
+                item.onclick = () => {
+                    addTestToCurrentEditBillDirect(t);
+                    document.getElementById('editBillLiveTestInput').value = '';
+                    box.style.display = 'none';
+                };
+                box.appendChild(item);
+            });
+            box.style.display = 'block';
+        }
+
+        // Close search boxes when clicking outside
         document.addEventListener('click', (e) => {
-            const container = document.querySelector('.live-search-container');
-            if (container && !container.contains(e.target)) {
+            const mainContainer = document.querySelector('#tab-billing .live-search-container');
+            if (mainContainer && !mainContainer.contains(e.target)) {
                 const box = document.getElementById('liveSearchResultsBox');
                 if (box) box.style.display = 'none';
+            }
+
+            const editContainer = document.querySelector('#editBillModal .live-search-container');
+            if (editContainer && !editContainer.contains(e.target)) {
+                const editBox = document.getElementById('editBillLiveSearchResultsBox');
+                if (editBox) editBox.style.display = 'none';
             }
         });
 
@@ -1320,6 +1364,16 @@
                 selectedBillTests.push({ ...t });
                 renderSelectedTests();
             }
+        }
+
+        function addTestToCurrentEditBillDirect(t) {
+            activeEditingBillTests.push({
+                id: t.id,
+                test_name: t.test_name,
+                category: t.category || 'Pathology',
+                price: parseFloat(t.price) || 0
+            });
+            renderEditBillTestsTable();
         }
 
         function renderExistingTestsTable(list) {
@@ -1986,7 +2040,7 @@
             tbody.innerHTML = '';
 
             if (activeEditingBillTests.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#888;padding:10px;">No tests in this bill. Use dropdown above to add tests.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#888;padding:10px;">No tests in this bill. Type in the search box above to add tests.</td></tr>`;
             } else {
                 activeEditingBillTests.forEach((t, idx) => {
                     tbody.innerHTML += `
@@ -2004,21 +2058,6 @@
                 });
             }
             recalcEditBillTotals();
-        }
-
-        function addTestToCurrentEditBill() {
-            const selId = document.getElementById('editBillAddTestSelect').value;
-            if (!selId) return alert('Select a test to add to this bill.');
-            const t = testsList.find(x => String(x.id) === String(selId));
-            if (t) {
-                activeEditingBillTests.push({
-                    id: t.id,
-                    test_name: t.test_name,
-                    category: t.category || 'Pathology',
-                    price: parseFloat(t.price) || 0
-                });
-                renderEditBillTestsTable();
-            }
         }
 
         function removeTestFromEditBill(idx) {
