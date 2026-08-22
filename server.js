@@ -29,7 +29,7 @@ app.use((req, res, next) => {
 });
 
 // Database Connection: Auto-detects Cloud DB (Neon / Render) with local fallback
-const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/resq_clinic_db';
+const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_Gmo8JSix3TAt@ep-shy-scene-axrfju67.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require';
 const isCloud = connectionString.includes('neon.tech') || connectionString.includes('render.com') || connectionString.includes('aws');
 
 const pool = new Pool({
@@ -1020,5 +1020,5 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', async () => {
   await initDB();
-  console.log(`ResQ Clinic System running on http://localhost:${PORT}`);
+  console.log(`ResQ Clinic System running on port ${PORT}`);
 });
