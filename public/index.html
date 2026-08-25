@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ResQ Clinic - Management & Billing System</title>
+    <title>ResQ Clinic - Management, Billing & Imaging System</title>
     <style>
         :root {
             --primary: #19486a;
@@ -24,7 +24,6 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
         body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
-        /* Lock Screen */
         #appLockScreen {
             position: fixed;
             inset: 0;
@@ -47,7 +46,6 @@
         .lock-box p { color: #666; font-size: 0.85rem; margin-bottom: 18px; }
         .lock-box input { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 12px; outline: none; font-size: 0.9rem; }
 
-        /* Header */
         header {
             background-color: var(--primary);
             color: #ffffff;
@@ -71,43 +69,39 @@
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            transition: background 0.2s;
         }
-        .btn-gov-portal:hover { background-color: #b45309; }
         .btn-settings { background: #008080; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; font-weight: bold; }
 
-        /* Navigation Tabs */
         .tab-nav {
             background-color: #bbdefb;
             display: flex;
             padding: 4px 16px 0;
             gap: 4px;
             border-bottom: 2px solid #90caf9;
+            overflow-x: auto;
         }
         .tab-btn {
             background-color: var(--tab-inactive);
             color: #0d47a1;
             border: none;
             outline: none;
-            padding: 10px 16px;
-            font-size: 0.88rem;
+            padding: 10px 14px;
+            font-size: 0.85rem;
             font-weight: 600;
             cursor: pointer;
             border-radius: 4px 4px 0 0;
             transition: 0.2s;
+            white-space: nowrap;
         }
         .tab-btn.active { background-color: var(--tab-active); color: #ffffff; }
 
-        /* Main Container */
-        .main-container { max-width: 1400px; margin: 16px auto; padding: 0 16px; width: 100%; flex: 1; }
+        .main-container { max-width: 1440px; margin: 16px auto; padding: 0 16px; width: 100%; flex: 1; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
         .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 4px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
         .card-title { font-size: 1.1rem; font-weight: 700; color: #1a365d; margin-bottom: 14px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
 
-        /* Forms */
         .search-row { display: flex; gap: 8px; margin-bottom: 14px; }
         .search-row input { flex: 1; padding: 8px 12px; border: 1px solid #90caf9; border-radius: 4px; outline: none; }
         .btn-search { background-color: #00c853; color: white; border: none; padding: 8px 18px; border-radius: 4px; font-weight: bold; cursor: pointer; }
@@ -124,7 +118,6 @@
             outline: none;
         }
 
-        /* Instant Test Search Dropdown */
         .live-search-container { position: relative; width: 100%; margin-bottom: 10px; }
         .live-search-box {
             position: absolute;
@@ -151,54 +144,19 @@
         }
         .live-search-item:hover { background-color: #e3f2fd; }
 
-        /* PCPNDT Panel */
-        .pcpndt-panel {
-            background-color: #fbf8e8;
-            border: 1px solid #e8d8a0;
-            padding: 14px 16px;
-            border-radius: 4px;
-            margin: 14px 0;
-        }
-        .pcpndt-checkbox-label {
-            font-size: 0.95rem;
-            font-weight: bold;
-            color: #854d0e;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-        }
+        .pcpndt-panel { background-color: #fbf8e8; border: 1px solid #e8d8a0; padding: 14px 16px; border-radius: 4px; margin: 14px 0; }
+        .pcpndt-checkbox-label { font-size: 0.95rem; font-weight: bold; color: #854d0e; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 
-        /* Action Buttons */
-        .btn-quick-pcpndt {
-            background: #eab308;
-            color: #713f12;
-            border: 1px solid #ca8a04;
-            padding: 5px 12px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            cursor: pointer;
-        }
+        .btn-quick-pcpndt { background: #eab308; color: #713f12; border: 1px solid #ca8a04; padding: 5px 12px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
         .btn-complete-reg { background-color: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; flex: 1; }
         .btn-generate-inv { background-color: #2196f3; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; flex: 1; }
 
-        /* Rates Summary */
-        .rates-summary-panel {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            margin-top: 10px;
-            gap: 4px;
-            font-size: 0.95rem;
-            font-weight: bold;
-        }
+        .rates-summary-panel { display: flex; flex-direction: column; align-items: flex-end; margin-top: 10px; gap: 4px; font-size: 0.95rem; font-weight: bold; }
         .rates-summary-panel .subtotal { color: #333; }
         .rates-summary-panel .concession { color: #e53935; }
         .rates-summary-panel .payable { color: #00897b; }
         .rates-summary-panel .balance { color: #d84315; }
 
-        /* Tables & Badges */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         table th, table td { border: 1px solid var(--border); padding: 8px 10px; font-size: 0.88rem; text-align: left; }
         table th { background-color: #f1f5f9; color: #1a365d; }
@@ -207,113 +165,101 @@
         .btn-view-bills { background-color: #1976d2; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8rem; font-weight: bold; }
         .btn-wa-inv { background-color: #25d366; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; margin-right: 3px; text-decoration: none; display: inline-block; }
         .btn-pcpndt-btn { background-color: #ca8a04; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; margin-right: 3px; }
-        .btn-edit-bill { background-color: #f59e0b; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; margin-right: 3px; }
         .btn-del { background-color: var(--danger); color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; }
+        .btn-report-action { background-color: #7c3aed; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; margin-right: 3px; }
 
         .badge-paid { background-color: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 0.8rem; border: 1px solid #c8e6c9; }
         .badge-pending { background-color: #ffebee; color: #c62828; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 0.8rem; border: 1px solid #ffcdd2; }
         .badge-mode { background-color: #ede7f6; color: #512da8; padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 0.76rem; border: 1px solid #d1c4e9; }
         .badge-cat { background-color: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 3px; font-weight: 600; font-size: 0.76rem; border: 1px solid #bae6fd; }
 
-        /* Modals */
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); justify-content: center; align-items: center; z-index: 10000; }
-        .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 850px; max-height: 90vh; overflow-y: auto; padding: 20px; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 14px; }
+        /* Workspace Grid */
+        .imaging-workspace-grid {
+            display: grid;
+            grid-template-columns: 280px 360px 1fr;
+            gap: 16px;
+            min-height: 580px;
+        }
 
-        /* ========================================================
-           EXACT 2-PAGE STATUTORY PCPNDT FORM F PRINT ENGINE
-        ======================================================== */
+        .template-list-box {
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            max-height: 520px;
+            overflow-y: auto;
+            background: #fafbfc;
+        }
+
+        .template-item-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 10px 12px;
+            border: none;
+            border-bottom: 1px solid #e2e8f0;
+            background: white;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+
+        .template-item-btn:hover { background-color: #e0f2fe; }
+        .template-item-btn.selected { background-color: #0284c7; color: white; font-weight: bold; }
+        .template-item-btn.selected .tmpl-cat { color: #e0f2fe; }
+        .tmpl-cat { display: block; font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+
+        .fields-table-container {
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            max-height: 520px;
+            overflow-y: auto;
+            background: #ffffff;
+        }
+        .fields-table-container table td { padding: 4px 6px; font-size: 0.82rem; }
+        .fields-table-container input { width: 100%; padding: 4px 6px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.82rem; }
+
+        .report-preview-box {
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 14px;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .report-editor {
+            width: 100%;
+            flex: 1;
+            min-height: 380px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 0.88rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            line-height: 1.4;
+            outline: none;
+            white-space: pre-wrap;
+        }
+
         @media print {
             body * { visibility: hidden; }
-            #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc * { visibility: visible; }
+            #imagingReportPrintDoc, #imagingReportPrintDoc * { visibility: visible; }
             .print-active { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
-            
             .doc-page {
                 page-break-after: always;
-                break-after: page;
                 margin: 0;
                 padding: 12mm 15mm;
-                box-sizing: border-box;
                 font-family: Arial, sans-serif !important;
                 color: #000 !important;
                 background: #fff !important;
             }
-            @page {
-                size: A4 portrait;
-                margin: 0;
-            }
+            @page { size: A4 portrait; margin: 0; }
         }
-
-        .doc-page {
-            font-family: Arial, sans-serif;
-            font-size: 8.8pt;
-            line-height: 1.25;
-            color: #000;
-            background: #fff;
-            padding: 20px 24px;
-        }
-
-        .doc-header-title {
-            text-align: center;
-            font-size: 9.5pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 6px;
-            letter-spacing: -0.2px;
-        }
-
-        .doc-sec-heading {
-            font-weight: bold;
-            text-decoration: underline;
-            margin-top: 5px;
-            margin-bottom: 3px;
-        }
-
-        .doc-line-item {
-            display: flex;
-            margin-bottom: 2px;
-        }
-        .doc-line-item .label {
-            min-width: 250px;
-        }
-        .doc-line-item .val {
-            flex: 1;
-            font-weight: 600;
-        }
-
-        .indications-grid {
-            margin-left: 18px;
-            margin-top: 2px;
-            margin-bottom: 4px;
-            font-size: 7.8pt;
-            line-height: 1.15;
-        }
-        .indication-row {
-            display: flex;
-            margin-bottom: 1px;
-        }
-        .ind-num { min-width: 24px; }
-        .ind-text { flex: 1; }
-
-        .sec-c-grid {
-            margin-left: 12px;
-            font-size: 8.2pt;
-            line-height: 1.2;
-        }
-
-        .doc-sign-box {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 14px;
-            font-size: 8.5pt;
-        }
-
-        .print-paper { display: none; background: white; padding: 20px; border: 1px solid #333; color: #000; }
     </style>
 </head>
 <body>
 
-    <!-- APP LOCK SCREEN OVERLAY -->
+    <!-- LOCK SCREEN -->
     <div id="appLockScreen">
         <div class="lock-box">
             <h2>RESQ CLINIC SYSTEM</h2>
@@ -323,14 +269,14 @@
         </div>
     </div>
 
-    <!-- HEADER WITH MULTI-CENTRE SWITCHER & MAHARASHTRA GOVT PCPNDT PORTAL LINK -->
+    <!-- HEADER -->
     <header>
         <div class="header-title">
             <h1 id="topCentreTitle">RESQ HEART CLINIC AND IMAGING CENTRE</h1>
             <p id="topCentreTagline">Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging</p>
         </div>
         <div class="centre-nav">
-            <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" class="btn-gov-portal" title="Open Government Public Health Department PCPNDT Portal">
+            <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" class="btn-gov-portal" title="Open Maharashtra PCPNDT Portal">
                 🏛️ Maha Govt PCPNDT Portal
             </a>
             <label style="font-size: 0.85rem; font-weight: bold;">Active Centre:</label>
@@ -339,9 +285,10 @@
         </div>
     </header>
 
-    <!-- 6 NAVIGATION TABS (INCLUDING DEDICATED PCPNDT FORM F REGISTER) -->
+    <!-- TABS -->
     <div class="tab-nav">
         <button class="tab-btn active" onclick="openTab('tab-billing', this)">Billing & Registration</button>
+        <button class="tab-btn" onclick="openTab('tab-imaging-reports', this)">🩻 Ultrasound & Imaging Reports</button>
         <button class="tab-btn" onclick="openTab('tab-pcpndt-register', this)">📝 PCPNDT Form F Register</button>
         <button class="tab-btn" onclick="openTab('tab-masters', this)">Edit Doctors & Tests</button>
         <button class="tab-btn" onclick="openTab('tab-patients', this)">Manage Patients & Bills</button>
@@ -349,7 +296,6 @@
         <button class="tab-btn" onclick="openTab('tab-business', this)">Doctor Business & Cuts</button>
     </div>
 
-    <!-- MAIN CONTAINER -->
     <div class="main-container">
 
         <!-- TAB 1: BILLING & REGISTRATION -->
@@ -360,16 +306,16 @@
                     <button type="button" class="btn-quick-pcpndt" onclick="quickOpenPCPNDT()">📝 Direct Link: Fill PCPNDT Form F</button>
                 </div>
 
-                <label style="font-size: 0.82rem; font-weight: 600; color: #4a5568;">Quick Lookup Existing Patient / Family Number:</label>
+                <label style="font-size: 0.82rem; font-weight: 600; color: #4a5568;">Quick Lookup Patient in this Centre:</label>
                 <div class="search-row">
-                    <input type="text" id="lookupSearch" placeholder="Enter Shared Mobile Number or Patient ID...">
+                    <input type="text" id="lookupSearch" placeholder="Enter Mobile Number or Patient ID...">
                     <button type="button" class="btn-search" onclick="lookupPatient()">Search</button>
                 </div>
 
                 <div class="form-grid">
                     <input type="hidden" id="existingPatientId">
                     <div class="form-group">
-                        <label>Patient ID / Unique Code (Manual):</label>
+                        <label>Patient ID / Unique Code:</label>
                         <input type="text" id="patientCode" placeholder="e.g. PAT-001 (Optional)">
                     </div>
                     <div class="form-group">
@@ -389,7 +335,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Mobile Number (Shared Family Number allowed):</label>
+                        <label>Mobile Number:</label>
                         <input type="text" id="patientMobile" placeholder="10 Digit Number">
                     </div>
                     <div class="form-group">
@@ -408,7 +354,6 @@
                     </div>
                 </div>
 
-                <!-- PCPNDT Form F Section -->
                 <div class="pcpndt-panel" id="pcpndtContainer">
                     <label class="pcpndt-checkbox-label">
                         <input type="checkbox" id="pcpndtToggle" onchange="togglePCPNDT(this.checked)">
@@ -417,112 +362,45 @@
 
                     <div id="pcpndtFields" style="display: none; margin-top: 14px;">
                         <div class="form-grid">
-                            <div class="form-group">
-                                <label>Husband / Father / Mother / Relative Name:</label>
-                                <input type="text" id="pcpndtRelativeName" placeholder="Relative Name">
-                            </div>
-                            <div class="form-group">
-                                <label>L.M.P Date:</label>
-                                <input type="date" id="pcpndtLMP">
-                            </div>
-                            <div class="form-group">
-                                <label>Weeks of Gestation:</label>
-                                <input type="text" id="pcpndtWeeks" placeholder="e.g. 18 Weeks 4 Days">
-                            </div>
-                            <div class="form-group">
-                                <label>No. of Living Sons & Age:</label>
-                                <div style="display: flex; gap: 6px;">
-                                    <input type="number" id="pcpndtNoOfSons" placeholder="Count" style="width: 90px;">
-                                    <input type="text" id="pcpndtSonsAge" placeholder="Age(s) e.g. 4 Yrs">
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>No. of Living Daughters & Age:</label>
-                                <div style="display: flex; gap: 6px;">
-                                    <input type="number" id="pcpndtNoOfDaughters" placeholder="Count" style="width: 90px;">
-                                    <input type="text" id="pcpndtDaughtersAge" placeholder="Age(s) e.g. 2 Yrs">
-                                </div>
-                            </div>
-                            <div class="form-group full-width">
-                                <label>Clinical Indication for Sonography:</label>
-                                <input type="text" id="pcpndtIndication" placeholder="e.g. Routine Antenatal Anomaly Evaluation / Fetal Well-being">
-                            </div>
-                            <div class="form-group full-width">
-                                <label>Ultrasound Findings / Manual Observations *:</label>
-                                <textarea id="pcpndtFindings" rows="3" placeholder="Single live intrauterine fetus with adequate liquor and normal cardiac activity..."></textarea>
-                            </div>
-                            <div class="form-group">
-                                <label>Performing Doctor Name:</label>
-                                <input type="text" id="pcpndtDoctor" value="Dr NIKUNJ KOTHIA">
-                            </div>
-                            <div class="form-group">
-                                <label>Doctor Reg No:</label>
-                                <input type="text" id="pcpndtDoctorReg" value="2009/09/3218">
-                            </div>
-                            <div class="form-group">
-                                <label>Clinic PCPNDT Reg No:</label>
-                                <input type="text" id="pcpndtClinicReg" value="RS197">
-                            </div>
+                            <div class="form-group"><label>Relative Name:</label><input type="text" id="pcpndtRelativeName" placeholder="Husband / Father"></div>
+                            <div class="form-group"><label>L.M.P Date:</label><input type="date" id="pcpndtLMP"></div>
+                            <div class="form-group"><label>Weeks of Gestation:</label><input type="text" id="pcpndtWeeks" placeholder="e.g. 28 Weeks 4 Days"></div>
+                            <div class="form-group"><label>Living Sons & Age:</label><div style="display: flex; gap: 6px;"><input type="number" id="pcpndtNoOfSons" placeholder="Count" style="width: 90px;"><input type="text" id="pcpndtSonsAge" placeholder="Age(s)"></div></div>
+                            <div class="form-group"><label>Living Daughters & Age:</label><div style="display: flex; gap: 6px;"><input type="number" id="pcpndtNoOfDaughters" placeholder="Count" style="width: 90px;"><input type="text" id="pcpndtDaughtersAge" placeholder="Age(s)"></div></div>
+                            <div class="form-group full-width"><label>Clinical Indication:</label><input type="text" id="pcpndtIndication" placeholder="Routine Antenatal Anomaly Evaluation"></div>
+                            <div class="form-group full-width"><label>Ultrasound Findings / Observations *:</label><textarea id="pcpndtFindings" rows="3" placeholder="Single live intrauterine fetus..."></textarea></div>
+                            <div class="form-group"><label>Performing Doctor:</label><input type="text" id="pcpndtDoctor" value="Dr NIKUNJ KOTHIA"></div>
+                            <div class="form-group"><label>Doctor Reg No:</label><input type="text" id="pcpndtDoctorReg" value="2009/09/3218"></div>
+                            <div class="form-group"><label>Clinic Reg No:</label><input type="text" id="pcpndtClinicReg" value="RS197"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Real-Time Instant Live Search Test Section -->
                 <div style="margin-top: 14px;">
-                    <label style="font-size: 0.9rem; font-weight: bold; color: #1a365d;">Search & Add Investigations / Services (Live Instant Filter):</label>
+                    <label style="font-size: 0.9rem; font-weight: bold; color: #1a365d;">Search & Add Investigations / Services:</label>
                     <div class="live-search-container" style="margin-top: 6px;">
-                        <input type="text" id="liveTestInput" placeholder="🔍 Start typing test name or service (e.g. CBC, Echo, USG, Marker)..." oninput="onLiveTestSearchInput(this.value)" autocomplete="off" style="width: 100%; padding: 10px 14px; border: 2px solid #90caf9; border-radius: 4px; outline: none; font-size: 0.95rem;">
+                        <input type="text" id="liveTestInput" placeholder="🔍 Start typing test name or service..." oninput="onLiveTestSearchInput(this.value)" autocomplete="off" style="width: 100%; padding: 10px 14px; border: 2px solid #90caf9; border-radius: 4px; outline: none; font-size: 0.95rem;">
                         <div id="liveSearchResultsBox" class="live-search-box"></div>
                     </div>
                 </div>
 
-                <!-- Selected Tests Table -->
-                <div style="margin-top: 14px;">
-                    <label style="font-size: 0.95rem; font-weight: bold; color: #1a365d;">Selected Tests & Rates Preview</label>
-                    <table id="billItemsTable">
-                        <thead>
-                            <tr>
-                                <th>Test / Service Name</th>
-                                <th>Category</th>
-                                <th style="width: 140px;">Rate (₹)</th>
-                                <th style="width: 70px;">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected yet. Type in search above to add tests instantly.</td></tr>
-                        </tbody>
-                    </table>
+                <table id="billItemsTable">
+                    <thead><tr><th>Test / Service Name</th><th>Category</th><th style="width: 140px;">Rate (₹)</th><th style="width: 70px;">Action</th></tr></thead>
+                    <tbody><tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected yet.</td></tr></tbody>
+                </table>
 
-                    <div class="rates-summary-panel">
-                        <div class="subtotal">Gross Subtotal: <span id="dispGross">₹0.00</span></div>
-                        <div class="concession">Concession / Discount: <span id="dispDiscount">- ₹0.00</span></div>
-                        <div class="payable">Net Payable Amount: <span id="dispNet">₹0.00</span></div>
-                        <div class="balance">Balance Due: <span id="dispBalance">₹0.00</span></div>
-                    </div>
+                <div class="rates-summary-panel">
+                    <div class="subtotal">Gross Subtotal: <span id="dispGross">₹0.00</span></div>
+                    <div class="concession">Concession / Discount: <span id="dispDiscount">- ₹0.00</span></div>
+                    <div class="payable">Net Payable Amount: <span id="dispNet">₹0.00</span></div>
+                    <div class="balance">Balance Due: <span id="dispBalance">₹0.00</span></div>
                 </div>
 
-                <!-- Bottom Form Controls with Payment Mode -->
                 <div class="form-grid" style="margin-top: 15px; border-top: 1px solid #edf2f7; padding-top: 14px;">
-                    <div class="form-group full-width">
-                        <label>Attach Report (PDF or Word):</label>
-                        <input type="file" id="reportFileInput" accept=".pdf,.doc,.docx">
-                    </div>
-                    <div class="form-group">
-                        <label>Concession / Discount (₹):</label>
-                        <input type="number" id="inputDiscount" value="0" oninput="calculateFinancialTotals()">
-                    </div>
-                    <div class="form-group">
-                        <label>Paid Amount (₹):</label>
-                        <input type="number" id="inputPaid" value="0" oninput="calculateFinancialTotals()">
-                    </div>
-                    <div class="form-group">
-                        <label>Payment Mode (Cash / Online / Card):</label>
-                        <select id="inputPaymentMode">
-                            <option value="Cash">Cash</option>
-                            <option value="Online / UPI">Online / UPI</option>
-                            <option value="Card">Card</option>
-                        </select>
-                    </div>
+                    <div class="form-group full-width"><label>Attach Report:</label><input type="file" id="reportFileInput" accept=".pdf,.doc,.docx"></div>
+                    <div class="form-group"><label>Concession (₹):</label><input type="number" id="inputDiscount" value="0" oninput="calculateFinancialTotals()"></div>
+                    <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="inputPaid" value="0" oninput="calculateFinancialTotals()"></div>
+                    <div class="form-group"><label>Payment Mode:</label><select id="inputPaymentMode"><option value="Cash">Cash</option><option value="Online / UPI">Online / UPI</option><option value="Card">Card</option></select></div>
                 </div>
 
                 <div style="margin-top: 20px; display: flex; gap: 14px;">
@@ -532,930 +410,183 @@
             </div>
         </div>
 
-        <!-- TAB 2: DEDICATED PCPNDT FORM F REGISTER & MANAGEMENT -->
-        <div id="tab-pcpndt-register" class="tab-content">
+        <!-- TAB 2: IMAGING & ULTRASOUND REPORT WORKSPACE -->
+        <div id="tab-imaging-reports" class="tab-content">
             <div class="card">
                 <div class="card-title">
-                    <span>Statutory PCPNDT Form F Register</span>
-                    <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" class="btn-gov-portal">
-                        🏛️ Direct Link: pcpndt.maharashtra.gov.in
-                    </a>
+                    <span>🩻 Ultrasound & Radiology Report Generator</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn-search" style="background:#0284c7; padding: 6px 14px;" onclick="mergeFieldsToReport()">⚡ Merge Fields</button>
+                        <button type="button" class="btn-complete-reg" style="padding: 6px 14px;" onclick="saveImagingReport()">💾 Save Report</button>
+                        <button type="button" class="btn-generate-inv" style="padding: 6px 14px;" onclick="printImagingReport()">🖨️ Print Report</button>
+                    </div>
                 </div>
 
-                <!-- Direct Portal Helper Banner -->
-                <div style="background: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 4px; margin-bottom: 15px; font-size: 0.88rem; line-height: 1.5;">
-                    <strong>Government Online Reporting:</strong> All obstetric ultrasound records maintained below can be filed directly to the Maharashtra Public Health Department PCPNDT Portal at 
-                    <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" style="color: #b45309; font-weight: bold; text-decoration: underline;">
-                        pcpndt.maharashtra.gov.in/HOME/Login.aspx
-                    </a> 
-                    under Clinic Registration Number: <strong>RS197</strong>.
+                <div style="background: #f1f5f9; border: 1px solid var(--border); padding: 10px 14px; border-radius: 4px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 14px;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <label style="font-size: 0.8rem; font-weight: bold;">Select Patient Visit for Reporting:</label>
+                        <select id="imagingVisitSelect" onchange="onImagingVisitSelected(this.value)" style="width: 100%; padding: 6px 8px; border: 1px solid #94a3b8; border-radius: 4px; font-weight: 600;">
+                            <option value="">-- Choose Registered Visit --</option>
+                        </select>
+                    </div>
+                    <div><span style="font-size: 0.8rem; color: #475569;">Patient Name:</span><br><strong id="imgDispPatName">-</strong></div>
+                    <div><span style="font-size: 0.8rem; color: #475569;">Age / Sex:</span><br><strong id="imgDispPatMeta">-</strong></div>
+                    <div><span style="font-size: 0.8rem; color: #475569;">Ref Doctor:</span><br><strong id="imgDispDocName">-</strong></div>
+                    <div><span style="font-size: 0.8rem; color: #475569;">Date:</span><br><strong id="imgDispDate">-</strong></div>
                 </div>
 
-                <!-- Filter Controls -->
-                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px;">
+                <div class="imaging-workspace-grid">
                     <div>
-                        <label style="font-size: 0.8rem; font-weight: bold;">Start Date:</label><br>
-                        <input type="date" id="pcpndtFilterStart" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                        <label style="font-size: 0.85rem; font-weight: bold; color: #1e293b; margin-bottom: 6px; display: block;">1. Select Template (.dot)</label>
+                        <div class="template-list-box" id="templatesListBox"></div>
                     </div>
                     <div>
-                        <label style="font-size: 0.8rem; font-weight: bold;">End Date:</label><br>
-                        <input type="date" id="pcpndtFilterEnd" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                        <label style="font-size: 0.85rem; font-weight: bold; color: #1e293b; margin-bottom: 6px; display: block;">2. Parameter Values & Biometry</label>
+                        <div class="fields-table-container">
+                            <table style="margin-top: 0;">
+                                <thead><tr><th style="width: 140px;">Field Name</th><th>Value / Measurement</th></tr></thead>
+                                <tbody id="dynamicFieldsTableBody"><tr><td colspan="2" style="text-align: center; color: #888; padding: 20px;">Select a template to load fields.</td></tr></tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div>
-                        <label style="font-size: 0.8rem; font-weight: bold;">OR Month:</label><br>
-                        <input type="month" id="pcpndtFilterMonth" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                    <div class="report-preview-box">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label style="font-size: 0.85rem; font-weight: bold; color: #1e293b;">3. Report Findings (Merged)</label>
+                            <span style="font-size: 0.75rem; color: #64748b;">(Auto-filled via ⚡ Merge Fields)</span>
+                        </div>
+                        <textarea id="imagingReportEditor" class="report-editor" placeholder="Click 'Merge Fields' above to populate measurements..."></textarea>
+                        <div>
+                            <label style="font-size: 0.82rem; font-weight: bold; color: #1e293b;">Clinical Impression / Conclusion:</label>
+                            <input type="text" id="imagingImpressionInput" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; margin-top: 4px;" placeholder="Clinical Impression...">
+                        </div>
                     </div>
-                    <div>
-                        <label style="font-size: 0.8rem; font-weight: bold;">Search Patient / Relative / Invoice:</label><br>
-                        <input type="text" id="pcpndtFilterSearch" placeholder="Name or Invoice No" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
-                    </div>
-                    <button type="button" class="btn-search" onclick="filterPcpndtRegister()">🔍 Filter</button>
-                    <button type="button" class="btn-edit-patient" onclick="resetPcpndtRegisterFilters()">Show All</button>
                 </div>
+            </div>
+        </div>
 
+        <!-- TAB 3: PCPNDT REGISTER -->
+        <div id="tab-pcpndt-register" class="tab-content">
+            <div class="card">
+                <div class="card-title"><span>Statutory PCPNDT Form F Register</span></div>
                 <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Invoice</th>
-                            <th>Patient Name & Age</th>
-                            <th>Husband / Relative</th>
-                            <th>LMP & Gestation</th>
-                            <th>Children (M/F)</th>
-                            <th>Doctor & Reg No</th>
-                            <th style="width: 250px;">Statutory Actions</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Date</th><th>Invoice</th><th>Patient Name & Age</th><th>Relative</th><th>LMP & Gestation</th><th>Children</th><th>Doctor</th><th style="width: 150px;">Action</th></tr></thead>
                     <tbody id="pcpndtRegisterTableBody"></tbody>
                 </table>
             </div>
         </div>
 
-        <!-- TAB 3: EDIT DOCTORS & TESTS -->
+        <!-- TAB 4: MASTERS -->
         <div id="tab-masters" class="tab-content">
-            <div class="dashboard-grid">
-                <div>
-                    <div class="card">
-                        <div class="card-title" id="docFormTitle">Add / Edit Referring Doctors</div>
-                        <input type="hidden" id="editDocId" value="">
-                        <div class="form-grid">
-                            <div class="form-group full-width">
-                                <label>Doctor Name *:</label>
-                                <input type="text" id="docNameInput" placeholder="Dr. Full Name">
-                            </div>
-                            <div class="form-group full-width">
-                                <label>Hospital / Clinic Name:</label>
-                                <input type="text" id="docHospInput" placeholder="Hospital or Clinic Name">
-                            </div>
-                            <div class="form-group">
-                                <label>Commission Type:</label>
-                                <select id="docCommType">
-                                    <option value="percentage">Percentage (%)</option>
-                                    <option value="fixed">Fixed Amount (₹)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Commission Value:</label>
-                                <input type="number" id="docCutInput" placeholder="e.g. 10">
-                            </div>
-                        </div>
-                        <div style="margin-top: 12px; display: flex; gap: 8px;">
-                            <button type="button" class="btn-complete-reg" id="btnSaveDoc" style="padding: 8px 16px;" onclick="saveDoctor()">Save New Doctor</button>
-                            <button type="button" class="btn-del" id="btnCancelDocEdit" style="display: none;" onclick="cancelDocEdit()">Cancel</button>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-title">Existing Doctors List</div>
-                        <table>
-                            <thead>
-                                <tr><th>Name</th><th>Hospital</th><th>Action</th></tr>
-                            </thead>
-                            <tbody id="doctorsTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="card">
-                        <div class="card-title" id="testFormTitle">Add / Edit Tests & Cuts</div>
-                        <input type="hidden" id="editTestId" value="">
-                        <div class="form-grid">
-                            <div class="form-group full-width">
-                                <label>Test / Service Name *:</label>
-                                <input type="text" id="testNameInput" placeholder="Investigation / Test Name">
-                            </div>
-                            <div class="form-group full-width">
-                                <label>Category (Pathology / Imaging / Consulting):</label>
-                                <select id="testCatInput">
-                                    <option value="Pathology">Pathology</option>
-                                    <option value="Imaging">Imaging</option>
-                                    <option value="Consulting">Consulting</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Price (₹) *:</label>
-                                <input type="number" id="testPriceInput" placeholder="0.00">
-                            </div>
-                            <div class="form-group">
-                                <label>Doctor Cut / Commission (₹):</label>
-                                <input type="number" id="testCutInput" placeholder="0.00">
-                            </div>
-                        </div>
-                        <div style="margin-top: 12px; display: flex; gap: 8px;">
-                            <button type="button" class="btn-complete-reg" id="btnSaveTest" style="padding: 8px 16px;" onclick="saveTest()">Save Test / Service</button>
-                            <button type="button" class="btn-del" id="btnCancelTestEdit" style="display: none;" onclick="cancelTestEdit()">Cancel</button>
-                        </div>
-                    </div>
-
-                    <!-- Existing Tests with Instant Search & Deletion -->
-                    <div class="card">
-                        <div class="card-title">Existing Tests & Services</div>
-                        <div class="search-row" style="margin-bottom: 8px;">
-                            <input type="text" id="existingTestSearch" placeholder="🔍 Search by name or category..." oninput="filterExistingTestsList()">
-                        </div>
-                        <table>
-                            <thead>
-                                <tr><th>Test / Service</th><th>Price</th><th>Cut</th><th>Action</th></tr>
-                            </thead>
-                            <tbody id="testsTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+            <div class="card"><div class="card-title">Tests Catalog</div><table><thead><tr><th>Test Name</th><th>Category</th><th>Price</th></tr></thead><tbody id="testsTableBody"></tbody></table></div>
         </div>
 
-        <!-- TAB 4: MANAGE PATIENTS & BILLS -->
+        <!-- TAB 5: PATIENTS -->
         <div id="tab-patients" class="tab-content">
-            <div class="card">
-                <div class="card-title">Manage Patients & Individual Bills By Date</div>
-                <div class="search-row">
-                    <input type="text" id="patientDirectorySearch" placeholder="Search by name, phone or patient ID..." oninput="filterPatientsDirectory()">
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 110px;">Patient ID</th>
-                            <th>Name</th>
-                            <th style="width: 140px;">Age / Gender</th>
-                            <th style="width: 140px;">Mobile</th>
-                            <th style="width: 260px;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="patientsDirectoryBody"></tbody>
-                </table>
-            </div>
+            <div class="card"><div class="card-title">Patients Directory</div><table id="patientsDirectoryTable"><thead><tr><th>ID</th><th>Name</th><th>Age/Gender</th><th>Phone</th></tr></thead><tbody id="patientsDirectoryBody"></tbody></table></div>
         </div>
 
-        <!-- TAB 5: COLLECTIONS & REPORTS -->
+        <!-- TAB 6: REPORTS -->
         <div id="tab-reports" class="tab-content">
-            <div class="card">
-                <div class="card-title">Daily & Monthly Collection Reports</div>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px;">
-                    <div>
-                        <label style="font-size: 0.8rem; font-weight: bold;">Department / Category:</label><br>
-                        <select id="repCategorySelect" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-weight: bold;">
-                            <option value="">All Categories</option>
-                            <option value="Pathology">Pathology</option>
-                            <option value="Imaging">Imaging</option>
-                            <option value="Consulting">Consulting</option>
-                        </select>
-                    </div>
-                    <div><label style="font-size: 0.8rem; font-weight: bold;">Start Date:</label><br><input type="date" id="repStartDate" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
-                    <div><label style="font-size: 0.8rem; font-weight: bold;">End Date:</label><br><input type="date" id="repEndDate" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
-                    <div><label style="font-size: 0.8rem; font-weight: bold;">OR Month (YYYY-MM):</label><br><input type="month" id="repMonth" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
-                    <div><label style="font-size: 0.8rem; font-weight: bold;">Patient Name:</label><br><input type="text" id="repPatientName" placeholder="Search Patient" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
-                    <button type="button" class="btn-search" onclick="filterReports()">🔍 Filter</button>
-                    <button type="button" class="btn-edit-patient" onclick="resetReportFilters()">Show All</button>
-                </div>
-
-                <div id="repSummaryBanner" style="background: #e3f2fd; border: 1px solid #90caf9; padding: 12px 16px; border-radius: 4px; font-weight: bold; margin-bottom: 14px; font-size: 0.9rem; line-height: 1.6;">
-                    Loading Financial & Departmental Summary...
-                </div>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date & Time</th>
-                            <th>Centre</th>
-                            <th>Patient Name</th>
-                            <th>Services / Categories</th>
-                            <th>Total (₹)</th>
-                            <th>Discount</th>
-                            <th>Paid (₹) & Mode</th>
-                            <th>Balance (₹)</th>
-                            <th>Status</th>
-                            <th style="width: 220px;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="reportsTableBody"></tbody>
-                </table>
-            </div>
+            <div class="card"><div class="card-title">Daily Collections</div><table><thead><tr><th>Date</th><th>Patient</th><th>Total</th><th>Paid</th><th>Status</th></tr></thead><tbody id="reportsTableBody"></tbody></table></div>
         </div>
 
-        <!-- TAB 6: DOCTOR BUSINESS & CUTS -->
+        <!-- TAB 7: DOCTOR BUSINESS -->
         <div id="tab-business" class="tab-content">
-            <div class="card">
-                <div class="card-title">Doctor Business & Date-by-Date Details</div>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px;">
-                    <div><label style="font-size: 0.8rem; font-weight: bold;">Select Doctor:</label><br><select id="busDocSelect" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"><option value="">All Doctors</option></select></div>
-                    <div><label style="font-size: 0.8rem; font-weight: bold;">Start Date:</label><br><input type="date" id="busStartDate" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
-                    <div><label style="font-size: 0.8rem; font-weight: bold;">End Date:</label><br><input type="date" id="busEndDate" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
-                    <div><label style="font-size: 0.8rem; font-weight: bold;">OR Month:</label><br><input type="month" id="busMonth" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
-                    <div><label style="font-size: 0.8rem; font-weight: bold;">Patient Name:</label><br><input type="text" id="busPatientName" placeholder="Search Patient" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
-                    <button type="button" class="btn-search" onclick="filterBusiness()">🔍 Filter</button>
-                    <button type="button" class="btn-edit-patient" onclick="loadBusiness()">Show All</button>
-                    <button type="button" class="btn-view-bills" onclick="window.print()">🖨️ Print Report</button>
-                </div>
-
-                <div id="busSummaryBanner" style="background: #ede7f6; border: 1px solid #d1c4e9; padding: 10px 14px; border-radius: 4px; font-weight: bold; margin-bottom: 12px; font-size: 0.9rem;">
-                    Loading Doctor Commission Summary...
-                </div>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date & Time</th>
-                            <th>Doctor Name</th>
-                            <th>Patient Name</th>
-                            <th>Invoice No</th>
-                            <th>Business (₹)</th>
-                            <th>Doctor Cut (₹)</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="businessTableBody"></tbody>
-                </table>
-            </div>
+            <div class="card"><div class="card-title">Doctor Business</div><table><thead><tr><th>Doctor</th><th>Patient</th><th>Invoice</th><th>Amount</th><th>Cut</th></tr></thead><tbody id="businessTableBody"></tbody></table></div>
         </div>
 
     </div>
 
-    <!-- DEDICATED EDIT PCPNDT FORM F MODAL -->
-    <div id="editPcpndtStandaloneModal" class="modal">
-        <div class="modal-content" style="max-width: 850px;">
-            <div class="modal-header">
-                <h3 id="editPcpndtModalTitle">Edit Statutory PCPNDT Form F Record</h3>
-                <button type="button" onclick="closeEditPcpndtModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
-            </div>
-            <input type="hidden" id="standalonePcpndtId">
-            <input type="hidden" id="standalonePcpndtVisitId">
-
-            <div class="form-grid">
-                <div class="form-group full-width">
-                    <label>Husband's / Father's / Mother's / Relative's Name:</label>
-                    <input type="text" id="fRelNameInput">
-                </div>
-                <div class="form-group">
-                    <label>L.M.P Date:</label>
-                    <input type="date" id="fLmpInput">
-                </div>
-                <div class="form-group">
-                    <label>Weeks of Gestation:</label>
-                    <input type="text" id="fWeeksInput">
-                </div>
-                <div class="form-group">
-                    <label>Living Sons & Age:</label>
-                    <div style="display: flex; gap: 6px;">
-                        <input type="number" id="fSonsCountInput" placeholder="Count" style="width: 90px;">
-                        <input type="text" id="fSonsAgeInput" placeholder="Age(s) e.g. 4 Yrs">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Living Daughters & Age:</label>
-                    <div style="display: flex; gap: 6px;">
-                        <input type="number" id="fDaughtersCountInput" placeholder="Count" style="width: 90px;">
-                        <input type="text" id="fDaughtersAgeInput" placeholder="Age(s) e.g. 2 Yrs">
-                    </div>
-                </div>
-                <div class="form-group full-width">
-                    <label>Clinical Indications:</label>
-                    <input type="text" id="fIndicationInput">
-                </div>
-                <div class="form-group full-width">
-                    <label>Ultrasound Observations / Scan Findings:</label>
-                    <textarea id="fFindingsInput" rows="3"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Performing Doctor Name:</label>
-                    <input type="text" id="fDocNameInput" value="Dr NIKUNJ KOTHIA">
-                </div>
-                <div class="form-group">
-                    <label>Doctor Reg No:</label>
-                    <input type="text" id="fDocRegInput" value="2009/09/3218">
-                </div>
-                <div class="form-group">
-                    <label>Clinic Registration No:</label>
-                    <input type="text" id="fClinicRegInput" value="RS197">
-                </div>
-            </div>
-
-            <button type="button" class="btn-complete-reg" style="margin-top: 16px; width: 100%; padding: 12px;" onclick="saveStandalonePcpndtForm()">Update PCPNDT Form F</button>
+    <!-- PRINT LAYOUT -->
+    <div id="imagingReportPrintDoc" class="doc-page" style="display: none;">
+        <div style="text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 6px; margin-bottom: 12px;">
+            <h2 id="imgPrtClinicName" style="color: #1e3a8a; font-size: 1.25rem;">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
+            <p id="imgPrtClinicTagline" style="font-size: 0.82rem; font-style: italic;"></p>
+            <p id="imgPrtClinicAddress" style="font-size: 0.8rem;"></p>
+            <p id="imgPrtClinicPhone" style="font-size: 0.78rem; font-weight: bold;"></p>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 12px; font-size: 8.5pt; margin-bottom: 12px; display: flex; justify-content: space-between;">
+            <div><strong>Patient:</strong> <span id="imgPrtPatName"></span><br><strong>Age / Gender:</strong> <span id="imgPrtPatAge"></span> / <span id="imgPrtPatGender"></span><br><strong>Ref By:</strong> <span id="imgPrtRefDoc"></span></div>
+            <div style="text-align: right;"><strong>Invoice:</strong> <span id="imgPrtInvNo"></span><br><strong>Date:</strong> <span id="imgPrtDate"></span><br><strong>Study:</strong> <span id="imgPrtStudyTitle" style="font-weight: bold;"></span></div>
+        </div>
+        <div style="font-size: 9.2pt; line-height: 1.5; white-space: pre-wrap; min-height: 480px;" id="imgPrtReportText"></div>
+        <div style="border-top: 2px solid #000; margin-top: 14px; padding-top: 8px;">
+            <strong style="font-size: 9.5pt; text-decoration: underline;">IMPRESSION / CONCLUSION:</strong>
+            <div id="imgPrtImpression" style="font-size: 9.5pt; font-weight: bold; margin-top: 4px;"></div>
+        </div>
+        <div style="margin-top: 35px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 8.5pt;">
+            <div><em>Report generated electronically.</em></div>
+            <div style="text-align: right;"><strong>Dr NIKUNJ KOTHIA</strong><br><span>Reg: 2009/09/3218</span></div>
         </div>
     </div>
 
-    <!-- EDIT PATIENT MODAL -->
-    <div id="editPatientModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Edit Patient Information</h3>
-                <button type="button" onclick="closeEditPatientModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
-            </div>
-            <input type="hidden" id="editPatRowId">
-            <div class="form-grid">
-                <div class="form-group"><label>Patient Code:</label><input type="text" id="editPatCode"></div>
-                <div class="form-group"><label>Full Name:</label><input type="text" id="editPatName"></div>
-                <div class="form-group"><label>Age:</label><input type="number" id="editPatAge"></div>
-                <div class="form-group">
-                    <label>Gender:</label>
-                    <select id="editPatGender">
-                        <option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
-                    </select>
-                </div>
-                <div class="form-group"><label>Mobile:</label><input type="text" id="editPatMobile"></div>
-                <div class="form-group"><label>Email:</label><input type="email" id="editPatEmail"></div>
-                <div class="form-group full-width"><label>Address:</label><input type="text" id="editPatAddress"></div>
-            </div>
-            <button type="button" class="btn-complete-reg" style="margin-top: 14px; width: 100%;" onclick="submitEditPatient()">Save Changes</button>
-        </div>
-    </div>
-
-    <!-- PATIENT BILLS MODAL -->
-    <div id="patientBillsModal" class="modal">
-        <div class="modal-content" style="max-width: 950px;">
-            <div class="modal-header">
-                <h3 id="patientBillsTitle">Bills & Form F History</h3>
-                <button type="button" onclick="closePatientBillsModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
-            </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Invoice No</th>
-                        <th>Visit Date</th>
-                        <th>Centre</th>
-                        <th>Doctor</th>
-                        <th>Total</th>
-                        <th>Paid & Mode</th>
-                        <th>Balance</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="patientBillsTableBody"></tbody>
-            </table>
-            <button type="button" class="btn-edit-patient" style="margin-top: 14px;" onclick="closePatientBillsModal()">Close</button>
-        </div>
-    </div>
-
-    <!-- EDIT BILL & PCPNDT MODAL WITH INSTANT SEARCH -->
-    <div id="editBillModal" class="modal">
-        <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-header">
-                <h3 id="editBillModalTitle">Edit Bill, Rates & PCPNDT</h3>
-                <button type="button" onclick="closeEditBillModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
-            </div>
-            <input type="hidden" id="editBillRowId">
-            
-            <div class="form-group full-width" style="margin-bottom: 10px;">
-                <label>Referring Doctor:</label>
-                <select id="editBillDocSelect"></select>
-            </div>
-
-            <!-- Instant Live Search Test in Edit Bill Modal -->
-            <div style="background: #f8fafc; border: 1px solid var(--border); padding: 12px; border-radius: 4px; margin-bottom: 12px;">
-                <label style="font-size: 0.88rem; font-weight: bold; color: #1a365d;">Search & Add Investigation / Service to this Bill (Live Instant Filter):</label>
-                <div class="live-search-container" style="margin-top: 6px;">
-                    <input type="text" id="editBillLiveTestInput" placeholder="🔍 Start typing test name or service (e.g. CBC, Echo, USG)..." oninput="onEditBillLiveTestSearchInput(this.value)" autocomplete="off" style="width: 100%; padding: 9px 12px; border: 1px solid #90caf9; border-radius: 4px; outline: none; font-size: 0.92rem;">
-                    <div id="editBillLiveSearchResultsBox" class="live-search-box"></div>
-                </div>
-            </div>
-
-            <label style="font-size: 0.9rem; font-weight: bold; color: #1a365d;">Bill Items & Charges (Edit Rate directly):</label>
-            <table style="margin-bottom: 10px;">
-                <thead>
-                    <tr>
-                        <th>Investigation / Service Name</th>
-                        <th style="width: 120px;">Category</th>
-                        <th style="width: 160px;">Charge / Rate (₹)</th>
-                        <th style="width: 60px;">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="editBillItemsTableBody"></tbody>
-            </table>
-
-            <div class="rates-summary-panel" style="margin-bottom: 14px;">
-                <div class="subtotal">Gross Total: <span id="editDispGross">₹0.00</span></div>
-                <div class="concession">Concession / Discount: <span id="editDispDisc">- ₹0.00</span></div>
-                <div class="payable">Net Payable: <span id="editDispNet">₹0.00</span></div>
-                <div class="balance">Balance Due: <span id="editDispBal">₹0.00</span></div>
-            </div>
-
-            <div class="form-grid">
-                <div class="form-group"><label>Concession / Discount (₹):</label><input type="number" id="editBillDisc" oninput="recalcEditBillTotals()"></div>
-                <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="editBillPaid" oninput="recalcEditBillTotals()"></div>
-                <div class="form-group">
-                    <label>Payment Mode:</label>
-                    <select id="editBillPaymentMode">
-                        <option value="Cash">Cash</option>
-                        <option value="Online / UPI">Online / UPI</option>
-                        <option value="Card">Card</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Attach / Update Report (PDF/Word):</label>
-                    <input type="file" id="editBillFile">
-                </div>
-            </div>
-
-            <!-- Editable PCPNDT Inside Modal -->
-            <div class="pcpndt-panel" style="margin-top: 14px;">
-                <label class="pcpndt-checkbox-label">
-                    <input type="checkbox" id="editPcpndtToggle" onchange="document.getElementById('editPcpndtSection').style.display = this.checked ? 'block' : 'none'">
-                    PCPNDT Form F Attached
-                </label>
-                <div id="editPcpndtSection" style="display: none; margin-top: 10px;">
-                    <div class="form-grid">
-                        <div class="form-group"><label>Relative Name:</label><input type="text" id="editPcpndtRel"></div>
-                        <div class="form-group"><label>LMP Date:</label><input type="date" id="editPcpndtLmp"></div>
-                        <div class="form-group"><label>Weeks of Gestation:</label><input type="text" id="editPcpndtWeeks"></div>
-                        <div class="form-group full-width"><label>Clinical Indications:</label><input type="text" id="editPcpndtInd"></div>
-                        <div class="form-group full-width"><label>Scan Observations / Findings:</label><textarea id="editPcpndtScan" rows="2"></textarea></div>
-                    </div>
-                </div>
-            </div>
-
-            <button type="button" class="btn-complete-reg" style="margin-top: 14px; width: 100%; padding: 12px;" onclick="submitFullEditBill()">Save & Update Bill</button>
-        </div>
-    </div>
-
-    <!-- ADMIN SETTINGS & MULTI-CENTRE MODAL -->
-    <div id="adminModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Admin Settings & Multi-Centre Manager</h3>
-                <button type="button" onclick="closeAdminModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
-            </div>
-
-            <div id="adminAuthSection">
-                <div class="form-group">
-                    <label>Enter Admin Password:</label>
-                    <input type="password" id="adminPasswordInput" placeholder="Password (default: admin123)" onkeydown="if(event.key==='Enter') verifyAdmin()">
-                </div>
-                <button type="button" class="btn-view-bills" style="margin-top: 10px; width: 100%;" onclick="verifyAdmin()">Login to Settings</button>
-            </div>
-
-            <div id="adminPanelSection" style="display: none;">
-                <div class="card">
-                    <div class="card-title">Configured Clinic Centres</div>
-                    <table>
-                        <thead>
-                            <tr><th>Centre Name</th><th>Contact / Reg No</th><th>Status</th><th>Actions</th></tr>
-                        </thead>
-                        <tbody id="adminCentresListBody"></tbody>
-                    </table>
-                </div>
-
-                <div class="card">
-                    <div class="card-title" id="centreFormTitle">Add New Centre Profile</div>
-                    <input type="hidden" id="editCentreId" value="">
-                    <div class="form-grid">
-                        <div class="form-group full-width"><label>Centre Name *:</label><input type="text" id="cNameInput" placeholder="e.g. RESQ Heart Care (Branch 2)"></div>
-                        <div class="form-group full-width"><label>Tagline / Subtitle:</label><input type="text" id="cTaglineInput" placeholder="e.g. Multi-Speciality Diagnostic Imaging"></div>
-                        <div class="form-group full-width"><label>Address:</label><input type="text" id="cAddressInput" placeholder="Branch Address"></div>
-                        <div class="form-group"><label>Phone / Contact:</label><input type="text" id="cPhoneInput" placeholder="+91 9876543210"></div>
-                        <div class="form-group"><label>Reg No / License:</label><input type="text" id="cRegInput" placeholder="RS197" value="RS197"></div>
-                    </div>
-                    <div style="margin-top: 12px; display: flex; gap: 8px;">
-                        <button type="button" class="btn-complete-reg" id="btnSaveCentre" style="padding: 8px 16px;" onclick="saveCentre()">Save Centre Profile</button>
-                        <button type="button" class="btn-del" id="btnCancelCentreEdit" style="display: none;" onclick="cancelCentreEdit()">Cancel</button>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-title">Change Administrative Password</div>
-                    <div class="form-grid">
-                        <div class="form-group"><label>Old Password:</label><input type="password" id="passOld"></div>
-                        <div class="form-group"><label>New Password:</label><input type="password" id="passNew"></div>
-                    </div>
-                    <button type="button" class="btn-view-bills" style="margin-top: 10px; width: 100%;" onclick="changeAdminPassword()">Update Password</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- PRINT LAYOUT 1: INVOICE BILL -->
-    <div id="invoicePrintArea" class="print-paper">
-        <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px;">
-            <h2 id="prtClinicName">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
-            <p id="prtClinicTagline" style="font-size: 0.85rem; font-style: italic;"></p>
-            <p id="prtClinicAddress" style="font-size: 0.85rem;"></p>
-            <p id="prtClinicContact" style="font-size: 0.8rem;"></p>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 10px;">
-            <div>
-                <strong>Patient:</strong> <span id="prtPatName"></span> (<span id="prtPatMeta"></span>)<br>
-                <strong>Ref Doctor:</strong> <span id="prtDocName"></span><br>
-                <strong>Address:</strong> <span id="prtPatAddress"></span>
-            </div>
-            <div style="text-align: right;">
-                <strong>Invoice:</strong> <span id="prtInvNo"></span><br>
-                <strong>Date:</strong> <span id="prtDate"></span>
-            </div>
-        </div>
-
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
-            <thead><tr><th>Investigation / Service</th><th style="width: 110px;">Amount (₹)</th></tr></thead>
-            <tbody id="prtItemsBody"></tbody>
-        </table>
-
-        <div style="text-align: right; font-size: 0.88rem;">
-            <p>Gross Subtotal: ₹<span id="prtGross"></span> | Discount: ₹<span id="prtDisc"></span></p>
-            <p style="font-size: 1.05rem; font-weight: bold; margin-top: 3px;">Net Payable: ₹<span id="prtNet"></span></p>
-            <p>Paid Amount: ₹<span id="prtPaid"></span> (<span id="prtMode">Cash</span>) | Balance Due: ₹<span id="prtBal"></span></p>
-        </div>
-    </div>
-
-    <!-- ========================================================
-         EXACT STATUTORY 2-PAGE PCPNDT FORM F DOCUMENT LAYOUT
-    ======================================================== -->
-    <div id="exactPcpndtDoc" style="display: none;">
-        
-        <!-- PAGE 1: SECTIONS A, B & SECTION C TOP -->
-        <div class="doc-page">
-            <div class="doc-header-title">
-                FORM FOR MAINTENANCE OF RECORD IN CASE OF PRENATAL DIAGNOSTIC TEST /PROCEDURE BY GENETIC CLINIC/ULTRASOUND CLINIC/IMAGING CENTRE
-            </div>
-            <div style="border-top: 1px solid #000; margin-bottom: 4px;"></div>
-
-            <div class="doc-sec-heading">Section A :</div>
-            
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 190px;">1.&nbsp;&nbsp;Name and Address of Clinic :</div>
-                <div class="val" style="font-size: 8.4pt;">
-                    <span id="docClinicName">RESQ HEART CLINIC AND IMAGING CENTRE</span> <span id="docClinicAddress">Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL, Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.</span>
-                </div>
-            </div>
-
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 190px;">2.&nbsp;&nbsp;Reg No :</div>
-                <div class="val" id="docClinicReg" style="font-weight: bold;">RS197</div>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                <div style="display: flex; flex: 1;">
-                    <div style="min-width: 190px;">3.&nbsp;&nbsp;Patient's Name :</div>
-                    <div style="font-weight: bold;" id="docPatName"></div>
-                </div>
-                <div style="min-width: 180px; text-align: right;">
-                    Age : <strong id="docPatAge"></strong> yrs
-                </div>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                <div style="min-width: 190px;">4.&nbsp;&nbsp;No of Children :</div>
-                <div style="flex: 1; display: flex; justify-content: space-around;">
-                    <div>Male : <strong id="docMaleKids"></strong></div>
-                    <div>Female : <strong id="docFemaleKids"></strong></div>
-                </div>
-            </div>
-
-            <div style="margin-left: 18px; margin-bottom: 2px;">
-                <div>a. No of Sons with age of each living son: <strong id="docSonsDetail"></strong></div>
-                <div>b. No of Daughters with age of each living Daughter: <strong id="docDaughtersDetail"></strong></div>
-            </div>
-
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 250px;">5.&nbsp;&nbsp;Husband's/Wife's/Father's/Mother's Name :</div>
-                <div class="val" id="docRelativeName"></div>
-            </div>
-
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 250px;">6.&nbsp;&nbsp;Full Address with Tel No :</div>
-                <div class="val"><span id="docPatAddress"></span>, Tel: <span id="docPatPhone"></span></div>
-            </div>
-
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 250px;">7(a). Referred by :</div>
-                <div class="val" id="docRefDoc"></div>
-            </div>
-
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 250px;">7(b). Self Referral :</div>
-                <div class="val" id="docSelfRef"></div>
-            </div>
-
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 250px;">8.&nbsp;&nbsp;Last Menstrual Period/wks of Preg :</div>
-                <div class="val"><span id="docLmp"></span> / <span id="docWeeks"></span></div>
-            </div>
-
-            <div style="border-top: 1px solid #000; margin-top: 4px; margin-bottom: 2px;"></div>
-
-            <div class="doc-sec-heading">Section B :</div>
-            
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 280px;">9.&nbsp;&nbsp;Name of the doctor performing the procedures:</div>
-                <div class="val" id="docDoctorName">Dr NIKUNJ KOTHIA</div>
-            </div>
-
-            <div style="margin-bottom: 2px;">10. Indication/s for diagnosis procedure:</div>
-
-            <div class="indications-grid">
-                <div class="indication-row"><div class="ind-num">i.</div><div class="ind-text">To diagnose intra-uterine and/or ectopic pregnancy and confirm viability.</div></div>
-                <div class="indication-row"><div class="ind-num">ii.</div><div class="ind-text">Estimation of gestational age (dating).</div></div>
-                <div class="indication-row"><div class="ind-num">iii.</div><div class="ind-text">Detection of number of foetuses and their chorionicity.</div></div>
-                <div class="indication-row"><div class="ind-num">iv.</div><div class="ind-text">Suspected pregnancy with IUCD in-situ or suspected pregnancy following contraceptive failure/MTP failure.</div></div>
-                <div class="indication-row"><div class="ind-num">v.</div><div class="ind-text">Vaginal bleeding / leaking.</div></div>
-                <div class="indication-row"><div class="ind-num">vi.</div><div class="ind-text">Follow-up of cases of abortion.</div></div>
-                <div class="indication-row"><div class="ind-num">vii.</div><div class="ind-text">Assessment of cervical canal and diameter of internal os.</div></div>
-                <div class="indication-row"><div class="ind-num">viii.</div><div class="ind-text">Discrepancy between uterine size and period of amenorrhoea.</div></div>
-                <div class="indication-row"><div class="ind-num">ix.</div><div class="ind-text">Any suspected adenexal or uterine pathology / abnormality.</div></div>
-                <div class="indication-row"><div class="ind-num">x.</div><div class="ind-text">Detection of chromosomal abnormalities, foetal structural defects and other abnormalities and their follow-up.</div></div>
-                <div class="indication-row"><div class="ind-num">xi.</div><div class="ind-text">To evaluate foetal presentation and position.</div></div>
-                <div class="indication-row"><div class="ind-num">xii.</div><div class="ind-text">Assessment of liquor amnii.</div></div>
-                <div class="indication-row"><div class="ind-num">xiii.</div><div class="ind-text">Preterm labour / preterm premature rupture of membranes.</div></div>
-                <div class="indication-row"><div class="ind-num">xiv.</div><div class="ind-text">Evaluation of placental position, thickness, grading and abnormalities (placenta praevia, retroplacental haemorrhage, abnormal adherance etc.).</div></div>
-                <div class="indication-row"><div class="ind-num">xv.</div><div class="ind-text">Evaluation of umbilical cord - presentation, insertion, nuchal encirclement, number of vessels and presence of true knot.</div></div>
-                <div class="indication-row"><div class="ind-num">xvi.</div><div class="ind-text">Evaluation of previous Caesarean Section scars.</div></div>
-                <div class="indication-row"><div class="ind-num">xxi.</div><div class="ind-text">Evaluation of foetal growth parameters, foetal weight and foetal well being.</div></div>
-                <div class="indication-row"><div class="ind-num">xviii.</div><div class="ind-text">Colour flow mapping and duplex Doppler studies.</div></div>
-                <div class="indication-row"><div class="ind-num">xix.</div><div class="ind-text">Ultrasound guided procedures such as medical termination of pregnancy, external cephalic version etc. and their follow-up.</div></div>
-                <div class="indication-row"><div class="ind-num">xx.</div><div class="ind-text">Adjunct to diagnostic and therapeutic invasive interventions such as chorionic villus sampling (CVS), amniocenteses, foetal blood samples, foetal skin biopsy, amnioinfusion, intrauterine infusion, placement of shunts etc.</div></div>
-                <div class="indication-row"><div class="ind-num">xxi.</div><div class="ind-text">Observation of intra-partum events.</div></div>
-                <div class="indication-row"><div class="ind-num">xxii.</div><div class="ind-text">Medical/surgical conditions complicating pregnancy.</div></div>
-                <div class="indication-row"><div class="ind-num">xxiii.</div><div class="ind-text">Research/scientific studies in recognised institutions.</div></div>
-            </div>
-
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 250px;">11 i. Procedures carried out (Non-Invasive) :</div>
-                <div class="val">Ultrasonography</div>
-            </div>
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 250px;">11 ii. Any other (specify) :</div>
-                <div class="val">-</div>
-            </div>
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 320px;">12. Date on which declaration of preg woman /person obtained :</div>
-                <div class="val" id="docDeclDate"></div>
-            </div>
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 320px;">13. Date(s) on which procedures carried out :</div>
-                <div class="val" id="docProcDate"></div>
-            </div>
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 250px;">14. Result of non invasive proc carried out :</div>
-                <div class="val" id="docProcResult" style="font-family: monospace; font-size: 8.5pt;"></div>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-                <div class="doc-line-item" style="flex: 1;">
-                    <div class="label" style="min-width: 280px;">15. The result of Pre Natal Diagnostic procedure conveyed :</div>
-                    <div class="val">on: <span id="docConveyDate"></span></div>
-                </div>
-            </div>
-            <div class="doc-line-item">
-                <div class="label" style="min-width: 280px;">16. Any indication for MTP as per abnormality detected :</div>
-                <div class="val">NONE</div>
-            </div>
-
-            <div class="doc-sign-box">
-                <div>
-                    Date - <span id="docSignDate"></span><br><br>
-                    Place - Kandivali West
-                </div>
-                <div style="text-align: right;">
-                    <strong id="docSignDocName">Dr NIKUNJ KOTHIA</strong>&nbsp;&nbsp;<strong id="docSignDocReg">2009/09/3218</strong><br>
-                    <span style="font-size: 7.5pt;">Name/Sign/Reg No of Gynaecologist/Radiologist/Reg Med<br>Practitioner performing diagnostic procedures</span>
-                </div>
-            </div>
-
-            <div style="border-top: 1px solid #000; margin-top: 4px; margin-bottom: 2px;"></div>
-
-            <div style="font-weight: bold; text-decoration: underline;">Section C : To be filled for performing invasive Procedures / Tests only</div>
-            <div style="margin-left: 20px; font-weight: bold;">NOT APPLICABLE</div>
-
-            <div style="display: flex; justify-content: space-between; font-size: 8pt; margin-top: 2px;">
-                <div>17. Name of the doctor performing the procedure :</div>
-                <div style="font-weight: bold;">Not Applicable</div>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 8pt;">
-                <div>18. History of genetic/medical disease in the family (specify) :</div>
-                <div style="font-weight: bold;">Not Applicable</div>
-            </div>
-            <div class="sec-c-grid">
-                <div>Basis of diagnosis :</div>
-                <div style="display: flex; justify-content: space-between;"><div>(a) Clinical :</div><div><strong>Not Applicable</strong></div></div>
-                <div style="display: flex; justify-content: space-between;"><div>(b) Bio-Chemical :</div><div><strong>Not Applicable</strong></div></div>
-                <div style="display: flex; justify-content: space-between;"><div>(c) Cytogenetic :</div><div><strong>Not Applicable</strong></div></div>
-                <div style="display: flex; justify-content: space-between;"><div>(d) Other(eg Radiological, USG etc specify) :</div><div><strong>Not Applicable</strong></div></div>
-            </div>
-        </div>
-
-        <!-- PAGE 2: SECTION C CONTINUED, SECTION D & SIGNATURE DECLARATIONS -->
-        <div class="doc-page">
-            <div class="sec-c-grid" style="margin-left: 0;">
-                <div>19. Indication for the Diagnostic procedure :</div>
-                <div style="margin-left: 14px;">
-                    <div>A. Previous Child/Children with :</div>
-                    <div style="margin-left: 14px;">
-                        <div style="display: flex; justify-content: space-between;"><div>(i) Chromosomal Disorders:</div><div><strong>Not Applicable</strong></div></div>
-                        <div style="display: flex; justify-content: space-between;"><div>(ii) Metabolic Disorders:</div><div><strong>Not Applicable</strong></div></div>
-                        <div style="display: flex; justify-content: space-between;"><div>(iii) Congenital Anomaly:</div><div><strong>Not Applicable</strong></div></div>
-                        <div style="display: flex; justify-content: space-between;"><div>(iv) Mental Retardation:</div><div><strong>Not Applicable</strong></div></div>
-                        <div style="display: flex; justify-content: space-between;"><div>(v) Haemoglobinopathy:</div><div><strong>Not Applicable</strong></div></div>
-                        <div style="display: flex; justify-content: space-between;"><div>(vi) Sex Linked Disorders:</div><div><strong>Not Applicable</strong></div></div>
-                        <div style="display: flex; justify-content: space-between;"><div>(vii) Single gene Disorder:</div><div><strong>Not Applicable</strong></div></div>
-                        <div style="display: flex; justify-content: space-between;"><div>(viii) Any other (specify):</div><div><strong>Not Applicable</strong></div></div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 1px;"><div>B. Advanced Maternal Age (35 yrs) :</div><div><strong>No</strong></div></div>
-                    <div style="display: flex; justify-content: space-between;"><div>C. Mother/Father/Sibling has Genetic Disease(specify) :</div><div><strong>Not Applicable</strong></div></div>
-                    <div style="display: flex; justify-content: space-between;"><div>D. Other(specify) :</div><div><strong>Not Applicable</strong></div></div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; margin-top: 2px;">
-                    <div>20. Date on which consent of the pregnant woman / person was obtained in Form G :</div>
-                    <div><strong>Not Applicable</strong></div>
-                </div>
-
-                <div>21. Invasive procedures carried out :</div>
-                <div style="margin-left: 14px;">
-                    <div style="display: flex; justify-content: space-between;"><div>(i) Amniocentesis :</div><div><strong>Not Applicable</strong></div></div>
-                    <div style="display: flex; justify-content: space-between;"><div>(ii) Chorionic Villi Aspiration :</div><div><strong>Not Applicable</strong></div></div>
-                    <div style="display: flex; justify-content: space-between;"><div>(iii) Foetal Biopsy :</div><div><strong>Not Applicable</strong></div></div>
-                    <div style="display: flex; justify-content: space-between;"><div>(iv) Cordocentesis :</div><div><strong>Not Applicable</strong></div></div>
-                    <div style="display: flex; justify-content: space-between;"><div>(v) Any other (specify) :</div><div><strong>Not Applicable</strong></div></div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; margin-top: 1px;">
-                    <div>22. Any Complication of invasive Procedure - please specify :</div>
-                    <div><strong>Not Applicable</strong></div>
-                </div>
-
-                <div>23. Laboratory Tests Recommended :</div>
-                <div style="margin-left: 14px;">
-                    <div style="display: flex; justify-content: space-between;"><div>(i) Chromosomal Studies :</div><div><strong>Not Applicable</strong></div></div>
-                    <div style="display: flex; justify-content: space-between;"><div>(ii) Biochemical Studies :</div><div><strong>Not Applicable</strong></div></div>
-                    <div style="display: flex; justify-content: space-between;"><div>(iii) Molecular Studies :</div><div><strong>Not Applicable</strong></div></div>
-                    <div style="display: flex; justify-content: space-between;"><div>(iv) Pre-implantation gender diagnosis :</div><div><strong>Not Applicable</strong></div></div>
-                    <div style="display: flex; justify-content: space-between;"><div>(v) Any other (specify) :</div><div><strong>Not Applicable</strong></div></div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; margin-top: 1px;">
-                    <div>24. Result of the procedure / tests carried out :</div>
-                    <div><strong>Not Applicable</strong></div>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <div>25. Date(s) on which procedures carried out :</div>
-                    <div><strong>Not Applicable</strong></div>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <div>26. The result of Pre Natal Diagnostic procedure conveyed to :</div>
-                    <div><strong>Not Applicable</strong>&nbsp;&nbsp;on:&nbsp;<strong>Not Applicable</strong></div>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <div>27. Any indication for MTP as per abnormality detected :</div>
-                    <div><strong>NONE</strong></div>
-                </div>
-            </div>
-
-            <div class="doc-sign-box" style="margin-top: 8px;">
-                <div>
-                    Date - <span id="docSignDate2"></span><br><br>
-                    Place - Kandivali West
-                </div>
-                <div style="text-align: right;">
-                    <strong id="docSignDocName2">Dr NIKUNJ KOTHIA</strong>&nbsp;&nbsp;<strong id="docSignDocReg2">2009/09/3218</strong><br>
-                    <span style="font-size: 7.5pt;">Name/Sign/Reg No of Gynaecologist/Radiologist/Reg Med<br>Practitioner performing diagnostic procedures</span>
-                </div>
-            </div>
-
-            <div style="border-top: 1px solid #000; margin-top: 6px; margin-bottom: 4px;"></div>
-
-            <!-- SECTION D : DECLARATIONS IN ENGLISH, MARATHI, HINDI -->
-            <div class="doc-sec-heading" style="margin-top: 2px;">Section D : Declaration</div>
-
-            <div style="text-align: center; font-weight: bold; font-size: 8.5pt; text-decoration: underline; margin-bottom: 4px;">
-                DECLARATION OF THE PERSON UNDERGOING PRENATAL DIAGNOSTIC TEST / PROCEDURE
-            </div>
-
-            <div style="font-size: 8.2pt; line-height: 1.3; margin-bottom: 8px;">
-                <p>I declare that by undergoing ultrasonography /image scanning etc. I do not want to know the sex of my foetus.</p>
-                <p style="font-family: Arial, sans-serif; margin-top: 2px;">मी घोषित करते की अल्ट्रासोनोग्राफी / इमेजिंग स्कॅनिंग करून मी माझ्या गर्भाचे लिंग जाणून घेऊ इच्छित नाही.</p>
-                <p style="font-family: Arial, sans-serif; margin-top: 2px;">मैं घोषणा करती हूँ की अल्ट्रा-सोनोग्राफी / इमेजिंग स्कैनिंग कराके में मेरे गर्भ के लिंग की जांच करना नहीं चाहती.</p>
-            </div>
-
-            <div style="text-align: right; font-size: 8pt; margin-bottom: 8px;">
-                ____________________________________________________________________<br>
-                Signature / Thumb impression of person undergoing the Prenatal Diagnostic Test / Procedure
-            </div>
-
-            <div style="font-size: 7.8pt; border: 1px dashed #777; padding: 4px; margin-bottom: 6px;">
-                <strong>In case of Thumb impression :</strong><br>
-                Identified by (Name) : __________________________________ Age : ________ Sex : ________<br>
-                Relation (if any) : ________________ Address & Contact number : __________________________________<br>
-                Signature of a person attesting thumb impression : ________________________ Date : <span id="docThumbDate"></span>
-            </div>
-
-            <div style="text-align: center; font-weight: bold; font-size: 8.5pt; text-decoration: underline; margin-top: 6px; margin-bottom: 4px;">
-                DECLARATION OF THE DOCTOR / PERSON CONDUCTING PRENATAL DIAGNOSTIC TEST / PROCEDURE
-            </div>
-
-            <div style="font-size: 8.2pt; line-height: 1.3; margin-bottom: 12px;">
-                I, <strong id="docDeclDoctor">Dr NIKUNJ KOTHIA</strong> <strong id="docDeclDocReg">2009/09/3218</strong> declare that by conducting ultrasonography/image scanning I have neither detected nor disclosed the sex of her foetus to anybody in any manner.
-            </div>
-
-            <div style="text-align: right; font-size: 8pt; margin-bottom: 10px;">
-                ____________________________________________________________________<br>
-                Name, Registration number with seal of the Gynaecologist / Radiologist / Reg. Medical Practitioner conducting diagnostic procedure<br>
-                <strong id="docDeclDoctorBottom">Dr NIKUNJ KOTHIA</strong> <strong id="docDeclDocRegBottom">2009/09/3218</strong>
-            </div>
-
-            <div style="border-top: 1px dotted #000; padding-top: 6px; font-size: 7.8pt; line-height: 1.25;">
-                I declare that I have received a copy of the declaration from <strong id="docAckClinic">RESQ HEART CLINIC AND IMAGING CENTRE</strong> <span id="docAckAddress">Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL, Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.</span>
-                <div style="text-align: right; margin-top: 14px;">
-                    ____________________________________________<br>
-                    Signature / Thumb Impression of Patient
-                </div>
-            </div>
-
-        </div>
-
-    </div>
-
-    <!-- MAIN CLIENT APPLICATION SCRIPT -->
+    <!-- CLIENT SCRIPT -->
     <script>
-        let testsList = [];
-        let doctorsList = [];
-        let patientsList = [];
-        let visitsList = [];
-        let pcpndtRegisterList = [];
-        let centresList = [];
-        let selectedBillTests = [];
-        let activeCentre = null;
-        let activeEditingBillTests = [];
+        let testsList = [], doctorsList = [], patientsList = [], visitsList = [], pcpndtRegisterList = [], imagingTemplatesList = [], centresList = [], selectedBillTests = [];
+        let activeCentre = null, currentSelectedTemplate = null, currentSelectedVisit = null;
 
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        }
+        function escapeHtml(str) { return str ? str.replace(/'/g, "\\'").replace(/"/g, '&quot;') : ''; }
+        function getCentreParam() { return activeCentre && activeCentre.id ? `centreId=${activeCentre.id}` : ''; }
 
-        // 1. Password Lock
+        // Unlock (Uncoupled & Error Resilient)
         async function unlockApp() {
             const password = document.getElementById('lockInput').value;
+            let verifyRes;
             try {
-                const res = await fetch('/api/auth/verify', {
+                verifyRes = await fetch('/api/auth/verify', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password })
                 });
-                const json = await res.json();
-                if (json.success) {
-                    document.getElementById('appLockScreen').style.display = 'none';
-                    await loadCentres();
-                    await loadActiveCentre();
-                    loadDoctors();
-                    loadTests();
-                    loadPatientsDirectory();
-                    loadReports();
-                    loadPcpndtRegister();
-                } else {
-                    alert('Incorrect administrative password.');
-                }
-            } catch (e) {
-                alert('Connection Error: Make sure your node server is running.');
+            } catch (netErr) {
+                return alert('Connection Error: Cannot reach server. Please ensure Node server is running.');
             }
+
+            const json = await verifyRes.json();
+            if (!json.success) return alert('Incorrect administrative password.');
+
+            document.getElementById('appLockScreen').style.display = 'none';
+
+            // Independent async initializers
+            loadCentres().then(() => loadActiveCentre()).then(() => refreshAllCentreData());
+            loadDoctors();
+            loadTests();
+            loadImagingTemplates();
         }
 
-        // Navigation
+        function refreshAllCentreData() {
+            loadPatientsDirectory();
+            loadReports();
+            loadPcpndtRegister();
+            loadBusiness();
+            loadImagingVisitsDropdown();
+        }
+
         function openTab(tabId, btn) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
             btn.classList.add('active');
+            if (tabId === 'tab-imaging-reports') loadImagingVisitsDropdown();
             if (tabId === 'tab-pcpndt-register') loadPcpndtRegister();
             if (tabId === 'tab-reports') loadReports();
             if (tabId === 'tab-business') loadBusiness();
-            if (tabId === 'tab-masters') { loadDoctors(); loadTests(); }
+            if (tabId === 'tab-masters') loadTests();
             if (tabId === 'tab-patients') loadPatientsDirectory();
         }
 
-        function togglePCPNDT(show) {
-            document.getElementById('pcpndtFields').style.display = show ? 'block' : 'none';
-        }
-
+        function togglePCPNDT(show) { document.getElementById('pcpndtFields').style.display = show ? 'block' : 'none'; }
         function quickOpenPCPNDT() {
             document.getElementById('pcpndtToggle').checked = true;
             togglePCPNDT(true);
             document.getElementById('pcpndtContainer').scrollIntoView({ behavior: 'smooth' });
-            document.getElementById('pcpndtRelativeName').focus();
         }
 
-        // 2. Multi-Centre Management
         async function loadCentres() {
             try {
                 const res = await fetch('/api/centres');
                 const json = await res.json();
                 centresList = json.data || [];
-
                 const sel = document.getElementById('activeCentreSelector');
                 sel.innerHTML = '';
                 centresList.forEach(c => {
@@ -1465,8 +596,7 @@
                     if (c.is_active) opt.selected = true;
                     sel.appendChild(opt);
                 });
-                renderAdminCentres();
-            } catch (e) { console.error('Error loading centres:', e); }
+            } catch (e) { console.error(e); }
         }
 
         async function loadActiveCentre() {
@@ -1478,505 +608,197 @@
                     document.getElementById('topCentreTitle').textContent = activeCentre.centre_name;
                     document.getElementById('topCentreTagline').textContent = activeCentre.tagline || '';
                 }
-            } catch (e) { console.error('Error loading active centre:', e); }
+            } catch (e) { console.error(e); }
         }
 
         async function switchCentre(id) {
+            if (!id) return;
             try {
                 const res = await fetch(`/api/centres/${id}/activate`, { method: 'POST' });
                 const json = await res.json();
                 if (json.success) {
                     await loadActiveCentre();
                     await loadCentres();
+                    refreshAllCentreData();
                 } else {
-                    alert('Error activating centre: ' + json.error);
+                    alert('Could not switch centre: ' + (json.error || 'Unknown error'));
                 }
-            } catch (e) { alert('Failed to switch centre'); }
+            } catch (e) {
+                alert('Network error switching centre');
+            }
         }
 
-        function renderAdminCentres() {
-            const tbody = document.getElementById('adminCentresListBody');
-            if (!tbody) return;
+        // Imaging Template Loader
+        async function loadImagingTemplates() {
+            try {
+                const res = await fetch('/api/imaging/templates');
+                const json = await res.json();
+                imagingTemplatesList = json.data || [];
+                const box = document.getElementById('templatesListBox');
+                box.innerHTML = '';
+                imagingTemplatesList.forEach((tmpl, idx) => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = `template-item-btn ${idx === 0 ? 'selected' : ''}`;
+                    btn.innerHTML = `<strong>${escapeHtml(tmpl.template_name)}</strong><span class="tmpl-cat">${escapeHtml(tmpl.title)}</span>`;
+                    btn.onclick = () => selectImagingTemplate(tmpl, btn);
+                    box.appendChild(btn);
+                });
+                if (imagingTemplatesList.length > 0) selectImagingTemplate(imagingTemplatesList[0], box.children[0]);
+            } catch (e) { console.error(e); }
+        }
+
+        function selectImagingTemplate(tmpl, btnElement) {
+            currentSelectedTemplate = tmpl;
+            document.querySelectorAll('.template-item-btn').forEach(b => b.classList.remove('selected'));
+            if (btnElement) btnElement.classList.add('selected');
+
+            let schema = tmpl.fields_schema;
+            if (typeof schema === 'string') {
+                try { schema = JSON.parse(schema); } catch (e) { schema = []; }
+            }
+
+            const tbody = document.getElementById('dynamicFieldsTableBody');
             tbody.innerHTML = '';
-            centresList.forEach(c => {
-                const isAct = c.is_active;
+            (schema || []).forEach(f => {
                 tbody.innerHTML += `
                     <tr>
-                        <td><strong>${c.centre_name}</strong></td>
-                        <td>${c.phone || '-'} | Reg: ${c.reg_no || 'RS197'}</td>
-                        <td>${isAct ? '<span class="badge-paid">Active</span>' : '<button type="button" class="btn-wa-rep" onclick="switchCentre(\'' + c.id + '\')">Set Active</button>'}</td>
-                        <td>
-                            <button type="button" class="btn-edit-patient" onclick="startEditCentre('${c.id}')">Edit</button>
-                            <button type="button" class="btn-del" onclick="deleteCentre('${c.id}')">Delete</button>
-                        </td>
+                        <td style="font-weight: 600;">${escapeHtml(f.label || f.key)}</td>
+                        <td><input type="${f.type || 'text'}" id="field_val_${f.key}" value="${escapeHtml(f.default || '')}"></td>
                     </tr>
                 `;
             });
+
+            document.getElementById('imagingReportEditor').value = tmpl.template_body;
+            document.getElementById('imagingImpressionInput').value = tmpl.default_impression || '';
         }
 
-        async function saveCentre() {
-            const editId = document.getElementById('editCentreId').value;
-            const centre_name = document.getElementById('cNameInput').value.trim();
-            if (!centre_name) return alert('Centre Name is required');
+        function mergeFieldsToReport() {
+            if (!currentSelectedTemplate) return alert('Select a template first.');
+            let text = currentSelectedTemplate.template_body;
+            let impression = currentSelectedTemplate.default_impression || '';
+            let schema = currentSelectedTemplate.fields_schema;
+            if (typeof schema === 'string') {
+                try { schema = JSON.parse(schema); } catch (e) { schema = []; }
+            }
 
+            (schema || []).forEach(f => {
+                const el = document.getElementById(`field_val_${f.key}`);
+                const val = el ? el.value : (f.default || '');
+                const reg = new RegExp(`{{${f.key}}}`, 'g');
+                text = text.replace(reg, val);
+                impression = impression.replace(reg, val);
+            });
+
+            document.getElementById('imagingReportEditor').value = text;
+            document.getElementById('imagingImpressionInput').value = impression;
+            alert('Fields merged into report preview!');
+        }
+
+        async function loadImagingVisitsDropdown() {
+            try {
+                const res = await fetch(`/api/reports/collection?${getCentreParam()}`);
+                const json = await res.json();
+                const visits = json.data || [];
+                const sel = document.getElementById('imagingVisitSelect');
+                sel.innerHTML = '<option value="">-- Choose Registered Visit --</option>';
+                visits.forEach(v => {
+                    sel.innerHTML += `<option value="${v.visit_id}">[${v.invoice_number}] ${v.full_name}</option>`;
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        async function onImagingVisitSelected(visitId) {
+            if (!visitId) return;
+            try {
+                const res = await fetch(`/api/invoice/${visitId}`);
+                const json = await res.json();
+                if (!json.success) return;
+                const v = json.data.visitDetails;
+                currentSelectedVisit = v;
+                document.getElementById('imgDispPatName').textContent = v.full_name;
+                document.getElementById('imgDispPatMeta').textContent = `${v.age || 'N/A'} Yrs / ${v.gender || '-'}`;
+                document.getElementById('imgDispDocName').textContent = v.doctor_name || 'Direct';
+                document.getElementById('imgDispDate').textContent = new Date(v.created_at).toLocaleDateString('en-GB');
+
+                if (json.data.imagingReport) {
+                    const r = json.data.imagingReport;
+                    document.getElementById('imagingReportEditor').value = r.report_text;
+                    document.getElementById('imagingImpressionInput').value = r.impression || '';
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function saveImagingReport() {
+            if (!currentSelectedVisit) return alert('Select patient visit first.');
+            if (!currentSelectedTemplate) return alert('Select template first.');
             const payload = {
-                centre_name,
-                tagline: document.getElementById('cTaglineInput').value.trim(),
-                address: document.getElementById('cAddressInput').value.trim(),
-                phone: document.getElementById('cPhoneInput').value.trim(),
-                reg_no: document.getElementById('cRegInput').value.trim() || 'RS197'
+                visitId: currentSelectedVisit.id,
+                patientId: currentSelectedVisit.patient_id,
+                templateId: currentSelectedTemplate.id,
+                templateName: currentSelectedTemplate.template_name,
+                fieldValues: {},
+                reportText: document.getElementById('imagingReportEditor').value,
+                impression: document.getElementById('imagingImpressionInput').value
             };
-
-            const url = editId ? `/api/centres/${editId}` : '/api/centres';
-            const method = editId ? 'PUT' : 'POST';
-
-            const res = await fetch(url, {
-                method,
+            const res = await fetch('/api/imaging/reports', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
             const json = await res.json();
-            if (json.success) {
-                alert(editId ? 'Centre profile updated!' : 'New centre profile added!');
-                cancelCentreEdit();
-                await loadCentres();
-                await loadActiveCentre();
-            } else {
-                alert('Error: ' + json.error);
-            }
+            if (json.success) alert('Report saved successfully!');
+            else alert('Error: ' + json.error);
         }
 
-        function startEditCentre(id) {
-            const c = centresList.find(x => String(x.id) === String(id));
-            if (!c) return;
-            document.getElementById('editCentreId').value = c.id;
-            document.getElementById('cNameInput').value = c.centre_name || '';
-            document.getElementById('cTaglineInput').value = c.tagline || '';
-            document.getElementById('cAddressInput').value = c.address || '';
-            document.getElementById('cPhoneInput').value = c.phone || '';
-            document.getElementById('cRegInput').value = c.reg_no || 'RS197';
-            document.getElementById('centreFormTitle').textContent = 'Edit Centre Profile';
-            document.getElementById('btnSaveCentre').textContent = 'Update Centre';
-            document.getElementById('btnCancelCentreEdit').style.display = 'inline-block';
-            document.getElementById('cNameInput').focus();
+        function printImagingReport() {
+            if (!currentSelectedVisit) return alert('Select patient visit to print.');
+            document.getElementById('imgPrtPatName').textContent = currentSelectedVisit.full_name;
+            document.getElementById('imgPrtPatAge').textContent = currentSelectedVisit.age || 'N/A';
+            document.getElementById('imgPrtPatGender').textContent = currentSelectedVisit.gender || '-';
+            document.getElementById('imgPrtRefDoc').textContent = currentSelectedVisit.doctor_name || 'Direct';
+            document.getElementById('imgPrtInvNo').textContent = currentSelectedVisit.invoice_number;
+            document.getElementById('imgPrtDate').textContent = new Date(currentSelectedVisit.created_at).toLocaleDateString('en-GB');
+            document.getElementById('imgPrtStudyTitle').textContent = currentSelectedTemplate?.title || 'DIAGNOSTIC REPORT';
+            document.getElementById('imgPrtReportText').textContent = document.getElementById('imagingReportEditor').value;
+            document.getElementById('imgPrtImpression').textContent = document.getElementById('imagingImpressionInput').value;
+
+            const doc = document.getElementById('imagingReportPrintDoc');
+            doc.classList.add('print-active');
+            window.print();
+            doc.classList.remove('print-active');
         }
 
-        function cancelCentreEdit() {
-            document.getElementById('editCentreId').value = '';
-            document.getElementById('cNameInput').value = '';
-            document.getElementById('cTaglineInput').value = '';
-            document.getElementById('cAddressInput').value = '';
-            document.getElementById('cPhoneInput').value = '';
-            document.getElementById('cRegInput').value = 'RS197';
-            document.getElementById('centreFormTitle').textContent = 'Add New Centre Profile';
-            document.getElementById('btnSaveCentre').textContent = 'Save Centre Profile';
-            document.getElementById('btnCancelCentreEdit').style.display = 'none';
-        }
-
-        async function deleteCentre(id) {
-            if (!confirm('Are you sure you want to delete this centre profile?')) return;
-            const res = await fetch(`/api/centres/${id}`, { method: 'DELETE' });
-            const json = await res.json();
-            if (json.success) {
-                await loadCentres();
-                await loadActiveCentre();
-            } else {
-                alert('Error: ' + json.error);
-            }
-        }
-
-        // Admin Security
-        function openAdminModal() {
-            document.getElementById('adminModal').style.display = 'flex';
-            document.getElementById('adminAuthSection').style.display = 'block';
-            document.getElementById('adminPanelSection').style.display = 'none';
-            document.getElementById('adminPasswordInput').value = '';
-        }
-        function closeAdminModal() { document.getElementById('adminModal').style.display = 'none'; }
-
-        async function verifyAdmin() {
-            const password = document.getElementById('adminPasswordInput').value;
-            const res = await fetch('/api/auth/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
-            });
-            const json = await res.json();
-            if (json.success) {
-                document.getElementById('adminAuthSection').style.display = 'none';
-                document.getElementById('adminPanelSection').style.display = 'block';
-                renderAdminCentres();
-            } else {
-                alert('Incorrect Admin Password');
-            }
-        }
-
-        async function changeAdminPassword() {
-            const oldPassword = document.getElementById('passOld').value;
-            const newPassword = document.getElementById('passNew').value;
-            if (!newPassword) return alert('Enter new password');
-
-            const res = await fetch('/api/auth/change-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ oldPassword, newPassword })
-            });
-            const json = await res.json();
-            alert(json.message || json.error);
-            if (json.success) closeAdminModal();
-        }
-
-        // 3. Doctors Master
-        async function loadDoctors() {
-            try {
-                const res = await fetch('/api/doctors');
-                const json = await res.json();
-                doctorsList = json.data || [];
-
-                const sel = document.getElementById('referringDoctorSelect');
-                const busSel = document.getElementById('busDocSelect');
-                const editBillDocSel = document.getElementById('editBillDocSelect');
-
-                sel.innerHTML = '<option value="">Select Doctor</option>';
-                busSel.innerHTML = '<option value="">All Doctors</option>';
-                if (editBillDocSel) editBillDocSel.innerHTML = '<option value="">Direct / Self</option>';
-
-                doctorsList.forEach(d => {
-                    const opt = `<option value="${d.id}">${d.doctor_name} (${d.hospital_clinic_name || 'General'})</option>`;
-                    sel.innerHTML += opt;
-                    busSel.innerHTML += `<option value="${d.id}">${d.doctor_name}</option>`;
-                    if (editBillDocSel) editBillDocSel.innerHTML += opt;
-                });
-
-                const tbody = document.getElementById('doctorsTableBody');
-                tbody.innerHTML = '';
-                doctorsList.forEach(d => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><strong>${d.doctor_name}</strong></td>
-                            <td>${d.hospital_clinic_name || '-'}</td>
-                            <td>
-                                <button type="button" class="btn-view-bills" style="padding: 3px 10px; font-size: 0.8rem;" onclick="startEditDoctor('${d.id}')">Edit</button>
-                                <button type="button" class="btn-del" onclick="deleteDoctor('${d.id}')">X</button>
-                            </td>
-                        </tr>
-                    `;
-                });
-            } catch (e) { console.error('Error loading doctors:', e); }
-        }
-
-        async function saveDoctor() {
-            const editId = document.getElementById('editDocId').value;
-            const doctorName = document.getElementById('docNameInput').value.trim();
-            if (!doctorName) return alert('Enter Doctor Name');
-
-            const payload = {
-                doctorName,
-                hospitalClinicName: document.getElementById('docHospInput').value.trim(),
-                commissionType: document.getElementById('docCommType').value,
-                commissionValue: parseFloat(document.getElementById('docCutInput').value) || 0
-            };
-
-            const url = editId ? `/api/doctors/${editId}` : '/api/doctors';
-            const method = editId ? 'PUT' : 'POST';
-
-            const res = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(editId ? 'Doctor updated successfully!' : 'Doctor added successfully!');
-                cancelDocEdit();
-                loadDoctors();
-            } else {
-                alert('Error: ' + data.error);
-            }
-        }
-
-        function startEditDoctor(id) {
-            const d = doctorsList.find(x => String(x.id) === String(id));
-            if (!d) return alert('Doctor record not found');
-            document.getElementById('editDocId').value = d.id;
-            document.getElementById('docNameInput').value = d.doctor_name || '';
-            document.getElementById('docHospInput').value = d.hospital_clinic_name || '';
-            document.getElementById('docCommType').value = d.commission_type || 'percentage';
-            document.getElementById('docCutInput').value = d.commission_value || 0;
-            document.getElementById('docFormTitle').textContent = 'Edit Referring Doctor';
-            document.getElementById('btnSaveDoc').textContent = 'Update Doctor';
-            document.getElementById('btnCancelDocEdit').style.display = 'inline-block';
-            document.getElementById('docNameInput').focus();
-        }
-
-        function cancelDocEdit() {
-            document.getElementById('editDocId').value = '';
-            document.getElementById('docNameInput').value = '';
-            document.getElementById('docHospInput').value = '';
-            document.getElementById('docCutInput').value = '';
-            document.getElementById('docFormTitle').textContent = 'Add / Edit Referring Doctors';
-            document.getElementById('btnSaveDoc').textContent = 'Save New Doctor';
-            document.getElementById('btnCancelDocEdit').style.display = 'none';
-        }
-
-        async function deleteDoctor(id) {
-            if (!confirm('Delete doctor?')) return;
-            await fetch(`/api/doctors/${id}`, { method: 'DELETE' });
-            loadDoctors();
-        }
-
-        // 4. Tests Master & Real-Time Live Search Engine
-        async function loadTests() {
-            try {
-                const res = await fetch('/api/tests');
-                const json = await res.json();
-                testsList = json.data || [];
-                renderExistingTestsTable(testsList);
-            } catch (e) { console.error('Error loading tests:', e); }
-        }
-
+        // Live Search Test
         function onLiveTestSearchInput(query) {
             const box = document.getElementById('liveSearchResultsBox');
-            const q = query.toLowerCase().trim();
-            if (!q) {
-                box.style.display = 'none';
-                box.innerHTML = '';
-                return;
-            }
-
-            const matches = testsList.filter(t => 
-                (t.test_name && t.test_name.toLowerCase().includes(q)) ||
-                (t.category && t.category.toLowerCase().includes(q))
-            );
-
-            if (matches.length === 0) {
-                box.innerHTML = `<div style="padding: 12px; text-align: center; color: #888;">No investigations match "${escapeHtml(query)}"</div>`;
-                box.style.display = 'block';
-                return;
-            }
-
+            const q = (query || '').toLowerCase().trim();
+            if (!q) { box.style.display = 'none'; return; }
+            const matches = testsList.filter(t => (t.test_name && t.test_name.toLowerCase().includes(q)) || (t.category && t.category.toLowerCase().includes(q)));
             box.innerHTML = '';
             matches.forEach(t => {
                 const item = document.createElement('div');
                 item.className = 'live-search-item';
-                item.innerHTML = `
-                    <div>
-                        <strong>${escapeHtml(t.test_name)}</strong>
-                        <span class="badge-cat" style="margin-left: 6px;">${escapeHtml(t.category || 'Pathology')}</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <strong style="color: #00897b;">₹${parseFloat(t.price).toFixed(2)}</strong>
-                        <span style="background: #28a745; color: white; padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">+ Add</span>
-                    </div>
-                `;
+                item.innerHTML = `<div><strong>${escapeHtml(t.test_name)}</strong></div><div>₹${t.price}</div>`;
                 item.onclick = () => {
-                    addTestToBillDirect(t);
+                    selectedBillTests.push({ ...t });
+                    renderSelectedTests();
                     document.getElementById('liveTestInput').value = '';
                     box.style.display = 'none';
                 };
                 box.appendChild(item);
             });
-            box.style.display = 'block';
-        }
-
-        function onEditBillLiveTestSearchInput(query) {
-            const box = document.getElementById('editBillLiveSearchResultsBox');
-            const q = query.toLowerCase().trim();
-            if (!q) {
-                box.style.display = 'none';
-                box.innerHTML = '';
-                return;
-            }
-
-            const matches = testsList.filter(t => 
-                (t.test_name && t.test_name.toLowerCase().includes(q)) ||
-                (t.category && t.category.toLowerCase().includes(q))
-            );
-
-            if (matches.length === 0) {
-                box.innerHTML = `<div style="padding: 10px; text-align: center; color: #888;">No investigations match "${escapeHtml(query)}"</div>`;
-                box.style.display = 'block';
-                return;
-            }
-
-            box.innerHTML = '';
-            matches.forEach(t => {
-                const item = document.createElement('div');
-                item.className = 'live-search-item';
-                item.innerHTML = `
-                    <div>
-                        <strong>${escapeHtml(t.test_name)}</strong>
-                        <span class="badge-cat" style="margin-left: 6px;">${escapeHtml(t.category || 'Pathology')}</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <strong style="color: #00897b;">₹${parseFloat(t.price).toFixed(2)}</strong>
-                        <span style="background: #28a745; color: white; padding: 2px 7px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">+ Add</span>
-                    </div>
-                `;
-                item.onclick = () => {
-                    addTestToCurrentEditBillDirect(t);
-                    document.getElementById('editBillLiveTestInput').value = '';
-                    box.style.display = 'none';
-                };
-                box.appendChild(item);
-            });
-            box.style.display = 'block';
-        }
-
-        document.addEventListener('click', (e) => {
-            const mainContainer = document.querySelector('#tab-billing .live-search-container');
-            if (mainContainer && !mainContainer.contains(e.target)) {
-                const box = document.getElementById('liveSearchResultsBox');
-                if (box) box.style.display = 'none';
-            }
-
-            const editContainer = document.querySelector('#editBillModal .live-search-container');
-            if (editContainer && !editContainer.contains(e.target)) {
-                const editBox = document.getElementById('editBillLiveSearchResultsBox');
-                if (editBox) editBox.style.display = 'none';
-            }
-        });
-
-        function addTestToBillDirect(t) {
-            if (!selectedBillTests.some(item => String(item.id) === String(t.id))) {
-                selectedBillTests.push({ ...t });
-                renderSelectedTests();
-            }
-        }
-
-        function addTestToCurrentEditBillDirect(t) {
-            activeEditingBillTests.push({
-                id: t.id,
-                test_name: t.test_name,
-                category: t.category || 'Pathology',
-                price: parseFloat(t.price) || 0
-            });
-            renderEditBillTestsTable();
-        }
-
-        function renderExistingTestsTable(list) {
-            const tbody = document.getElementById('testsTableBody');
-            tbody.innerHTML = '';
-            if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#888;padding:10px;">No matching tests found.</td></tr>`;
-                return;
-            }
-            list.forEach(t => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td><strong>${t.test_name}</strong><br><small class="badge-cat">${t.category || 'Pathology'}</small></td>
-                        <td>₹${parseFloat(t.price).toFixed(2)}</td>
-                        <td>₹${parseFloat(t.test_cut || 0).toFixed(2)}</td>
-                        <td>
-                            <button type="button" class="btn-view-bills" style="padding: 3px 10px; font-size: 0.8rem;" onclick="startEditTest('${t.id}')">Edit</button>
-                            <button type="button" class="btn-del" onclick="deleteTest('${t.id}')">X</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        function filterExistingTestsList() {
-            const query = document.getElementById('existingTestSearch').value.toLowerCase().trim();
-            if (!query) {
-                renderExistingTestsTable(testsList);
-                return;
-            }
-            const filtered = testsList.filter(t => 
-                (t.test_name && t.test_name.toLowerCase().includes(query)) ||
-                (t.category && t.category.toLowerCase().includes(query))
-            );
-            renderExistingTestsTable(filtered);
-        }
-
-        async function saveTest() {
-            const editId = document.getElementById('editTestId').value;
-            const testName = document.getElementById('testNameInput').value.trim();
-            const price = document.getElementById('testPriceInput').value.trim();
-            if (!testName || !price) return alert('Enter Test Name and Price');
-
-            const payload = {
-                testName,
-                category: document.getElementById('testCatInput').value.trim() || 'Pathology',
-                price: parseFloat(price) || 0,
-                testCut: parseFloat(document.getElementById('testCutInput').value) || 0
-            };
-
-            const url = editId ? `/api/tests/${editId}` : '/api/tests';
-            const method = editId ? 'PUT' : 'POST';
-
-            const res = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(editId ? 'Test updated successfully!' : 'Test saved successfully!');
-                cancelTestEdit();
-                loadTests();
-            } else {
-                alert('Error: ' + data.error);
-            }
-        }
-
-        function startEditTest(id) {
-            const t = testsList.find(x => String(x.id) === String(id));
-            if (!t) return alert('Test record not found');
-            document.getElementById('editTestId').value = t.id;
-            document.getElementById('testNameInput').value = t.test_name;
-            document.getElementById('testCatInput').value = t.category || 'Pathology';
-            document.getElementById('testPriceInput').value = t.price;
-            document.getElementById('testCutInput').value = t.test_cut || '';
-            document.getElementById('testFormTitle').textContent = 'Edit Test & Cuts';
-            document.getElementById('btnSaveTest').textContent = 'Update Test / Service';
-            document.getElementById('btnCancelTestEdit').style.display = 'inline-block';
-            document.getElementById('testNameInput').focus();
-        }
-
-        function cancelTestEdit() {
-            document.getElementById('editTestId').value = '';
-            document.getElementById('testNameInput').value = '';
-            document.getElementById('testCatInput').value = 'Pathology';
-            document.getElementById('testPriceInput').value = '';
-            document.getElementById('testCutInput').value = '';
-            document.getElementById('testFormTitle').textContent = 'Add / Edit Tests & Cuts';
-            document.getElementById('btnSaveTest').textContent = 'Save Test / Service';
-            document.getElementById('btnCancelTestEdit').style.display = 'none';
-        }
-
-        async function deleteTest(id) {
-            if (!confirm('Are you sure you want to delete this test from the catalog?')) return;
-            const res = await fetch(`/api/tests/${id}`, { method: 'DELETE' });
-            const json = await res.json();
-            if (json.success) {
-                alert('Test deleted successfully!');
-                loadTests();
-            } else {
-                alert('Failed to delete test: ' + json.error);
-            }
-        }
-
-        function removeSelectedTest(idx) {
-            selectedBillTests.splice(idx, 1);
-            renderSelectedTests();
+            box.style.display = matches.length > 0 ? 'block' : 'none';
         }
 
         function renderSelectedTests() {
             const tbody = document.querySelector('#billItemsTable tbody');
             tbody.innerHTML = '';
             if (selectedBillTests.length === 0) {
-                tbody.innerHTML = `<tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected yet. Type in search above to add tests instantly.</td></tr>`;
+                tbody.innerHTML = `<tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected.</td></tr>`;
             } else {
                 selectedBillTests.forEach((t, idx) => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><strong>${t.test_name}</strong></td>
-                            <td><span class="badge-cat">${t.category || 'Pathology'}</span></td>
-                            <td>₹${parseFloat(t.price).toFixed(2)}</td>
-                            <td><button type="button" class="btn-del" onclick="removeSelectedTest(${idx})">X</button></td>
-                        </tr>
-                    `;
+                    tbody.innerHTML += `<tr><td>${t.test_name}</td><td>${t.category}</td><td>₹${t.price}</td><td><button type="button" class="btn-del" onclick="selectedBillTests.splice(${idx},1);renderSelectedTests();">X</button></td></tr>`;
                 });
             }
             calculateFinancialTotals();
@@ -1987,803 +809,112 @@
             const discount = parseFloat(document.getElementById('inputDiscount').value) || 0;
             const net = Math.max(0, gross - discount);
             const paid = parseFloat(document.getElementById('inputPaid').value) || 0;
-            const balance = Math.max(0, net - paid);
-
             document.getElementById('dispGross').textContent = `₹${gross.toFixed(2)}`;
             document.getElementById('dispDiscount').textContent = `- ₹${discount.toFixed(2)}`;
             document.getElementById('dispNet').textContent = `₹${net.toFixed(2)}`;
-            document.getElementById('dispBalance').textContent = `₹${balance.toFixed(2)}`;
+            document.getElementById('dispBalance').textContent = `₹${Math.max(0, net - paid).toFixed(2)}`;
         }
 
-        // Quick Lookup
-        async function lookupPatient() {
-            const query = document.getElementById('lookupSearch').value.trim();
-            if (!query) return alert('Enter Mobile Number or Patient ID');
-            try {
-                const res = await fetch(`/api/patients/lookup?query=${encodeURIComponent(query)}`);
-                const json = await res.json();
-                if (json.success && json.data.length > 0) {
-                    const p = json.data[0];
-                    document.getElementById('existingPatientId').value = p.id;
-                    document.getElementById('patientFullName').value = p.full_name || '';
-                    document.getElementById('patientAge').value = p.age || '';
-                    document.getElementById('patientGender').value = p.gender || 'Female';
-                    document.getElementById('patientMobile').value = p.phone || '';
-                    document.getElementById('patientEmail').value = p.email || '';
-                    document.getElementById('patientAddress').value = p.address || '';
-                    document.getElementById('patientCode').value = p.patient_code || '';
-                    alert('Existing Patient record loaded!');
-                } else {
-                    alert('No record found.');
-                }
-            } catch (e) {
-                alert('Error looking up patient');
-            }
-        }
-
-        // Process Registration & Invoice
-        async function processVisit(shouldPrintInvoice) {
+        async function processVisit(printInv) {
             const fullName = document.getElementById('patientFullName').value.trim();
-            if (!fullName) return alert('Please enter Patient Full Name.');
-            if (selectedBillTests.length === 0) return alert('Please add at least one test.');
-
-            const isPcpndt = document.getElementById('pcpndtToggle').checked;
+            if (!fullName) return alert('Enter full name');
             const formData = new FormData();
-
-            formData.append('existingPatientId', document.getElementById('existingPatientId').value);
+            formData.append('centreId', activeCentre?.id || '');
             formData.append('fullName', fullName);
             formData.append('age', document.getElementById('patientAge').value);
             formData.append('gender', document.getElementById('patientGender').value);
             formData.append('phone', document.getElementById('patientMobile').value);
-            formData.append('email', document.getElementById('patientEmail').value);
-            formData.append('address', document.getElementById('patientAddress').value);
-            formData.append('patientCode', document.getElementById('patientCode').value);
-            formData.append('referringDoctorId', document.getElementById('referringDoctorSelect').value);
-            formData.append('tests', JSON.stringify(selectedBillTests.map(t => ({ id: t.id, price: t.price }))));
+            formData.append('tests', JSON.stringify(selectedBillTests));
             formData.append('concession', document.getElementById('inputDiscount').value);
             formData.append('paidAmount', document.getElementById('inputPaid').value);
             formData.append('paymentMode', document.getElementById('inputPaymentMode').value);
-            formData.append('isPcpndt', isPcpndt);
 
-            if (isPcpndt) {
-                formData.append('relativeName', document.getElementById('pcpndtRelativeName').value.trim());
-                formData.append('lmpDate', document.getElementById('pcpndtLMP').value);
-                formData.append('weeksOfPreg', document.getElementById('pcpndtWeeks').value.trim());
-                formData.append('noOfSons', document.getElementById('pcpndtNoOfSons').value);
-                formData.append('sonsAge', document.getElementById('pcpndtSonsAge').value.trim());
-                formData.append('noOfDaughters', document.getElementById('pcpndtNoOfDaughters').value);
-                formData.append('daughtersAge', document.getElementById('pcpndtDaughtersAge').value.trim());
-                formData.append('pcpndtIndications', document.getElementById('pcpndtIndication').value.trim());
-                formData.append('scanResult', document.getElementById('pcpndtFindings').value.trim());
-                formData.append('doctorName', document.getElementById('pcpndtDoctor').value.trim());
-                formData.append('doctorRegNo', document.getElementById('pcpndtDoctorReg').value.trim());
-                formData.append('clinicRegNo', document.getElementById('pcpndtClinicReg').value.trim() || 'RS197');
-            }
-
-            const fileInput = document.getElementById('reportFileInput');
-            if (fileInput.files.length > 0) {
-                formData.append('reportFile', fileInput.files[0]);
-            }
-
-            const res = await fetch('/api/register-visit', {
-                method: 'POST',
-                body: formData
-            });
+            const res = await fetch('/api/register-visit', { method: 'POST', body: formData });
             const json = await res.json();
-
             if (json.success) {
-                alert(`Registration & Billing Complete! Invoice: ${json.data.invoiceNumber}`);
-                if (shouldPrintInvoice) {
-                    if (isPcpndt) {
-                        const opt = confirm("Visit saved! Click OK to Print Statutory Form F (2 Pages), or Cancel to Print Standard Invoice.");
-                        if (opt) printPCPNDTForm(json.data.visitId);
-                        else printSingleInvoice(json.data.visitId);
-                    } else {
-                        printSingleInvoice(json.data.visitId);
-                    }
-                }
-
-                // Reset Form
-                document.getElementById('existingPatientId').value = '';
-                document.getElementById('patientFullName').value = '';
-                document.getElementById('patientMobile').value = '';
-                document.getElementById('patientAddress').value = '';
-                document.getElementById('patientCode').value = '';
-                document.getElementById('pcpndtToggle').checked = false;
-                togglePCPNDT(false);
-                document.getElementById('pcpndtFindings').value = '';
-                document.getElementById('inputDiscount').value = '0';
-                document.getElementById('inputPaid').value = '0';
-                document.getElementById('inputPaymentMode').value = 'Cash';
+                alert('Visit saved successfully!');
                 selectedBillTests = [];
                 renderSelectedTests();
-                loadReports();
-                loadPatientsDirectory();
-                loadPcpndtRegister();
-            } else {
-                alert('Error: ' + json.error);
-            }
+                refreshAllCentreData();
+            } else { alert('Error: ' + json.error); }
         }
 
-        // Print Standard Invoice
-        async function printSingleInvoice(visitId) {
+        async function loadTests() {
             try {
-                const res = await fetch(`/api/invoice/${visitId}`);
+                const res = await fetch('/api/tests');
                 const json = await res.json();
-                if (!json.success) return alert('Failed to fetch invoice details.');
-
-                const data = json.data;
-                const visit = data.visitDetails || {};
-                const items = data.investigations || [];
-
-                document.getElementById('prtClinicName').textContent = visit.centre_name || activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
-                document.getElementById('prtClinicTagline').textContent = visit.centre_tagline || activeCentre?.tagline || '';
-                document.getElementById('prtClinicAddress').textContent = visit.centre_address || activeCentre?.address || '';
-                document.getElementById('prtClinicContact').textContent = `Phone: ${visit.centre_phone || activeCentre?.phone || ''} | Reg No: ${visit.centre_reg_no || 'RS197'}`;
-
-                document.getElementById('prtPatName').textContent = visit.full_name || '';
-                document.getElementById('prtPatMeta').textContent = `${visit.age || 'N/A'} Y / ${visit.gender || '-'}`;
-                document.getElementById('prtPatAddress').textContent = visit.address || '-';
-                document.getElementById('prtDocName').textContent = visit.doctor_name || 'Direct / Self';
-                document.getElementById('prtInvNo').textContent = visit.invoice_number;
-                document.getElementById('prtDate').textContent = new Date(visit.created_at).toLocaleDateString();
-
-                const itemsBody = document.getElementById('prtItemsBody');
-                itemsBody.innerHTML = '';
-                items.forEach(t => {
-                    itemsBody.innerHTML += `<tr><td style="border:1px solid #777;padding:6px;">${t.test_name}</td><td style="border:1px solid #777;padding:6px;">₹${parseFloat(t.price).toFixed(2)}</td></tr>`;
+                testsList = json.data || [];
+                const tbody = document.getElementById('testsTableBody');
+                tbody.innerHTML = '';
+                testsList.forEach(t => {
+                    tbody.innerHTML += `<tr><td>${t.test_name}</td><td>${t.category}</td><td>₹${t.price}</td></tr>`;
                 });
-
-                document.getElementById('prtGross').textContent = parseFloat(visit.total_amount).toFixed(2);
-                document.getElementById('prtDisc').textContent = parseFloat(visit.concession).toFixed(2);
-                document.getElementById('prtNet').textContent = (parseFloat(visit.total_amount) - parseFloat(visit.concession)).toFixed(2);
-                document.getElementById('prtPaid').textContent = parseFloat(visit.paid_amount).toFixed(2);
-                document.getElementById('prtMode').textContent = visit.payment_mode || 'Cash';
-                document.getElementById('prtBal').textContent = parseFloat(visit.balance_amount).toFixed(2);
-
-                const printArea = document.getElementById('invoicePrintArea');
-                printArea.classList.add('print-active');
-                window.print();
-                printArea.classList.remove('print-active');
-            } catch (e) {
-                console.error(e);
-            }
+            } catch (e) { console.error(e); }
         }
 
-        // ========================================================
-        // DEDICATED EXACT 2-PAGE PCPNDT FORM F PRINT HANDLER
-        // ========================================================
-        async function printPCPNDTForm(visitId) {
+        async function loadDoctors() {
             try {
-                const res = await fetch(`/api/invoice/${visitId}`);
+                const res = await fetch('/api/doctors');
                 const json = await res.json();
-                if (!json.success) return alert('Failed to fetch details.');
-
-                const data = json.data;
-                const v = data.visitDetails || {};
-                const f = data.pcpndtForm;
-
-                if (!f) return alert('No PCPNDT Form F record attached to this visit.');
-
-                const cName = v.centre_name || activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
-                const cAddr = v.centre_address || activeCentre?.address || 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL, Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.';
-                const cReg = f.clinic_reg_no || v.centre_reg_no || 'RS197';
-                const vDate = new Date(v.created_at).toLocaleDateString('en-GB');
-
-                // Bind Section A
-                document.getElementById('docClinicName').textContent = cName;
-                document.getElementById('docClinicAddress').textContent = cAddr;
-                document.getElementById('docClinicReg').textContent = cReg;
-                document.getElementById('docPatName').textContent = v.full_name || '';
-                document.getElementById('docPatAge').textContent = v.age || 'N/A';
-                document.getElementById('docMaleKids').textContent = f.no_of_sons || '0';
-                document.getElementById('docFemaleKids').textContent = f.no_of_daughters || '0';
-                document.getElementById('docSonsDetail').textContent = f.sons_age ? `${f.no_of_sons || 0} (${f.sons_age})` : (f.no_of_sons || '0');
-                document.getElementById('docDaughtersDetail').textContent = f.daughters_age ? `${f.no_of_daughters || 0} (${f.daughters_age})` : (f.no_of_daughters || '0');
-                document.getElementById('docRelativeName').textContent = f.relative_name || '-';
-                document.getElementById('docPatAddress').textContent = v.address || 'Kandivali West Mumbai';
-                document.getElementById('docPatPhone').textContent = v.phone || '-';
-                document.getElementById('docRefDoc').textContent = v.doctor_name ? `${v.doctor_name} (${v.hospital_clinic_name || 'Clinic'})` : 'Self / Direct';
-                document.getElementById('docSelfRef').textContent = v.doctor_name ? 'No' : 'Yes';
-                document.getElementById('docLmp').textContent = f.lmp_date ? `LMP: ${f.lmp_date}` : 'LMP: -';
-                document.getElementById('docWeeks').textContent = f.weeks_of_preg ? `${f.weeks_of_preg}` : '-';
-
-                // Bind Section B
-                const dName = f.doctor_name || 'Dr NIKUNJ KOTHIA';
-                const dReg = f.doctor_reg_no || '2009/09/3218';
-                document.getElementById('docDoctorName').textContent = dName;
-                document.getElementById('docDeclDate').textContent = vDate;
-                document.getElementById('docProcDate').textContent = vDate;
-                document.getElementById('docProcResult').textContent = f.scan_result || 'Single live intrauterine fetus of normal gestational parameters.';
-                document.getElementById('docConveyDate').textContent = vDate;
-                document.getElementById('docSignDate').textContent = vDate;
-                document.getElementById('docSignDocName').textContent = dName;
-                document.getElementById('docSignDocReg').textContent = dReg;
-
-                // Bind Section C / D (Page 2)
-                document.getElementById('docSignDate2').textContent = vDate;
-                document.getElementById('docSignDocName2').textContent = dName;
-                document.getElementById('docSignDocReg2').textContent = dReg;
-                document.getElementById('docThumbDate').textContent = vDate;
-                document.getElementById('docDeclDoctor').textContent = dName;
-                document.getElementById('docDeclDocReg').textContent = dReg;
-                document.getElementById('docDeclDoctorBottom').textContent = dName;
-                document.getElementById('docDeclDocRegBottom').textContent = dReg;
-                document.getElementById('docAckClinic').textContent = cName;
-                document.getElementById('docAckAddress').textContent = cAddr;
-
-                const docContainer = document.getElementById('exactPcpndtDoc');
-                docContainer.classList.add('print-active');
-                window.print();
-                docContainer.classList.remove('print-active');
-            } catch (e) {
-                alert('Error printing Form F: ' + e.message);
-            }
+                doctorsList = json.data || [];
+                const sel = document.getElementById('referringDoctorSelect');
+                sel.innerHTML = '<option value="">Select Doctor</option>';
+                doctorsList.forEach(d => { sel.innerHTML += `<option value="${d.id}">${d.doctor_name}</option>`; });
+            } catch (e) { console.error(e); }
         }
 
-        // ========================================================
-        // TAB 2: PCPNDT REGISTER & DEDICATED CRUD ENGINE
-        // ========================================================
+        async function loadPatientsDirectory() {
+            try {
+                const res = await fetch(`/api/patients?${getCentreParam()}`);
+                const json = await res.json();
+                const tbody = document.getElementById('patientsDirectoryBody');
+                tbody.innerHTML = '';
+                (json.data || []).forEach(p => {
+                    tbody.innerHTML += `<tr><td>${p.patient_code || '-'}</td><td>${p.full_name}</td><td>${p.age || '-'}</td><td>${p.phone || '-'}</td></tr>`;
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadReports() {
+            try {
+                const res = await fetch(`/api/reports/collection?${getCentreParam()}`);
+                const json = await res.json();
+                const tbody = document.getElementById('reportsTableBody');
+                tbody.innerHTML = '';
+                (json.data || []).forEach(v => {
+                    tbody.innerHTML += `<tr><td>${new Date(v.created_at).toLocaleDateString()}</td><td>${v.full_name}</td><td>₹${v.total_amount}</td><td>₹${v.paid_amount}</td><td>${v.payment_status}</td></tr>`;
+                });
+            } catch (e) { console.error(e); }
+        }
+
         async function loadPcpndtRegister() {
             try {
-                const res = await fetch('/api/pcpndt');
+                const res = await fetch(`/api/pcpndt?${getCentreParam()}`);
                 const json = await res.json();
-                pcpndtRegisterList = json.data || [];
-                renderPcpndtRegister(pcpndtRegisterList);
-            } catch (e) {
-                console.error('Error loading PCPNDT register:', e);
-            }
+                const tbody = document.getElementById('pcpndtRegisterTableBody');
+                tbody.innerHTML = '';
+                (json.data || []).forEach(f => {
+                    tbody.innerHTML += `<tr><td>${new Date(f.form_date).toLocaleDateString()}</td><td>${f.invoice_number}</td><td>${f.patient_name}</td><td>${f.relative_name}</td><td>${f.lmp_date}</td><td>${f.no_of_sons}/${f.no_of_daughters}</td><td>${f.doctor_name}</td><td><button class="btn-del" onclick="deletePcpndt('${f.id}')">Del</button></td></tr>`;
+                });
+            } catch (e) { console.error(e); }
         }
 
-        function renderPcpndtRegister(list) {
-            const tbody = document.getElementById('pcpndtRegisterTableBody');
-            tbody.innerHTML = '';
-            if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #888; padding: 16px;">No PCPNDT Form F records found.</td></tr>`;
-                return;
-            }
-
-            list.forEach(f => {
-                const fDate = new Date(f.form_date).toLocaleDateString('en-GB');
-                const sonsStr = f.sons_age ? `${f.no_of_sons || 0} (${f.sons_age})` : (f.no_of_sons || 0);
-                const daughtersStr = f.daughters_age ? `${f.no_of_daughters || 0} (${f.daughters_age})` : (f.no_of_daughters || 0);
-
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${fDate}</td>
-                        <td><strong>${f.invoice_number}</strong></td>
-                        <td><strong>${escapeHtml(f.patient_name)}</strong><br><small>${f.patient_age ? f.patient_age + ' Yrs' : ''} | ${f.patient_phone || '-'}</small></td>
-                        <td>${escapeHtml(f.relative_name || '-')}</td>
-                        <td><strong>LMP:</strong> ${f.lmp_date || '-'}<br><small><strong>Wks:</strong> ${f.weeks_of_preg || '-'}</small></td>
-                        <td>Sons: ${sonsStr}<br>Daughters: ${daughtersStr}</td>
-                        <td>${f.doctor_name || 'Dr NIKUNJ KOTHIA'}<br><small>Reg: ${f.clinic_reg_no || 'RS197'}</small></td>
-                        <td>
-                            <button type="button" class="btn-pcpndt-btn" onclick="printPCPNDTForm('${f.visit_id}')">🖨️ Form F</button>
-                            <button type="button" class="btn-edit-bill" onclick="openEditPcpndtStandaloneModal('${f.id}')">✏️ Edit</button>
-                            <button type="button" class="btn-del" onclick="deleteStandalonePcpndtForm('${f.id}')">🗑️ Del</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        async function filterPcpndtRegister() {
-            const start = document.getElementById('pcpndtFilterStart').value;
-            const end = document.getElementById('pcpndtFilterEnd').value;
-            const month = document.getElementById('pcpndtFilterMonth').value;
-            const search = document.getElementById('pcpndtFilterSearch').value.trim();
-
-            let url = `/api/pcpndt?startDate=${start}&endDate=${end}&month=${month}&search=${encodeURIComponent(search)}`;
-            const res = await fetch(url);
-            const json = await res.json();
-            renderPcpndtRegister(json.data || []);
-        }
-
-        function resetPcpndtRegisterFilters() {
-            document.getElementById('pcpndtFilterStart').value = '';
-            document.getElementById('pcpndtFilterEnd').value = '';
-            document.getElementById('pcpndtFilterMonth').value = '';
-            document.getElementById('pcpndtFilterSearch').value = '';
+        async function deletePcpndt(id) {
+            if (!confirm('Delete record?')) return;
+            await fetch(`/api/pcpndt/${id}`, { method: 'DELETE' });
             loadPcpndtRegister();
         }
 
-        async function openEditPcpndtStandaloneModal(id) {
-            try {
-                const res = await fetch(`/api/pcpndt/${id}`);
-                const json = await res.json();
-                if (!json.success) return alert('Failed to fetch Form F record');
-
-                const f = json.data;
-                document.getElementById('standalonePcpndtId').value = f.id;
-                document.getElementById('standalonePcpndtVisitId').value = f.visit_id;
-                document.getElementById('editPcpndtModalTitle').textContent = `Edit PCPNDT Form F - ${f.patient_name} (${f.invoice_number})`;
-
-                document.getElementById('fRelNameInput').value = f.relative_name || '';
-                document.getElementById('fLmpInput').value = f.lmp_date || '';
-                document.getElementById('fWeeksInput').value = f.weeks_of_preg || '';
-                document.getElementById('fSonsCountInput').value = f.no_of_sons || 0;
-                document.getElementById('fSonsAgeInput').value = f.sons_age || '';
-                document.getElementById('fDaughtersCountInput').value = f.no_of_daughters || 0;
-                document.getElementById('fDaughtersAgeInput').value = f.daughters_age || '';
-                document.getElementById('fIndicationInput').value = f.indications || '';
-                document.getElementById('fFindingsInput').value = f.scan_result || '';
-                document.getElementById('fDocNameInput').value = f.doctor_name || 'Dr NIKUNJ KOTHIA';
-                document.getElementById('fDocRegInput').value = f.doctor_reg_no || '2009/09/3218';
-                document.getElementById('fClinicRegInput').value = f.clinic_reg_no || 'RS197';
-
-                document.getElementById('editPcpndtStandaloneModal').style.display = 'flex';
-            } catch (e) {
-                alert('Error: ' + e.message);
-            }
-        }
-
-        function closeEditPcpndtModal() {
-            document.getElementById('editPcpndtStandaloneModal').style.display = 'none';
-        }
-
-        async function saveStandalonePcpndtForm() {
-            const id = document.getElementById('standalonePcpndtId').value;
-            const payload = {
-                relativeName: document.getElementById('fRelNameInput').value.trim(),
-                lmpDate: document.getElementById('fLmpInput').value,
-                weeksOfPreg: document.getElementById('fWeeksInput').value.trim(),
-                noOfSons: document.getElementById('fSonsCountInput').value,
-                sonsAge: document.getElementById('fSonsAgeInput').value.trim(),
-                noOfDaughters: document.getElementById('fDaughtersCountInput').value,
-                daughtersAge: document.getElementById('fDaughtersAgeInput').value.trim(),
-                pcpndtIndications: document.getElementById('fIndicationInput').value.trim(),
-                scanResult: document.getElementById('fFindingsInput').value.trim(),
-                doctorName: document.getElementById('fDocNameInput').value.trim(),
-                doctorRegNo: document.getElementById('fDocRegInput').value.trim(),
-                clinicRegNo: document.getElementById('fClinicRegInput').value.trim() || 'RS197'
-            };
-
-            const res = await fetch(`/api/pcpndt/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const json = await res.json();
-            if (json.success) {
-                alert('PCPNDT Form F record updated successfully!');
-                closeEditPcpndtModal();
-                loadPcpndtRegister();
-            } else {
-                alert('Error updating PCPNDT record: ' + json.error);
-            }
-        }
-
-        async function deleteStandalonePcpndtForm(id) {
-            if (!confirm('Are you sure you want to delete this PCPNDT Form F record?')) return;
-            const res = await fetch(`/api/pcpndt/${id}`, { method: 'DELETE' });
-            const json = await res.json();
-            if (json.success) {
-                alert('PCPNDT Form F deleted.');
-                loadPcpndtRegister();
-                loadReports();
-            } else {
-                alert('Error: ' + json.error);
-            }
-        }
-
-        // TAB 4: Patients Directory
-        async function loadPatientsDirectory() {
-            try {
-                const res = await fetch('/api/patients');
-                const json = await res.json();
-                patientsList = json.data || [];
-                renderPatientsDirectory(patientsList);
-            } catch (e) { console.error('Error loading patients:', e); }
-        }
-
-        function renderPatientsDirectory(list) {
-            const tbody = document.getElementById('patientsDirectoryBody');
-            tbody.innerHTML = '';
-            list.forEach(p => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td><strong>${p.patient_code || p.id.slice(0, 8)}</strong></td>
-                        <td>${p.full_name}</td>
-                        <td>${p.age ? p.age + ' Yrs / ' : ''}${p.gender || '-'}</td>
-                        <td>${p.phone || '-'}</td>
-                        <td>
-                            <button type="button" class="btn-edit-patient" onclick="openEditPatientModal('${p.id}')">Edit Patient</button>
-                            <button type="button" class="btn-view-bills" onclick="openPatientBillsModal('${p.id}', '${escapeHtml(p.full_name)}')">View Bills By Date</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        function filterPatientsDirectory() {
-            const q = document.getElementById('patientDirectorySearch').value.toLowerCase().trim();
-            if (!query) return renderPatientsDirectory(patientsList);
-            const filtered = patientsList.filter(p => 
-                (p.full_name && p.full_name.toLowerCase().includes(q)) ||
-                (p.phone && p.phone.includes(q)) ||
-                (p.patient_code && p.patient_code.toLowerCase().includes(q))
-            );
-            renderPatientsDirectory(filtered);
-        }
-
-        function openEditPatientModal(id) {
-            const p = patientsList.find(x => String(x.id) === String(id));
-            if (!p) return;
-            document.getElementById('editPatRowId').value = p.id;
-            document.getElementById('editPatCode').value = p.patient_code || '';
-            document.getElementById('editPatName').value = p.full_name || '';
-            document.getElementById('editPatAge').value = p.age || '';
-            document.getElementById('editPatGender').value = p.gender || 'Female';
-            document.getElementById('editPatMobile').value = p.phone || '';
-            document.getElementById('editPatEmail').value = p.email || '';
-            document.getElementById('editPatAddress').value = p.address || '';
-            document.getElementById('editPatientModal').style.display = 'flex';
-        }
-        function closeEditPatientModal() { document.getElementById('editPatientModal').style.display = 'none'; }
-
-        async function submitEditPatient() {
-            const id = document.getElementById('editPatRowId').value;
-            const payload = {
-                patientCode: document.getElementById('editPatCode').value.trim(),
-                fullName: document.getElementById('editPatName').value.trim(),
-                age: document.getElementById('editPatAge').value,
-                gender: document.getElementById('editPatGender').value,
-                phone: document.getElementById('editPatMobile').value.trim(),
-                email: document.getElementById('editPatEmail').value.trim(),
-                address: document.getElementById('editPatAddress').value.trim()
-            };
-
-            const res = await fetch(`/api/patients/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert('Patient details updated successfully!');
-                closeEditPatientModal();
-                loadPatientsDirectory();
-            } else {
-                alert('Error: ' + data.error);
-            }
-        }
-
-        async function openPatientBillsModal(id, name) {
-            document.getElementById('patientBillsTitle').textContent = `Bills & Form F History for: ${name}`;
-            const res = await fetch(`/api/patients/${id}/visits`);
-            const json = await res.json();
-            const bills = json.data || [];
-            const tbody = document.getElementById('patientBillsTableBody');
-            tbody.innerHTML = '';
-            if (bills.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#888;">No billing records found for this patient.</td></tr>`;
-            } else {
-                bills.forEach(b => {
-                    const waText = encodeURIComponent(`Hello ${name}, your bill for invoice ${b.invoice_number} is ₹${b.total_amount}. Paid: ₹${b.paid_amount} (${b.payment_mode || 'Cash'}), Balance due: ₹${b.balance_amount}.`);
-                    const waLink = b.phone ? `https://wa.me/91${b.phone.replace(/\D/g,'')}?text=${waText}` : '#';
-
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><strong>${b.invoice_number}</strong></td>
-                            <td>${new Date(b.created_at).toLocaleString()}</td>
-                            <td>${b.centre_name || 'Main Centre'}</td>
-                            <td>${b.doctor_name || 'Self / Direct'}</td>
-                            <td>₹${parseFloat(b.total_amount).toFixed(2)}</td>
-                            <td>₹${parseFloat(b.paid_amount || 0).toFixed(2)} <span class="badge-mode">${b.payment_mode || 'Cash'}</span></td>
-                            <td>₹${parseFloat(b.balance_amount || 0).toFixed(2)}</td>
-                            <td>
-                                <button type="button" class="btn-wa-inv" onclick="printSingleInvoice('${b.id}')">Print Inv</button>
-                                ${b.has_pcpndt ? `<button type="button" class="btn-pcpndt-btn" onclick="printPCPNDTForm('${b.id}')">📄 Form F</button>` : ''}
-                                <a href="${waLink}" target="_blank" class="btn-wa-inv" style="background:#25d366;">WA</a>
-                                <button type="button" class="btn-edit-bill" onclick="openEditBillModal('${b.id}')">Edit</button>
-                                <button type="button" class="btn-del" onclick="deleteBill('${b.id}')">Delete</button>
-                            </td>
-                        </tr>
-                    `;
-                });
-            }
-            document.getElementById('patientBillsModal').style.display = 'flex';
-        }
-        function closePatientBillsModal() { document.getElementById('patientBillsModal').style.display = 'none'; }
-
-        // TAB 5: Reports & Collections with Category Support
-        async function loadReports() {
-            try {
-                const res = await fetch('/api/reports/collection');
-                const json = await res.json();
-                visitsList = json.data || [];
-                renderReports(visitsList, json.summary);
-            } catch (e) { console.error('Error loading reports:', e); }
-        }
-
-        function renderReports(list, summary) {
-            const tbody = document.getElementById('reportsTableBody');
-            tbody.innerHTML = '';
-            let totalBiz = 0, totalDisc = 0, totalPaid = 0, totalBal = 0;
-
-            list.forEach(v => {
-                const tot = parseFloat(v.total_amount) || 0;
-                const disc = parseFloat(v.concession) || 0;
-                const paid = parseFloat(v.paid_amount) || 0;
-                const bal = parseFloat(v.balance_amount) || 0;
-                const mode = v.payment_mode || 'Cash';
-                totalBiz += tot;
-                totalDisc += disc;
-                totalPaid += paid;
-                totalBal += bal;
-
-                const isPaid = bal <= 0;
-                const statusBadge = isPaid ? `<span class="badge-paid">Paid</span>` : `<span class="badge-pending">Pending</span>`;
-                const waInv = v.phone ? `https://wa.me/91${v.phone.replace(/\D/g,'')}?text=${encodeURIComponent(`Invoice ${v.invoice_number}: Total ₹${tot}, Paid ₹${paid} (${mode}), Due ₹${bal}`)}` : '#';
-
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${new Date(v.created_at).toLocaleString()}</td>
-                        <td>${v.centre_name || 'Main Centre'}</td>
-                        <td><strong>${v.full_name}</strong></td>
-                        <td><span class="badge-cat">${v.categories || 'General'}</span></td>
-                        <td>₹${tot.toFixed(2)}</td>
-                        <td>₹${disc.toFixed(2)}</td>
-                        <td>₹${paid.toFixed(2)} <span class="badge-mode">${mode}</span></td>
-                        <td>₹${bal.toFixed(2)}</td>
-                        <td>${statusBadge}</td>
-                        <td>
-                            <button type="button" class="btn-wa-inv" onclick="printSingleInvoice('${v.visit_id}')">Print</button>
-                            ${v.has_pcpndt ? `<button type="button" class="btn-pcpndt-btn" onclick="printPCPNDTForm('${v.visit_id}')">📄 Form F</button>` : ''}
-                            <a href="${waInv}" target="_blank" class="btn-wa-inv">WA</a>
-                            <button type="button" class="btn-edit-bill" onclick="openEditBillModal('${v.visit_id}')">Edit</button>
-                            <button type="button" class="btn-del" onclick="deleteBill('${v.visit_id}')">Delete</button>
-                        </td>
-                    </tr>
-                `;
-            });
-
-            const pathVal = summary?.pathologyTotal ? parseFloat(summary.pathologyTotal).toFixed(2) : '0.00';
-            const imgVal = summary?.imagingTotal ? parseFloat(summary.imagingTotal).toFixed(2) : '0.00';
-            const consultVal = summary?.consultingTotal ? parseFloat(summary.consultingTotal).toFixed(2) : '0.00';
-
-            document.getElementById('repSummaryBanner').innerHTML = `
-                <div>
-                    <strong>Total Collection:</strong> ₹${totalPaid.toFixed(2)} &nbsp;|&nbsp; 
-                    <strong>Total Billed:</strong> ₹${totalBiz.toFixed(2)} &nbsp;|&nbsp; 
-                    <strong>Balance Due:</strong> ₹${totalBal.toFixed(2)} &nbsp;|&nbsp; 
-                    <strong>Records:</strong> ${list.length}
-                </div>
-                <div style="margin-top: 4px; color: #0d47a1;">
-                    🔬 <strong>Pathology:</strong> ₹${pathVal} &nbsp;|&nbsp; 
-                    🩻 <strong>Imaging:</strong> ₹${imgVal} &nbsp;|&nbsp; 
-                    🩺 <strong>Consulting:</strong> ₹${consultVal}
-                </div>
-            `;
-        }
-
-        async function filterReports() {
-            const start = document.getElementById('repStartDate').value;
-            const end = document.getElementById('repEndDate').value;
-            const month = document.getElementById('repMonth').value;
-            const pName = document.getElementById('repPatientName').value.trim();
-            const cat = document.getElementById('repCategorySelect').value;
-
-            let url = `/api/reports/collection?startDate=${start}&endDate=${end}&month=${month}&patientName=${encodeURIComponent(pName)}&category=${encodeURIComponent(cat)}`;
-            const res = await fetch(url);
-            const json = await res.json();
-            renderReports(json.data || [], json.summary);
-        }
-
-        function resetReportFilters() {
-            document.getElementById('repStartDate').value = '';
-            document.getElementById('repEndDate').value = '';
-            document.getElementById('repMonth').value = '';
-            document.getElementById('repPatientName').value = '';
-            document.getElementById('repCategorySelect').value = '';
-            loadReports();
-        }
-
-        // TAB 6: Doctor Business
         async function loadBusiness() {
             try {
-                const res = await fetch('/api/reports/doctor-detailed');
+                const res = await fetch(`/api/reports/doctor-detailed?${getCentreParam()}`);
                 const json = await res.json();
-                renderBusiness(json.data || []);
-            } catch (e) { console.error('Error loading business:', e); }
-        }
-
-        function renderBusiness(list) {
-            const tbody = document.getElementById('businessTableBody');
-            tbody.innerHTML = '';
-            let totalBiz = 0, totalCuts = 0;
-
-            list.forEach(v => {
-                const biz = parseFloat(v.total_amount) || 0;
-                const cut = parseFloat(v.doctor_commission) || 0;
-                totalBiz += biz;
-                totalCuts += cut;
-
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${new Date(v.created_at).toLocaleString()}</td>
-                        <td><strong>${v.doctor_name}</strong> (${v.hospital_clinic_name || 'Clinic'})</td>
-                        <td>${v.full_name}</td>
-                        <td>${v.invoice_number}</td>
-                        <td>₹${biz.toFixed(2)}</td>
-                        <td style="color: green; font-weight: bold;">₹${cut.toFixed(2)}</td>
-                        <td><button type="button" class="btn-edit-patient" onclick="startEditDoctor('${v.doctor_id}')">Edit Doctor</button></td>
-                    </tr>
-                `;
-            });
-
-            document.getElementById('busSummaryBanner').innerHTML = `
-                Doctor Commission Summary | Total Business: ₹${totalBiz.toFixed(2)} | Total Cuts: ₹${totalCuts.toFixed(2)} | Records: ${list.length}
-            `;
-        }
-
-        async function filterBusiness() {
-            const docId = document.getElementById('busDocSelect').value;
-            const start = document.getElementById('busStartDate').value;
-            const end = document.getElementById('busEndDate').value;
-            const month = document.getElementById('busMonth').value;
-            const pName = document.getElementById('busPatientName').value.trim();
-
-            let url = `/api/reports/doctor-detailed?doctorId=${docId}&startDate=${start}&endDate=${end}&month=${month}&patientName=${encodeURIComponent(pName)}`;
-            const res = await fetch(url);
-            const json = await res.json();
-            renderBusiness(json.data || []);
-        }
-
-        // Dynamic Bill Editing
-        async function openEditBillModal(id) {
-            try {
-                const res = await fetch(`/api/invoice/${id}`);
-                const json = await res.json();
-                if (!json.success) return alert('Failed to fetch invoice details.');
-
-                const data = json.data;
-                const v = data.visitDetails || {};
-                const invs = data.investigations || [];
-                const p = data.pcpndtForm;
-
-                document.getElementById('editBillRowId').value = v.id;
-                document.getElementById('editBillModalTitle').textContent = `Edit Bill & Charges - ${v.invoice_number} (${v.full_name})`;
-                document.getElementById('editBillDisc').value = v.concession || 0;
-                document.getElementById('editBillPaid').value = v.paid_amount || 0;
-                document.getElementById('editBillPaymentMode').value = v.payment_mode || 'Cash';
-                if (document.getElementById('editBillDocSelect')) {
-                    document.getElementById('editBillDocSelect').value = v.referring_doctor_id || '';
-                }
-
-                activeEditingBillTests = invs.map(item => ({
-                    id: item.test_id,
-                    test_name: item.test_name,
-                    category: item.category || 'Pathology',
-                    price: parseFloat(item.price) || 0
-                }));
-
-                if (p) {
-                    document.getElementById('editPcpndtToggle').checked = true;
-                    document.getElementById('editPcpndtSection').style.display = 'block';
-                    document.getElementById('editPcpndtRel').value = p.relative_name || '';
-                    document.getElementById('editPcpndtLmp').value = p.lmp_date || '';
-                    document.getElementById('editPcpndtWeeks').value = p.weeks_of_preg || '';
-                    document.getElementById('editPcpndtInd').value = p.indications || '';
-                    document.getElementById('editPcpndtScan').value = p.scan_result || '';
-                } else {
-                    document.getElementById('editPcpndtToggle').checked = false;
-                    document.getElementById('editPcpndtSection').style.display = 'none';
-                }
-
-                renderEditBillTestsTable();
-                document.getElementById('editBillModal').style.display = 'flex';
-            } catch (e) {
-                alert('Error loading bill: ' + e.message);
-            }
-        }
-
-        function closeEditBillModal() { 
-            document.getElementById('editBillModal').style.display = 'none'; 
-            activeEditingBillTests = [];
-        }
-
-        function renderEditBillTestsTable() {
-            const tbody = document.getElementById('editBillItemsTableBody');
-            tbody.innerHTML = '';
-
-            if (activeEditingBillTests.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#888;padding:10px;">No tests in this bill. Type in the search box above to add tests.</td></tr>`;
-            } else {
-                activeEditingBillTests.forEach((t, idx) => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><strong>${t.test_name}</strong></td>
-                            <td><span class="badge-cat">${t.category || 'Pathology'}</span></td>
-                            <td>
-                                <input type="number" value="${t.price}" style="width: 130px; padding: 5px; font-weight: bold;" oninput="updateEditBillTestPrice(${idx}, this.value)">
-                            </td>
-                            <td>
-                                <button type="button" class="btn-del" onclick="removeTestFromEditBill(${idx})">X</button>
-                            </td>
-                        </tr>
-                    `;
+                const tbody = document.getElementById('businessTableBody');
+                tbody.innerHTML = '';
+                (json.data || []).forEach(b => {
+                    tbody.innerHTML += `<tr><td>${b.doctor_name}</td><td>${b.full_name}</td><td>${b.invoice_number}</td><td>₹${b.total_amount}</td><td>₹${b.doctor_commission}</td></tr>`;
                 });
-            }
-            recalcEditBillTotals();
-        }
-
-        function removeTestFromEditBill(idx) {
-            activeEditingBillTests.splice(idx, 1);
-            renderEditBillTestsTable();
-        }
-
-        function updateEditBillTestPrice(idx, newPrice) {
-            activeEditingBillTests[idx].price = parseFloat(newPrice) || 0;
-            recalcEditBillTotals();
-        }
-
-        function recalcEditBillTotals() {
-            const gross = activeEditingBillTests.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
-            const disc = parseFloat(document.getElementById('editBillDisc').value) || 0;
-            const net = Math.max(0, gross - disc);
-            const paid = parseFloat(document.getElementById('editBillPaid').value) || 0;
-            const bal = Math.max(0, net - paid);
-
-            document.getElementById('editDispGross').textContent = `₹${gross.toFixed(2)}`;
-            document.getElementById('editDispDisc').textContent = `- ₹${disc.toFixed(2)}`;
-            document.getElementById('editDispNet').textContent = `₹${net.toFixed(2)}`;
-            document.getElementById('editDispBal').textContent = `₹${bal.toFixed(2)}`;
-        }
-
-        async function submitFullEditBill() {
-            const id = document.getElementById('editBillRowId').value;
-            if (activeEditingBillTests.length === 0) return alert('Bill must contain at least one test / investigation.');
-
-            const isPcpndt = document.getElementById('editPcpndtToggle').checked;
-            const formData = new FormData();
-            formData.append('concession', document.getElementById('editBillDisc').value);
-            formData.append('paidAmount', document.getElementById('editBillPaid').value);
-            formData.append('paymentMode', document.getElementById('editBillPaymentMode').value);
-            formData.append('referringDoctorId', document.getElementById('editBillDocSelect').value);
-            formData.append('tests', JSON.stringify(activeEditingBillTests));
-            formData.append('isPcpndt', isPcpndt);
-
-            if (isPcpndt) {
-                formData.append('relativeName', document.getElementById('editPcpndtRel').value.trim());
-                formData.append('lmpDate', document.getElementById('editPcpndtLmp').value);
-                formData.append('weeksOfPreg', document.getElementById('editPcpndtWeeks').value.trim());
-                formData.append('pcpndtIndications', document.getElementById('editPcpndtInd').value.trim());
-                formData.append('scanResult', document.getElementById('editPcpndtScan').value.trim());
-                formData.append('clinicRegNo', 'RS197');
-            }
-
-            const file = document.getElementById('editBillFile').files[0];
-            if (file) formData.append('reportFile', file);
-
-            const res = await fetch(`/api/visits/${id}`, {
-                method: 'PUT',
-                body: formData
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert('Bill, tests, rates, and PCPNDT updated successfully!');
-                closeEditBillModal();
-                loadReports();
-                closePatientBillsModal();
-                loadPcpndtRegister();
-            } else {
-                alert('Error updating bill: ' + data.error);
-            }
-        }
-
-        async function deleteBill(id) {
-            if (!confirm('Are you sure you want to delete this bill record?')) return;
-            const res = await fetch(`/api/visits/${id}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (data.success) {
-                alert('Bill record deleted.');
-                loadReports();
-                closePatientBillsModal();
-                loadPcpndtRegister();
-            } else {
-                alert('Error: ' + data.error);
-            }
+            } catch (e) { console.error(e); }
         }
     </script>
 </body>
