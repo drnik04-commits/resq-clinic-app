@@ -201,21 +201,25 @@ async function initDB() {
         phone VARCHAR(100),
         reg_no VARCHAR(100) DEFAULT 'RS197',
         email VARCHAR(100),
+        centre_password VARCHAR(255) DEFAULT '1234',
         is_active BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
+    await pool.query(`ALTER TABLE clinic_centres ADD COLUMN IF NOT EXISTS centre_password VARCHAR(255) DEFAULT '1234';`);
+
     const centreCheck = await pool.query('SELECT id FROM clinic_centres LIMIT 1');
     if (centreCheck.rows.length === 0) {
       await pool.query(`
-        INSERT INTO clinic_centres (centre_name, tagline, address, phone, reg_no, is_active)
+        INSERT INTO clinic_centres (centre_name, tagline, address, phone, reg_no, centre_password, is_active)
         VALUES (
           'RESQ HEART CLINIC AND IMAGING CENTRE',
           'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging',
           'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL, Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.',
           '+91 8433838285',
           'RS197',
+          '1234',
           true
         );
       `);
@@ -347,15 +351,44 @@ const generateBarcode = () => `PATH-${new Date().toISOString().slice(0, 10).repl
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
 // -------------------------------------------------------------
-// ENDPOINTS
+// AUTHENTICATION & MULTI-CENTRE SECURITY
 // -------------------------------------------------------------
+app.post('/api/auth/verify-centre', async (req, res) => {
+  try {
+    const { centreId, password } = req.body;
+    const inputPass = (password || '').trim();
+
+    const adminCheck = await pool.query("SELECT password FROM app_auth WHERE role = 'admin' LIMIT 1");
+    const masterPass = adminCheck.rows.length ? adminCheck.rows[0].password.trim() : 'admin123';
+    if (inputPass === masterPass || inputPass === 'admin123') {
+      return res.status(200).json({ success: true, role: 'super_admin', isMaster: true });
+    }
+
+    if (!centreId) {
+      return res.status(400).json({ success: false, error: 'Please select a clinic centre.' });
+    }
+
+    const centreCheck = await pool.query("SELECT id, centre_name, centre_password FROM clinic_centres WHERE id = $1", [centreId]);
+    if (centreCheck.rows.length > 0) {
+      const branchPass = (centreCheck.rows[0].centre_password || '1234').trim();
+      if (inputPass === branchPass) {
+        return res.status(200).json({ success: true, role: 'branch_staff', isMaster: false, centreId });
+      }
+    }
+
+    return res.status(401).json({ success: false, error: 'Incorrect password for this clinic branch.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/auth/verify', async (req, res) => {
   try {
     const inputPass = (req.body.password || '').trim();
     if (inputPass === 'admin123') return res.status(200).json({ success: true });
     const result = await pool.query("SELECT password FROM app_auth WHERE role = 'admin' LIMIT 1");
     if (result.rows.length && result.rows[0].password.trim() === inputPass) return res.status(200).json({ success: true });
-    return res.status(401).json({ success: false, error: 'Incorrect password' });
+    return res.status(401).json({ success: false, error: 'Incorrect master admin password' });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -388,11 +421,11 @@ app.get('/api/centres/active', async (req, res) => {
 
 app.post('/api/centres', async (req, res) => {
   try {
-    const { centre_name, tagline, address, phone, reg_no, email } = req.body;
+    const { centre_name, tagline, address, phone, reg_no, email, centre_password } = req.body;
     const result = await pool.query(
-      `INSERT INTO clinic_centres (centre_name, tagline, address, phone, reg_no, email, is_active) 
-       VALUES ($1, $2, $3, $4, $5, $6, false) RETURNING *`,
-      [centre_name, tagline || '', address || '', phone || '', reg_no || 'RS197', email || '']
+      `INSERT INTO clinic_centres (centre_name, tagline, address, phone, reg_no, email, centre_password, is_active) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, false) RETURNING *`,
+      [centre_name, tagline || '', address || '', phone || '', reg_no || 'RS197', email || '', centre_password || '1234']
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -401,12 +434,12 @@ app.post('/api/centres', async (req, res) => {
 app.put('/api/centres/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { centre_name, tagline, address, phone, reg_no, email } = req.body;
+    const { centre_name, tagline, address, phone, reg_no, email, centre_password } = req.body;
     const result = await pool.query(
       `UPDATE clinic_centres 
-       SET centre_name = $1, tagline = $2, address = $3, phone = $4, reg_no = $5, email = $6 
-       WHERE id = $7 RETURNING *`,
-      [centre_name, tagline || '', address || '', phone || '', reg_no || 'RS197', email || '', id]
+       SET centre_name = $1, tagline = $2, address = $3, phone = $4, reg_no = $5, email = $6, centre_password = COALESCE($7, centre_password)
+       WHERE id = $8 RETURNING *`,
+      [centre_name, tagline || '', address || '', phone || '', reg_no || 'RS197', email || '', centre_password, id]
     );
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -429,6 +462,45 @@ app.post('/api/centres/:id/activate', async (req, res) => {
   }
 });
 
+// -------------------------------------------------------------
+// EXECUTIVE DAILY CROSS-CENTRE AUDIT
+// -------------------------------------------------------------
+app.get('/api/reports/executive-daily', async (req, res) => {
+  try {
+    const queryDate = req.query.date || new Date().toISOString().slice(0, 10);
+    const result = await pool.query(`
+      SELECT 
+        c.id AS centre_id,
+        c.centre_name,
+        c.reg_no,
+        COUNT(DISTINCT v.id) AS total_patients,
+        COALESCE(SUM(v.total_amount), 0) AS gross_revenue,
+        COALESCE(SUM(v.concession), 0) AS total_discount,
+        COALESCE(SUM(v.paid_amount), 0) AS total_collected,
+        COALESCE(SUM(CASE WHEN v.payment_mode ILIKE '%cash%' THEN v.paid_amount ELSE 0 END), 0) AS cash_collected,
+        COALESCE(SUM(CASE WHEN v.payment_mode ILIKE '%online%' OR v.payment_mode ILIKE '%upi%' THEN v.paid_amount ELSE 0 END), 0) AS upi_collected,
+        COALESCE(SUM(CASE WHEN v.payment_mode ILIKE '%card%' THEN v.paid_amount ELSE 0 END), 0) AS card_collected,
+        COALESCE(SUM(v.balance_amount), 0) AS pending_balance,
+        COALESCE(SUM(v.doctor_commission), 0) AS total_cuts,
+        COUNT(DISTINCT pf.id) AS pcpndt_count,
+        COUNT(DISTINCT ir.id) AS imaging_count
+      FROM clinic_centres c
+      LEFT JOIN visits v ON v.centre_id = c.id AND v.created_at::date = $1::date
+      LEFT JOIN pcpndt_forms pf ON pf.visit_id = v.id
+      LEFT JOIN imaging_reports ir ON ir.visit_id = v.id
+      GROUP BY c.id, c.centre_name, c.reg_no
+      ORDER BY c.centre_name ASC
+    `, [queryDate]);
+
+    res.json({ success: true, date: queryDate, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// IMAGING WORKSPACE & TEMPLATES
+// -------------------------------------------------------------
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM imaging_templates ORDER BY title ASC');
@@ -463,6 +535,9 @@ app.post('/api/imaging/reports', async (req, res) => {
   }
 });
 
+// -------------------------------------------------------------
+// MASTERS: DOCTORS & INVESTIGATIONS
+// -------------------------------------------------------------
 app.get('/api/doctors', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM referring_doctors ORDER BY doctor_name ASC');
@@ -524,6 +599,9 @@ app.delete('/api/tests/:id', async (req, res) => {
   }
 });
 
+// -------------------------------------------------------------
+// PATIENTS & LOOKUPS
+// -------------------------------------------------------------
 app.get('/api/patients', async (req, res) => {
   const { search } = req.query;
   const centreId = await resolveCentreId(req);
@@ -599,6 +677,9 @@ app.put('/api/patients/:id', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// -------------------------------------------------------------
+// STATUTORY PCPNDT FORM F
+// -------------------------------------------------------------
 app.get('/api/pcpndt', async (req, res) => {
   const { startDate, endDate, month, search } = req.query;
   const centreId = await resolveCentreId(req);
@@ -686,6 +767,9 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// -------------------------------------------------------------
+// VISITS, REGISTRATIONS & BILLING
+// -------------------------------------------------------------
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -1066,40 +1150,6 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// CONSOLIDATED DAILY CROSS-CENTRE AUDIT
-app.get('/api/reports/executive-daily', async (req, res) => {
-  try {
-    const queryDate = req.query.date || new Date().toISOString().slice(0, 10);
-    const result = await pool.query(`
-      SELECT 
-        c.id AS centre_id,
-        c.centre_name,
-        c.reg_no,
-        COUNT(DISTINCT v.id) AS total_patients,
-        COALESCE(SUM(v.total_amount), 0) AS gross_revenue,
-        COALESCE(SUM(v.concession), 0) AS total_discount,
-        COALESCE(SUM(v.paid_amount), 0) AS total_collected,
-        COALESCE(SUM(CASE WHEN v.payment_mode ILIKE '%cash%' THEN v.paid_amount ELSE 0 END), 0) AS cash_collected,
-        COALESCE(SUM(CASE WHEN v.payment_mode ILIKE '%online%' OR v.payment_mode ILIKE '%upi%' THEN v.paid_amount ELSE 0 END), 0) AS upi_collected,
-        COALESCE(SUM(CASE WHEN v.payment_mode ILIKE '%card%' THEN v.paid_amount ELSE 0 END), 0) AS card_collected,
-        COALESCE(SUM(v.balance_amount), 0) AS pending_balance,
-        COALESCE(SUM(v.doctor_commission), 0) AS total_cuts,
-        COUNT(DISTINCT pf.id) AS pcpndt_count,
-        COUNT(DISTINCT ir.id) AS imaging_count
-      FROM clinic_centres c
-      LEFT JOIN visits v ON v.centre_id = c.id AND v.created_at::date = $1::date
-      LEFT JOIN pcpndt_forms pf ON pf.visit_id = v.id
-      LEFT JOIN imaging_reports ir ON ir.visit_id = v.id
-      GROUP BY c.id, c.centre_name, c.reg_no
-      ORDER BY c.centre_name ASC
-    `, [queryDate]);
-
-    res.json({ success: true, date: queryDate, data: result.rows });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 app.use((req, res) => {
   if (fs.existsSync(path.join(__dirname, 'public', 'index.html'))) {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -1110,5 +1160,5 @@ app.use((req, res) => {
 
 app.listen(PORT, '0.0.0.0', async () => {
   await initDB();
-  console.log(`RESQ Clinic System running on port ${PORT}`);
+  console.log(`RESQ Clinic System online at port ${PORT}`);
 });

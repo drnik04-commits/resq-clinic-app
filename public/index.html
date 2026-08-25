@@ -44,7 +44,7 @@
         }
         .lock-box h2 { color: var(--primary-dark); font-size: 1.25rem; margin-bottom: 6px; }
         .lock-box p { color: #666; font-size: 0.85rem; margin-bottom: 18px; }
-        .lock-box input { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 12px; outline: none; font-size: 0.9rem; }
+        .lock-box input, .lock-box select { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 12px; outline: none; font-size: 0.9rem; }
 
         header {
             background-color: var(--primary);
@@ -290,12 +290,19 @@
 </head>
 <body>
 
+    <!-- LOCK SCREEN OVERLAY WITH BRANCH LOGIN -->
     <div id="appLockScreen">
         <div class="lock-box">
             <h2>RESQ CLINIC SYSTEM</h2>
-            <p>Enter administrative password to unlock</p>
-            <input type="password" id="lockInput" placeholder="Password (default: admin123)" onkeydown="if(event.key==='Enter') unlockApp()">
-            <button type="button" class="btn-complete-reg" style="width: 100%; padding: 10px;" onclick="unlockApp()">Unlock System</button>
+            <p>Select clinic centre and enter access password</p>
+            
+            <div style="margin-bottom: 12px; text-align: left;">
+                <label style="font-size: 0.8rem; font-weight: bold; color: #475569;">Select Centre:</label>
+                <select id="lockCentreSelect" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px; font-weight: 600;"></select>
+            </div>
+
+            <input type="password" id="lockInput" placeholder="Branch Password or Master Admin PIN" onkeydown="if(event.key==='Enter') unlockApp()">
+            <button type="button" class="btn-complete-reg" style="width: 100%; padding: 10px;" onclick="unlockApp()">Unlock Clinic System</button>
         </div>
     </div>
 
@@ -316,7 +323,7 @@
 
     <div class="tab-nav">
         <button class="tab-btn active" onclick="openTab('tab-billing', this)">Billing & Registration</button>
-        <button class="tab-btn" onclick="openTab('tab-daily-audit', this); loadDailyAudit();">📊 Executive Audit</button>
+        <button class="tab-btn" id="btnTabAudit" onclick="openTab('tab-daily-audit', this); loadDailyAudit();">📊 Executive Audit</button>
         <button class="tab-btn" onclick="openTab('tab-imaging-reports', this)">🩻 Ultrasound & Imaging Reports</button>
         <button class="tab-btn" onclick="openTab('tab-pcpndt-register', this)">📝 PCPNDT Form F Register</button>
         <button class="tab-btn" onclick="openTab('tab-masters', this)">Edit Doctors & Tests</button>
@@ -808,7 +815,7 @@
                 <button type="button" onclick="closeAdminModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
             </div>
             <div id="adminAuthSection">
-                <div class="form-group"><label>Enter Admin Password:</label><input type="password" id="adminPasswordInput" placeholder="Password (default: admin123)" onkeydown="if(event.key==='Enter') verifyAdmin()"></div>
+                <div class="form-group"><label>Enter Master Admin Password:</label><input type="password" id="adminPasswordInput" placeholder="Password (default: admin123)" onkeydown="if(event.key==='Enter') verifyAdmin()"></div>
                 <button type="button" class="btn-view-bills" style="margin-top: 10px; width: 100%;" onclick="verifyAdmin()">Login to Settings</button>
             </div>
             <div id="adminPanelSection" style="display: none;">
@@ -822,6 +829,7 @@
                         <div class="form-group full-width"><label>Address:</label><input type="text" id="cAddressInput" placeholder="Branch Address"></div>
                         <div class="form-group"><label>Phone / Contact:</label><input type="text" id="cPhoneInput" placeholder="+91 9876543210"></div>
                         <div class="form-group"><label>Reg No / License:</label><input type="text" id="cRegInput" placeholder="RS197" value="RS197"></div>
+                        <div class="form-group"><label>Branch Login Password *:</label><input type="text" id="cPasswordInput" placeholder="e.g. branch123" value="1234"></div>
                     </div>
                     <div style="margin-top: 12px; display: flex; gap: 8px;">
                         <button type="button" class="btn-complete-reg" id="btnSaveCentre" style="padding: 8px 16px;" onclick="saveCentre()">Save Centre Profile</button>
@@ -829,15 +837,15 @@
                     </div>
                 </div>
                 <div class="card">
-                    <div class="card-title">Change Administrative Password</div>
+                    <div class="card-title">Change Master Admin Password</div>
                     <div class="form-grid"><div class="form-group"><label>Old Password:</label><input type="password" id="passOld"></div><div class="form-group"><label>New Password:</label><input type="password" id="passNew"></div></div>
-                    <button type="button" class="btn-view-bills" style="margin-top: 10px; width: 100%;" onclick="changeAdminPassword()">Update Password</button>
+                    <button type="button" class="btn-view-bills" style="margin-top: 10px; width: 100%;" onclick="changeAdminPassword()">Update Master Password</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- PRINT LAYOUTS -->
+    <!-- PRINT ENGINES -->
     <div id="invoicePrintArea" class="print-paper">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px;">
             <h2 id="prtClinicName">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
@@ -983,26 +991,58 @@
         </div>
     </div>
 
-    <!-- CLIENT CONTROLLER SCRIPT -->
+    <!-- CLIENT JAVASCRIPT LOGIC -->
     <script>
         let testsList = [], doctorsList = [], patientsList = [], visitsList = [], pcpndtRegisterList = [];
         let imagingTemplatesList = [], centresList = [], selectedBillTests = [];
         let activeCentre = null, currentSelectedTemplate = null, currentSelectedVisit = null;
-        let activeEditingBillTests = [], currentEditingPatientId = null;
+        let activeEditingBillTests = [], currentEditingPatientId = null, isSuperAdmin = false;
 
         function escapeHtml(str) { return str ? String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;') : ''; }
         function getCentreParam() { return activeCentre && activeCentre.id ? `centreId=${activeCentre.id}` : ''; }
 
-        async function unlockApp() {
-            const password = document.getElementById('lockInput').value.trim();
+        window.addEventListener('DOMContentLoaded', async () => {
             try {
-                const res = await fetch('/api/auth/verify', {
+                const res = await fetch('/api/centres');
+                const json = await res.json();
+                const centres = json.data || json || [];
+                const lockSel = document.getElementById('lockCentreSelect');
+                if (lockSel) {
+                    lockSel.innerHTML = '';
+                    centres.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.id;
+                        opt.textContent = c.centre_name;
+                        if (c.is_active) opt.selected = true;
+                        lockSel.appendChild(opt);
+                    });
+                }
+            } catch (e) { console.error('Failed to preload centres on lock screen:', e); }
+        });
+
+        async function unlockApp() {
+            const centreId = document.getElementById('lockCentreSelect').value;
+            const password = document.getElementById('lockInput').value.trim();
+
+            if (!password) return alert('Please enter your access password.');
+
+            try {
+                const res = await fetch('/api/auth/verify-centre', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password })
+                    body: JSON.stringify({ centreId, password })
                 });
                 const json = await res.json();
-                if (!json.success) return alert('Incorrect administrative password.');
+
+                if (!json.success) {
+                    return alert(json.error || 'Authentication failed for this branch.');
+                }
+
+                isSuperAdmin = json.isMaster || false;
+
+                if (centreId) {
+                    await fetch(`/api/centres/${centreId}/activate`, { method: 'POST' });
+                }
 
                 document.getElementById('appLockScreen').style.display = 'none';
                 await loadCentres();
@@ -1011,8 +1051,13 @@
                 await loadTests();
                 await loadImagingTemplates();
                 refreshAllCentreData();
+
+                const auditBtn = document.getElementById('btnTabAudit');
+                if (auditBtn) {
+                    auditBtn.style.display = isSuperAdmin ? 'inline-block' : 'none';
+                }
             } catch (err) {
-                alert('Cannot connect to server. Verify Node server connection.');
+                alert('Connection Error: Unable to reach clinic server.');
             }
         }
 
@@ -1065,7 +1110,7 @@
                     await loadCentres();
                     refreshAllCentreData();
                 } else {
-                    alert('Error switching clinic centre: ' + (json.error || 'Unknown'));
+                    alert('Error switching centre: ' + (json.error || 'Unknown'));
                 }
             } catch (e) { alert('Network error switching clinic centre.'); }
         }
@@ -1105,7 +1150,7 @@
                 document.getElementById('adminAuthSection').style.display = 'none';
                 document.getElementById('adminPanelSection').style.display = 'block';
                 renderAdminCentres();
-            } else { alert('Incorrect administrative password.'); }
+            } else { alert('Incorrect Master Admin Password.'); }
         }
 
         function renderAdminCentres() {
@@ -1130,7 +1175,8 @@
                 tagline: document.getElementById('cTaglineInput').value.trim(),
                 address: document.getElementById('cAddressInput').value.trim(),
                 phone: document.getElementById('cPhoneInput').value.trim(),
-                reg_no: document.getElementById('cRegInput').value.trim() || 'RS197'
+                reg_no: document.getElementById('cRegInput').value.trim() || 'RS197',
+                centre_password: document.getElementById('cPasswordInput').value.trim() || '1234'
             };
             if (!payload.centre_name) return alert('Centre name is required.');
 
@@ -1139,11 +1185,11 @@
             const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const json = await res.json();
             if (json.success || json.id) {
-                alert('Centre details successfully saved.');
+                alert('Centre profile & password saved.');
                 cancelCentreEdit();
                 await loadCentres();
                 await loadActiveCentre();
-                refreshAllCentreData();
+                renderAdminCentres();
             }
         }
 
@@ -1156,7 +1202,8 @@
             document.getElementById('cAddressInput').value = c.address || '';
             document.getElementById('cPhoneInput').value = c.phone || '';
             document.getElementById('cRegInput').value = c.reg_no || 'RS197';
-            document.getElementById('centreFormTitle').textContent = 'Edit Centre Profile';
+            document.getElementById('cPasswordInput').value = c.centre_password || '1234';
+            document.getElementById('centreFormTitle').textContent = 'Edit Centre Profile & Password';
             document.getElementById('btnSaveCentre').textContent = 'Update Centre Profile';
             document.getElementById('btnCancelCentreEdit').style.display = 'inline-block';
         }
@@ -1168,6 +1215,7 @@
             document.getElementById('cAddressInput').value = '';
             document.getElementById('cPhoneInput').value = '';
             document.getElementById('cRegInput').value = 'RS197';
+            document.getElementById('cPasswordInput').value = '1234';
             document.getElementById('centreFormTitle').textContent = 'Add New Centre Profile';
             document.getElementById('btnSaveCentre').textContent = 'Save Centre Profile';
             document.getElementById('btnCancelCentreEdit').style.display = 'none';
@@ -1187,7 +1235,7 @@
             if (json.success) closeAdminModal();
         }
 
-        // DAILY AUDIT DASHBOARD
+        // DAILY EXECUTIVE AUDIT
         async function loadDailyAudit() {
             const auditDate = document.getElementById('auditDateInput').value || new Date().toISOString().slice(0, 10);
             document.getElementById('auditDateInput').value = auditDate;
@@ -1264,11 +1312,11 @@
                     document.getElementById('patientMobile').value = p.phone || '';
                     document.getElementById('patientEmail').value = p.email || '';
                     document.getElementById('patientAddress').value = p.address || '';
-                    alert(`Found existing patient record: ${p.full_name}`);
+                    alert(`Found existing patient: ${p.full_name}`);
                 } else {
-                    alert('No matching patient found in this centre. Fill form to register new patient.');
+                    alert('No matching patient found in this centre. Ready to register new patient.');
                 }
-            } catch (e) { alert('Error performing patient lookup.'); }
+            } catch (e) { alert('Error during patient lookup.'); }
         }
 
         function togglePCPNDT(show) { document.getElementById('pcpndtFields').style.display = show ? 'block' : 'none'; }
@@ -1307,7 +1355,7 @@
             const tbody = document.querySelector('#billItemsTable tbody');
             tbody.innerHTML = '';
             if (selectedBillTests.length === 0) {
-                tbody.innerHTML = `<tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected yet. Type in search above to add tests instantly.</td></tr>`;
+                tbody.innerHTML = `<tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected yet. Type in search above to add tests.</td></tr>`;
             } else {
                 selectedBillTests.forEach((t, idx) => {
                     tbody.innerHTML += `
@@ -1344,7 +1392,7 @@
         async function processVisit(printInv) {
             const fullName = document.getElementById('patientFullName').value.trim();
             if (!fullName) return alert('Patient Full Name is required.');
-            if (selectedBillTests.length === 0) return alert('Please add at least one test or service to bill.');
+            if (selectedBillTests.length === 0) return alert('Please add at least one test or service.');
 
             const formData = new FormData();
             formData.append('centreId', activeCentre?.id || '');
@@ -1386,7 +1434,7 @@
                 const res = await fetch('/api/register-visit', { method: 'POST', body: formData });
                 const json = await res.json();
                 if (json.success) {
-                    alert(`Visit Registered Successfully! Invoice No: ${json.data.invoiceNumber}`);
+                    alert(`Visit registered successfully! Invoice: ${json.data.invoiceNumber}`);
                     const visitId = json.data.visitId;
 
                     document.getElementById('existingPatientId').value = '';
@@ -1409,7 +1457,7 @@
                         if (isPcpndt) printPCPNDTForm(visitId);
                     }
                 } else {
-                    alert('Error processing registration: ' + json.error);
+                    alert('Error: ' + json.error);
                 }
             } catch (e) { alert('Network error during registration.'); }
         }
@@ -1418,7 +1466,7 @@
             try {
                 const res = await fetch(`/api/invoice/${visitId}`);
                 const json = await res.json();
-                if (!json.success) return alert('Cannot retrieve invoice details.');
+                if (!json.success) return alert('Cannot load invoice details.');
 
                 const v = json.data.visitDetails;
                 const items = json.data.investigations;
@@ -1459,7 +1507,7 @@
             try {
                 const res = await fetch(`/api/invoice/${visitId}`);
                 const json = await res.json();
-                if (!json.success || !json.data.pcpndtForm) return alert('No statutory PCPNDT Form F record exists for this visit.');
+                if (!json.success || !json.data.pcpndtForm) return alert('No PCPNDT Form F record exists for this visit.');
 
                 const v = json.data.visitDetails;
                 const f = json.data.pcpndtForm;
@@ -1509,11 +1557,11 @@
                 printEl.classList.add('print-active');
                 window.print();
                 printEl.classList.remove('print-active');
-            } catch (e) { alert('Error preparing statutory PCPNDT Form F for printing.'); }
+            } catch (e) { alert('Error preparing Form F for printing.'); }
         }
 
         function shareWhatsAppInvoice(phone, patName, invNo, net, bal, centreName) {
-            if (!phone) return alert('Patient does not have a registered mobile number.');
+            if (!phone) return alert('Patient mobile number missing.');
             const cleanPhone = phone.replace(/[^0-9]/g, '');
             const num = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
             const msg = `Dear ${patName},\nThank you for choosing ${centreName || 'RESQ Heart Clinic & Diagnostic Imaging'}.\n\nInvoice No: ${invNo}\nNet Bill Amount: ₹${net}\nBalance Due: ₹${bal}\n\nFor queries contact: +91 8433838285.`;
@@ -1536,7 +1584,7 @@
                     box.appendChild(btn);
                 });
                 if (imagingTemplatesList.length > 0) selectImagingTemplate(imagingTemplatesList[0], box.children[0]);
-            } catch (e) { console.error('Error loading imaging templates:', e); }
+            } catch (e) { console.error('Error loading templates:', e); }
         }
 
         function selectImagingTemplate(tmpl, btnElement) {
@@ -1584,7 +1632,7 @@
         }
 
         function mergeFieldsToReport() {
-            if (!currentSelectedTemplate) return alert('Please select a reporting template first.');
+            if (!currentSelectedTemplate) return alert('Select template first.');
             let text = currentSelectedTemplate.template_body;
             let impression = currentSelectedTemplate.default_impression || '';
             let schema = currentSelectedTemplate.fields_schema;
@@ -1602,7 +1650,7 @@
 
             document.getElementById('imagingReportEditor').value = text;
             document.getElementById('imagingImpressionInput').value = impression;
-            alert('Biometry parameter values merged into the report preview!');
+            alert('Biometry measurements successfully merged into the report studio!');
         }
 
         async function loadImagingVisitsDropdown() {
@@ -1641,7 +1689,7 @@
 
         async function saveImagingReport() {
             if (!currentSelectedVisit) return alert('Select patient visit first.');
-            if (!currentSelectedTemplate) return alert('Select reporting template first.');
+            if (!currentSelectedTemplate) return alert('Select template first.');
             const payload = {
                 visitId: currentSelectedVisit.id,
                 patientId: currentSelectedVisit.patient_id,
@@ -1662,7 +1710,7 @@
         }
 
         function printImagingReport() {
-            if (!currentSelectedVisit) return alert('Select a patient visit to print report.');
+            if (!currentSelectedVisit) return alert('Select patient visit to print.');
             document.getElementById('imgPrtClinicName').textContent = currentSelectedVisit.centre_name || activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
             document.getElementById('imgPrtClinicTagline').textContent = currentSelectedVisit.centre_tagline || activeCentre?.tagline || '';
             document.getElementById('imgPrtClinicAddress').textContent = currentSelectedVisit.centre_address || activeCentre?.address || '';
@@ -1695,7 +1743,7 @@
             try {
                 const res = await fetch(`/api/invoice/${visitId}`);
                 const json = await res.json();
-                if (!json.success) return alert('Cannot retrieve visit record.');
+                if (!json.success) return alert('Cannot load visit record.');
 
                 const v = json.data.visitDetails;
                 const items = json.data.investigations;
@@ -1821,11 +1869,11 @@
                 const res = await fetch(`/api/visits/${visitId}`, { method: 'PUT', body: formData });
                 const json = await res.json();
                 if (json.success) {
-                    alert('Bill successfully updated.');
+                    alert('Bill updated.');
                     closeEditBillModal();
                     refreshAllCentreData();
                 } else {
-                    alert('Error updating bill: ' + json.error);
+                    alert('Error: ' + json.error);
                 }
             } catch (e) { alert('Network error updating bill.'); }
         }
@@ -1900,11 +1948,11 @@
                 });
                 const json = await res.json();
                 if (json.success) {
-                    alert('Patient record updated successfully.');
+                    alert('Patient record updated.');
                     closeEditPatientModal();
                     loadPatientsDirectory();
                 } else {
-                    alert('Error updating patient: ' + json.error);
+                    alert('Error: ' + json.error);
                 }
             } catch (e) { alert('Network error updating patient.'); }
         }
@@ -1936,7 +1984,7 @@
                     `;
                 });
                 document.getElementById('patientBillsModal').style.display = 'flex';
-            } catch (e) { alert('Error retrieving patient bills.'); }
+            } catch (e) { alert('Error retrieving bills.'); }
         }
 
         function closePatientBillsModal() { document.getElementById('patientBillsModal').style.display = 'none'; }
@@ -1977,7 +2025,7 @@
                         </tr>
                     `;
                 });
-            } catch (e) { console.error('Error loading PCPNDT register:', e); }
+            } catch (e) { console.error('Error loading Form F register:', e); }
         }
 
         function filterPcpndtRegister() { loadPcpndtRegister(); }
@@ -2012,7 +2060,7 @@
                 document.getElementById('fClinicRegInput').value = f.clinic_reg_no || activeCentre?.reg_no || 'RS197';
 
                 document.getElementById('editPcpndtStandaloneModal').style.display = 'flex';
-            } catch (e) { alert('Error preparing PCPNDT record for editing.'); }
+            } catch (e) { alert('Error opening Form F modal.'); }
         }
 
         function closeEditPcpndtModal() { document.getElementById('editPcpndtStandaloneModal').style.display = 'none'; }
@@ -2042,17 +2090,17 @@
                 });
                 const json = await res.json();
                 if (json.success) {
-                    alert('PCPNDT Form F record updated successfully.');
+                    alert('Statutory PCPNDT Form F updated.');
                     closeEditPcpndtModal();
                     loadPcpndtRegister();
                 } else {
-                    alert('Error updating PCPNDT Form: ' + json.error);
+                    alert('Error: ' + json.error);
                 }
-            } catch (e) { alert('Network error updating statutory form.'); }
+            } catch (e) { alert('Network error updating Form F.'); }
         }
 
         async function deleteStandalonePcpndtForm(id) {
-            if (!confirm('Are you sure you want to delete this PCPNDT record?')) return;
+            if (!confirm('Permanently delete this statutory PCPNDT record?')) return;
             try {
                 const res = await fetch(`/api/pcpndt/${id}`, { method: 'DELETE' });
                 const json = await res.json();
@@ -2060,7 +2108,7 @@
                     alert('Record deleted.');
                     loadPcpndtRegister();
                 }
-            } catch (e) { alert('Error deleting PCPNDT record.'); }
+            } catch (e) { alert('Error deleting record.'); }
         }
 
         async function loadReports() {
@@ -2130,15 +2178,15 @@
         }
 
         async function deleteBill(visitId) {
-            if (!confirm('Are you sure you want to permanently delete this visit and invoice?')) return;
+            if (!confirm('Permanently delete this invoice and visit?')) return;
             try {
                 const res = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
                 const json = await res.json();
                 if (json.success) {
-                    alert('Visit deleted successfully.');
+                    alert('Visit deleted.');
                     refreshAllCentreData();
                 }
-            } catch (e) { alert('Error deleting visit record.'); }
+            } catch (e) { alert('Error deleting visit.'); }
         }
 
         async function loadBusiness() {
@@ -2184,7 +2232,7 @@
                     <span>Total Doctor Commission Cut: <strong style="color:#7c3aed;">₹${totalCut.toFixed(2)}</strong></span> | 
                     <span>Referrals: <strong>${data.length}</strong></span>
                 `;
-            } catch (e) { console.error('Error loading business analytics:', e); }
+            } catch (e) { console.error('Error loading doctor business:', e); }
         }
 
         function filterBusiness() { loadBusiness(); }
@@ -2238,7 +2286,7 @@
                 });
                 const json = await res.json();
                 if (json.success || json.id) {
-                    alert('Referring doctor successfully saved.');
+                    alert('Doctor details saved.');
                     cancelDocEdit();
                     loadDoctors();
                 }
@@ -2270,7 +2318,7 @@
         }
 
         async function deleteDoctor(id) {
-            if (!confirm('Are you sure you want to delete this doctor?')) return;
+            if (!confirm('Delete this doctor?')) return;
             try {
                 const res = await fetch(`/api/doctors/${id}`, { method: 'DELETE' });
                 const json = await res.json();
@@ -2317,7 +2365,7 @@
                 price: parseFloat(document.getElementById('testPriceInput').value) || 0,
                 testCut: parseFloat(document.getElementById('testCutInput').value) || 0
             };
-            if (!payload.testName) return alert('Test/Investigation name is required.');
+            if (!payload.testName) return alert('Investigation name is required.');
 
             try {
                 const res = await fetch('/api/tests', {
@@ -2327,7 +2375,7 @@
                 });
                 const json = await res.json();
                 if (json.success || json.id) {
-                    alert('Investigation/Test saved.');
+                    alert('Test saved.');
                     document.getElementById('testNameInput').value = '';
                     document.getElementById('testPriceInput').value = '';
                     document.getElementById('testCutInput').value = '';
@@ -2337,12 +2385,12 @@
         }
 
         async function deleteTest(id) {
-            if (!confirm('Are you sure you want to remove this investigation from test master?')) return;
+            if (!confirm('Delete this investigation?')) return;
             try {
                 const res = await fetch(`/api/tests/${id}`, { method: 'DELETE' });
                 const json = await res.json();
                 if (json.success) {
-                    alert('Investigation deleted.');
+                    alert('Test deleted.');
                     loadTests();
                 }
             } catch (e) { alert('Error deleting test.'); }
