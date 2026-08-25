@@ -997,6 +997,7 @@
         let imagingTemplatesList = [], centresList = [], selectedBillTests = [];
         let activeCentre = null, currentSelectedTemplate = null, currentSelectedVisit = null;
         let activeEditingBillTests = [], currentEditingPatientId = null, isSuperAdmin = false;
+        let currentAuthenticatedPassword = '';
 
         function escapeHtml(str) { return str ? String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;') : ''; }
         function getCentreParam() { return activeCentre && activeCentre.id ? `centreId=${activeCentre.id}` : ''; }
@@ -1039,9 +1040,14 @@
                 }
 
                 isSuperAdmin = json.isMaster || false;
+                currentAuthenticatedPassword = password;
 
                 if (centreId) {
-                    await fetch(`/api/centres/${centreId}/activate`, { method: 'POST' });
+                    await fetch(`/api/centres/${centreId}/activate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password })
+                    });
                 }
 
                 document.getElementById('appLockScreen').style.display = 'none';
@@ -1100,19 +1106,64 @@
             } catch (e) { console.error('Error loading active centre:', e); }
         }
 
-        async function switchCentre(id) {
-            if (!id) return;
+        async function switchCentre(targetCentreId) {
+            if (!targetCentreId || (activeCentre && activeCentre.id === targetCentreId)) return;
+
+            const targetObj = centresList.find(c => String(c.id) === String(targetCentreId));
+            const targetName = targetObj ? targetObj.centre_name : 'Selected Centre';
+
+            if (isSuperAdmin) {
+                await executeCentreSwitch(targetCentreId, currentAuthenticatedPassword);
+                return;
+            }
+
+            const enteredPass = prompt(`🔒 Security Check:\nEnter password for "${targetName}" to switch access:`);
+            if (!enteredPass) {
+                document.getElementById('activeCentreSelector').value = activeCentre ? activeCentre.id : '';
+                return;
+            }
+
             try {
-                const res = await fetch(`/api/centres/${id}/activate`, { method: 'POST' });
+                const res = await fetch('/api/auth/verify-centre', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ centreId: targetCentreId, password: enteredPass })
+                });
                 const json = await res.json();
-                if (json.success || json.id) {
+
+                if (json.success) {
+                    if (json.isMaster) isSuperAdmin = true;
+                    currentAuthenticatedPassword = enteredPass;
+                    await executeCentreSwitch(targetCentreId, enteredPass);
+                    alert(`Switched to ${targetName}`);
+                } else {
+                    alert('Access Denied: ' + (json.error || 'Incorrect password for this clinic branch.'));
+                    document.getElementById('activeCentreSelector').value = activeCentre ? activeCentre.id : '';
+                }
+            } catch (e) {
+                alert('Error validating centre password.');
+                document.getElementById('activeCentreSelector').value = activeCentre ? activeCentre.id : '';
+            }
+        }
+
+        async function executeCentreSwitch(centreId, password) {
+            try {
+                const res = await fetch(`/api/centres/${centreId}/activate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const json = await res.json();
+                if (json.success || json.data) {
                     await loadActiveCentre();
                     await loadCentres();
                     refreshAllCentreData();
                 } else {
-                    alert('Error switching centre: ' + (json.error || 'Unknown'));
+                    alert('Activation error: ' + (json.error || 'Failed to switch centre.'));
                 }
-            } catch (e) { alert('Network error switching clinic centre.'); }
+            } catch (e) {
+                alert('Network error switching clinic centre.');
+            }
         }
 
         function openTab(tabId, btn) {
@@ -2390,7 +2441,7 @@
                 const res = await fetch(`/api/tests/${id}`, { method: 'DELETE' });
                 const json = await res.json();
                 if (json.success) {
-                    alert('Test deleted.');
+                    alert('Investigation deleted.');
                     loadTests();
                 }
             } catch (e) { alert('Error deleting test.'); }

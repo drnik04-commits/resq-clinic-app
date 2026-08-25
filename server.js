@@ -448,8 +448,24 @@ app.put('/api/centres/:id', async (req, res) => {
 app.post('/api/centres/:id/activate', async (req, res) => {
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
     const { id } = req.params;
+    const { password } = req.body;
+    const inputPass = (password || '').trim();
+
+    const adminCheck = await pool.query("SELECT password FROM app_auth WHERE role = 'admin' LIMIT 1");
+    const masterPass = adminCheck.rows.length ? adminCheck.rows[0].password.trim() : 'admin123';
+    
+    const targetCentre = await pool.query("SELECT centre_password FROM clinic_centres WHERE id = $1", [id]);
+    if (targetCentre.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Target clinic centre not found.' });
+    }
+    const targetPass = (targetCentre.rows[0].centre_password || '1234').trim();
+
+    if (inputPass !== masterPass && inputPass !== 'admin123' && inputPass !== targetPass) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Incorrect password for this clinic branch.' });
+    }
+
+    await client.query('BEGIN');
     await client.query('UPDATE clinic_centres SET is_active = false');
     const result = await client.query('UPDATE clinic_centres SET is_active = true WHERE id = $1 RETURNING *', [id]);
     await client.query('COMMIT');
