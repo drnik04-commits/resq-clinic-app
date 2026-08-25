@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
+const PORT = process.env.PORT || 10000;
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -17,7 +19,7 @@ if (!fs.existsSync('./uploads')) {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, './uploads/'),
-  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '_'))
 });
 const upload = multer({ storage: storage });
 
@@ -28,7 +30,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Database Connection
 const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_Gmo8JSix3TAt@ep-shy-scene-axrfju67.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require';
 const isCloud = connectionString.includes('neon.tech') || connectionString.includes('render.com') || connectionString.includes('aws');
 
@@ -37,7 +38,6 @@ const pool = new Pool({
   ssl: isCloud ? { rejectUnauthorized: false } : false
 });
 
-// Safe Centre Resolver
 async function resolveCentreId(req) {
   const queryId = req.query.centreId;
   const headerId = req.headers['x-centre-id'];
@@ -57,7 +57,6 @@ async function resolveCentreId(req) {
   return fallback.rows.length > 0 ? fallback.rows[0].id : null;
 }
 
-// Seed Templates
 const defaultImagingTemplates = [
   {
     templateName: 'Ultrasonography_Obstetric_DOPPLER.dot',
@@ -337,14 +336,7 @@ async function initDB() {
       );
     `);
 
-    // Ensure all orphaned visits belong to active centre
-    await pool.query(`
-      UPDATE visits 
-      SET centre_id = (SELECT id FROM clinic_centres WHERE is_active = true LIMIT 1) 
-      WHERE centre_id IS NULL;
-    `);
-
-    console.log('Database synced: All tables and centre isolation ready.');
+    console.log('Database synced: Multi-centre schema initialized.');
     await seedInitialData();
   } catch (err) {
     console.error('Init error:', err.message);
@@ -354,9 +346,9 @@ async function initDB() {
 const generateBarcode = () => `PATH-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// ----------------------------------------------------
-// AUTH & CENTRES
-// ----------------------------------------------------
+// -------------------------------------------------------------
+// ENDPOINTS
+// -------------------------------------------------------------
 app.post('/api/auth/verify', async (req, res) => {
   try {
     const inputPass = (req.body.password || '').trim();
@@ -437,9 +429,6 @@ app.post('/api/centres/:id/activate', async (req, res) => {
   }
 });
 
-// ----------------------------------------------------
-// IMAGING TEMPLATES & REPORTS
-// ----------------------------------------------------
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM imaging_templates ORDER BY title ASC');
@@ -474,9 +463,6 @@ app.post('/api/imaging/reports', async (req, res) => {
   }
 });
 
-// ----------------------------------------------------
-// DOCTORS & TESTS MASTER
-// ----------------------------------------------------
 app.get('/api/doctors', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM referring_doctors ORDER BY doctor_name ASC');
@@ -538,9 +524,6 @@ app.delete('/api/tests/:id', async (req, res) => {
   }
 });
 
-// ----------------------------------------------------
-// PATIENTS & BILLS (SAFE CENTRE FILTERING)
-// ----------------------------------------------------
 app.get('/api/patients', async (req, res) => {
   const { search } = req.query;
   const centreId = await resolveCentreId(req);
@@ -604,9 +587,18 @@ app.get('/api/patients/:id/visits', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// ----------------------------------------------------
-// PCPNDT FORM F
-// ----------------------------------------------------
+app.put('/api/patients/:id', async (req, res) => {
+  const { id } = req.params;
+  const { fullName, age, gender, phone, email, whatsappNumber, address, patientCode } = req.body;
+  try {
+    const result = await pool.query(
+      'UPDATE patients SET full_name = $1, age = $2, gender = $3, phone = $4, email = $5, whatsapp_number = $6, address = $7, patient_code = $8 WHERE id = $9 RETURNING *',
+      [fullName, age ? parseInt(age, 10) : null, gender, phone, email, whatsappNumber, address, patientCode, id]
+    );
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 app.get('/api/pcpndt', async (req, res) => {
   const { startDate, endDate, month, search } = req.query;
   const centreId = await resolveCentreId(req);
@@ -671,6 +663,21 @@ app.get('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+app.put('/api/pcpndt/:id', async (req, res) => {
+  const { id } = req.params;
+  const { relativeName, noOfSons, sonsAge, noOfDaughters, daughtersAge, lmpDate, weeksOfPreg, pcpndtIndications, scanResult, doctorName, doctorRegNo, clinicRegNo } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE pcpndt_forms 
+       SET relative_name = $1, no_of_sons = $2, sons_age = $3, no_of_daughters = $4, daughters_age = $5,
+           lmp_date = $6, weeks_of_preg = $7, indications = $8, scan_result = $9, doctor_name = $10, doctor_reg_no = $11, clinic_reg_no = $12
+       WHERE id = $13 RETURNING *`,
+      [relativeName || '', parseInt(noOfSons, 10) || 0, sonsAge || '', parseInt(noOfDaughters, 10) || 0, daughtersAge || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', clinicRegNo || 'RS197', id]
+    );
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 app.delete('/api/pcpndt/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -679,9 +686,6 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// ----------------------------------------------------
-// REGISTRATION & REPORTS
-// ----------------------------------------------------
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -792,6 +796,94 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
       message: 'Visit registered successfully', 
       data: { visitId, invoiceNumber: invoiceNo, patientId, totalAmount, concession: discount, netPayable, paidAmount: paid, balanceAmount: balance, paymentMode: selectedMode, doctorCommission, hasPcpndt: (isPcpndt === 'true' || isPcpndt === true) }
     });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.put('/api/visits/:id', upload.single('reportFile'), async (req, res) => {
+  const { id } = req.params;
+  const { concession, paidAmount, paymentMode, referringDoctorId, tests, isPcpndt, relativeName, noOfSons, sonsAge, noOfDaughters, daughtersAge, lmpDate, weeksOfPreg, pcpndtIndications, scanResult } = req.body;
+  const reportFile = req.file ? req.file.filename : null;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const visitCheck = await client.query('SELECT * FROM visits WHERE id = $1', [id]);
+    if (visitCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Visit not found' });
+
+    let parsedTests = tests ? (typeof tests === 'string' ? JSON.parse(tests) : tests) : null;
+    let totalAmount = 0, doctorCommission = 0;
+
+    if (parsedTests && Array.isArray(parsedTests) && parsedTests.length > 0) {
+      await client.query('DELETE FROM patient_investigations WHERE visit_id = $1', [id]);
+      for (const t of parsedTests) {
+        const itemPrice = parseFloat(t.price) || 0;
+        totalAmount += itemPrice;
+        let testCut = 0, category = t.category || 'Pathology';
+        if (t.id) {
+          const mTest = await client.query('SELECT category, test_cut FROM test_master WHERE id = $1', [t.id]);
+          if (mTest.rows.length > 0) {
+            testCut = parseFloat(mTest.rows[0].test_cut) || 0;
+            category = mTest.rows[0].category;
+          }
+        }
+        doctorCommission += testCut;
+        const barcode = category === 'Pathology' ? generateBarcode() : null;
+        await client.query(
+          `INSERT INTO patient_investigations (visit_id, test_id, barcode, status, price) VALUES ($1, $2, $3, 'Registered', $4)`,
+          [id, t.id || null, barcode, itemPrice]
+        );
+      }
+    } else {
+      totalAmount = parseFloat(visitCheck.rows[0].total_amount) || 0;
+      doctorCommission = parseFloat(visitCheck.rows[0].doctor_commission) || 0;
+    }
+
+    const discount = parseFloat(concession) || 0;
+    const netPayable = Math.max(0, totalAmount - discount);
+    const paid = parseFloat(paidAmount) || 0;
+    const balance = Math.max(0, netPayable - paid);
+    const status = balance === 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Pending');
+    const mode = paymentMode || 'Cash';
+    const docId = referringDoctorId && referringDoctorId.trim() !== '' ? referringDoctorId : null;
+
+    let query = `UPDATE visits SET total_amount = $1, concession = $2, paid_amount = $3, balance_amount = $4, payment_status = $5, payment_mode = $6, referring_doctor_id = $7, doctor_commission = $8`;
+    let params = [totalAmount, discount, paid, balance, status, mode, docId, doctorCommission];
+
+    if (reportFile) {
+      query += `, report_file = $9 WHERE id = $10 RETURNING *`;
+      params.push(reportFile, id);
+    } else {
+      query += ` WHERE id = $9 RETURNING *`;
+      params.push(id);
+    }
+
+    const result = await client.query(query, params);
+
+    if (isPcpndt === 'true' || isPcpndt === true) {
+      const pCheck = await client.query('SELECT id FROM pcpndt_forms WHERE visit_id = $1', [id]);
+      if (pCheck.rows.length > 0) {
+        await client.query(
+          `UPDATE pcpndt_forms 
+           SET relative_name = $1, no_of_sons = $2, sons_age = $3, no_of_daughters = $4, daughters_age = $5, lmp_date = $6, weeks_of_preg = $7, indications = $8, scan_result = $9, clinic_reg_no = 'RS197'
+           WHERE visit_id = $10`,
+          [relativeName || '', parseInt(noOfSons, 10) || 0, sonsAge || '', parseInt(noOfDaughters, 10) || 0, daughtersAge || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '', id]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO pcpndt_forms (visit_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, clinic_reg_no) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'RS197')`,
+          [id, relativeName || '', parseInt(noOfSons, 10) || 0, sonsAge || '', parseInt(noOfDaughters, 10) || 0, daughtersAge || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '']
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
     await client.query('ROLLBACK');
     res.status(500).json({ success: false, error: error.message });
@@ -974,6 +1066,40 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// CONSOLIDATED DAILY CROSS-CENTRE AUDIT
+app.get('/api/reports/executive-daily', async (req, res) => {
+  try {
+    const queryDate = req.query.date || new Date().toISOString().slice(0, 10);
+    const result = await pool.query(`
+      SELECT 
+        c.id AS centre_id,
+        c.centre_name,
+        c.reg_no,
+        COUNT(DISTINCT v.id) AS total_patients,
+        COALESCE(SUM(v.total_amount), 0) AS gross_revenue,
+        COALESCE(SUM(v.concession), 0) AS total_discount,
+        COALESCE(SUM(v.paid_amount), 0) AS total_collected,
+        COALESCE(SUM(CASE WHEN v.payment_mode ILIKE '%cash%' THEN v.paid_amount ELSE 0 END), 0) AS cash_collected,
+        COALESCE(SUM(CASE WHEN v.payment_mode ILIKE '%online%' OR v.payment_mode ILIKE '%upi%' THEN v.paid_amount ELSE 0 END), 0) AS upi_collected,
+        COALESCE(SUM(CASE WHEN v.payment_mode ILIKE '%card%' THEN v.paid_amount ELSE 0 END), 0) AS card_collected,
+        COALESCE(SUM(v.balance_amount), 0) AS pending_balance,
+        COALESCE(SUM(v.doctor_commission), 0) AS total_cuts,
+        COUNT(DISTINCT pf.id) AS pcpndt_count,
+        COUNT(DISTINCT ir.id) AS imaging_count
+      FROM clinic_centres c
+      LEFT JOIN visits v ON v.centre_id = c.id AND v.created_at::date = $1::date
+      LEFT JOIN pcpndt_forms pf ON pf.visit_id = v.id
+      LEFT JOIN imaging_reports ir ON ir.visit_id = v.id
+      GROUP BY c.id, c.centre_name, c.reg_no
+      ORDER BY c.centre_name ASC
+    `, [queryDate]);
+
+    res.json({ success: true, date: queryDate, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.use((req, res) => {
   if (fs.existsSync(path.join(__dirname, 'public', 'index.html'))) {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -982,8 +1108,7 @@ app.use((req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', async () => {
   await initDB();
-  console.log(`ResQ Clinic System running on port ${PORT}`);
+  console.log(`RESQ Clinic System running on port ${PORT}`);
 });

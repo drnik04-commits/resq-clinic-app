@@ -24,7 +24,6 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
         body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
-        /* Lock Screen */
         #appLockScreen {
             position: fixed;
             inset: 0;
@@ -47,7 +46,6 @@
         .lock-box p { color: #666; font-size: 0.85rem; margin-bottom: 18px; }
         .lock-box input { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 12px; outline: none; font-size: 0.9rem; }
 
-        /* Header */
         header {
             background-color: var(--primary);
             color: #ffffff;
@@ -74,7 +72,6 @@
         }
         .btn-settings { background: #008080; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; font-weight: bold; }
 
-        /* Navigation Tabs */
         .tab-nav {
             background-color: #bbdefb;
             display: flex;
@@ -98,7 +95,6 @@
         }
         .tab-btn.active { background-color: var(--tab-active); color: #ffffff; }
 
-        /* Main Container */
         .main-container { max-width: 1440px; margin: 16px auto; padding: 0 16px; width: 100%; flex: 1; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
@@ -107,7 +103,6 @@
         .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 4px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
         .card-title { font-size: 1.1rem; font-weight: 700; color: #1a365d; margin-bottom: 14px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
 
-        /* Forms */
         .search-row { display: flex; gap: 8px; margin-bottom: 14px; }
         .search-row input { flex: 1; padding: 8px 12px; border: 1px solid #90caf9; border-radius: 4px; outline: none; }
         .btn-search { background-color: #00c853; color: white; border: none; padding: 8px 18px; border-radius: 4px; font-weight: bold; cursor: pointer; }
@@ -124,7 +119,6 @@
             outline: none;
         }
 
-        /* Instant Test Search Dropdown */
         .live-search-container { position: relative; width: 100%; margin-bottom: 10px; }
         .live-search-box {
             position: absolute;
@@ -151,23 +145,19 @@
         }
         .live-search-item:hover { background-color: #e3f2fd; }
 
-        /* PCPNDT Panel */
         .pcpndt-panel { background-color: #fbf8e8; border: 1px solid #e8d8a0; padding: 14px 16px; border-radius: 4px; margin: 14px 0; }
         .pcpndt-checkbox-label { font-size: 0.95rem; font-weight: bold; color: #854d0e; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 
-        /* Buttons */
         .btn-quick-pcpndt { background: #eab308; color: #713f12; border: 1px solid #ca8a04; padding: 5px 12px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
         .btn-complete-reg { background-color: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; flex: 1; }
         .btn-generate-inv { background-color: #2196f3; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; flex: 1; }
 
-        /* Rates Summary */
         .rates-summary-panel { display: flex; flex-direction: column; align-items: flex-end; margin-top: 10px; gap: 4px; font-size: 0.95rem; font-weight: bold; }
         .rates-summary-panel .subtotal { color: #333; }
         .rates-summary-panel .concession { color: #e53935; }
         .rates-summary-panel .payable { color: #00897b; }
         .rates-summary-panel .balance { color: #d84315; }
 
-        /* Tables & Badges */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         table th, table td { border: 1px solid var(--border); padding: 8px 10px; font-size: 0.88rem; text-align: left; }
         table th { background-color: #f1f5f9; color: #1a365d; }
@@ -185,7 +175,6 @@
         .badge-mode { background-color: #ede7f6; color: #512da8; padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 0.76rem; border: 1px solid #d1c4e9; }
         .badge-cat { background-color: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 3px; font-weight: 600; font-size: 0.76rem; border: 1px solid #bae6fd; }
 
-        /* Workspace Grid */
         .imaging-workspace-grid {
             display: grid;
             grid-template-columns: 280px 360px 1fr;
@@ -253,12 +242,10 @@
             white-space: pre-wrap;
         }
 
-        /* Modals */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); justify-content: center; align-items: center; z-index: 10000; }
         .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 850px; max-height: 90vh; overflow-y: auto; padding: 20px; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 14px; }
 
-        /* Print Engine Styles */
         @media print {
             body * { visibility: hidden; }
             #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc *, #imagingReportPrintDoc, #imagingReportPrintDoc * { visibility: visible; }
@@ -303,7 +290,6 @@
 </head>
 <body>
 
-    <!-- LOCK SCREEN OVERLAY -->
     <div id="appLockScreen">
         <div class="lock-box">
             <h2>RESQ CLINIC SYSTEM</h2>
@@ -313,7 +299,6 @@
         </div>
     </div>
 
-    <!-- HEADER -->
     <header>
         <div class="header-title">
             <h1 id="topCentreTitle">RESQ HEART CLINIC AND IMAGING CENTRE</h1>
@@ -329,9 +314,9 @@
         </div>
     </header>
 
-    <!-- 7 NAVIGATION TABS -->
     <div class="tab-nav">
         <button class="tab-btn active" onclick="openTab('tab-billing', this)">Billing & Registration</button>
+        <button class="tab-btn" onclick="openTab('tab-daily-audit', this); loadDailyAudit();">📊 Executive Audit</button>
         <button class="tab-btn" onclick="openTab('tab-imaging-reports', this)">🩻 Ultrasound & Imaging Reports</button>
         <button class="tab-btn" onclick="openTab('tab-pcpndt-register', this)">📝 PCPNDT Form F Register</button>
         <button class="tab-btn" onclick="openTab('tab-masters', this)">Edit Doctors & Tests</button>
@@ -340,7 +325,6 @@
         <button class="tab-btn" onclick="openTab('tab-business', this)">Doctor Business & Cuts</button>
     </div>
 
-    <!-- MAIN CONTAINER -->
     <div class="main-container">
 
         <!-- TAB 1: BILLING & REGISTRATION -->
@@ -399,7 +383,6 @@
                     </div>
                 </div>
 
-                <!-- PCPNDT Form F Section -->
                 <div class="pcpndt-panel" id="pcpndtContainer">
                     <label class="pcpndt-checkbox-label">
                         <input type="checkbox" id="pcpndtToggle" onchange="togglePCPNDT(this.checked)">
@@ -422,7 +405,6 @@
                     </div>
                 </div>
 
-                <!-- Real-Time Instant Live Search Test Section -->
                 <div style="margin-top: 14px;">
                     <label style="font-size: 0.9rem; font-weight: bold; color: #1a365d;">Search & Add Investigations / Services (Live Instant Filter):</label>
                     <div class="live-search-container" style="margin-top: 6px;">
@@ -431,7 +413,6 @@
                     </div>
                 </div>
 
-                <!-- Selected Tests Table -->
                 <div style="margin-top: 14px;">
                     <label style="font-size: 0.95rem; font-weight: bold; color: #1a365d;">Selected Tests & Rates Preview</label>
                     <table id="billItemsTable">
@@ -470,7 +451,38 @@
             </div>
         </div>
 
-        <!-- TAB 2: ULTRASOUND & IMAGING REPORTS WORKSPACE -->
+        <!-- TAB 2: EXECUTIVE DAILY AUDIT -->
+        <div id="tab-daily-audit" class="tab-content">
+            <div class="card">
+                <div class="card-title">
+                    <span>Daily Cross-Centre Audit & Financial Verification</span>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <label style="font-size: 0.85rem; font-weight: bold;">Audit Date:</label>
+                        <input type="date" id="auditDateInput" onchange="loadDailyAudit()" style="padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        <button type="button" class="btn-search" style="padding: 6px 14px;" onclick="loadDailyAudit()">🔄 Refresh Audit</button>
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Centre Name</th>
+                            <th>Patients</th>
+                            <th>Gross (₹)</th>
+                            <th>Discount (₹)</th>
+                            <th>Cash Drawer (₹)</th>
+                            <th>UPI / Online (₹)</th>
+                            <th>Total Collected (₹)</th>
+                            <th>Pending Balance (₹)</th>
+                            <th>Doctor Cuts (₹)</th>
+                            <th>PCPNDT / USG</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 3: ULTRASOUND & IMAGING REPORTS -->
         <div id="tab-imaging-reports" class="tab-content">
             <div class="card">
                 <div class="card-title">
@@ -524,7 +536,7 @@
             </div>
         </div>
 
-        <!-- TAB 3: DEDICATED PCPNDT REGISTER -->
+        <!-- TAB 4: STATUTORY PCPNDT REGISTER -->
         <div id="tab-pcpndt-register" class="tab-content">
             <div class="card">
                 <div class="card-title">
@@ -568,7 +580,7 @@
             </div>
         </div>
 
-        <!-- TAB 4: EDIT DOCTORS & TESTS -->
+        <!-- TAB 5: EDIT DOCTORS & TESTS -->
         <div id="tab-masters" class="tab-content">
             <div class="dashboard-grid">
                 <div>
@@ -616,7 +628,7 @@
             </div>
         </div>
 
-        <!-- TAB 5: MANAGE PATIENTS & BILLS -->
+        <!-- TAB 6: MANAGE PATIENTS & BILLS -->
         <div id="tab-patients" class="tab-content">
             <div class="card">
                 <div class="card-title">Manage Patients & Individual Bills for Active Centre</div>
@@ -625,7 +637,7 @@
             </div>
         </div>
 
-        <!-- TAB 6: COLLECTIONS & REPORTS -->
+        <!-- TAB 7: COLLECTIONS & REPORTS -->
         <div id="tab-reports" class="tab-content">
             <div class="card">
                 <div class="card-title">Collections & Departmental Summary for Active Centre</div>
@@ -643,7 +655,7 @@
             </div>
         </div>
 
-        <!-- TAB 7: DOCTOR BUSINESS -->
+        <!-- TAB 8: DOCTOR BUSINESS -->
         <div id="tab-business" class="tab-content">
             <div class="card">
                 <div class="card-title">Doctor Business & Commissions for Active Centre</div>
@@ -664,11 +676,7 @@
 
     </div>
 
-    <!-- ========================================================
-         ALL FUNCTIONAL MODALS (RESTORED COMPLETELY)
-    ======================================================== -->
-
-    <!-- EDIT PATIENT MODAL -->
+    <!-- MODALS -->
     <div id="editPatientModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -694,7 +702,6 @@
         </div>
     </div>
 
-    <!-- PATIENT BILLS HISTORY MODAL -->
     <div id="patientBillsModal" class="modal">
         <div class="modal-content" style="max-width: 950px;">
             <div class="modal-header">
@@ -703,16 +710,7 @@
             </div>
             <table>
                 <thead>
-                    <tr>
-                        <th>Invoice No</th>
-                        <th>Visit Date</th>
-                        <th>Centre</th>
-                        <th>Doctor</th>
-                        <th>Total</th>
-                        <th>Paid & Mode</th>
-                        <th>Balance</th>
-                        <th>Actions</th>
-                    </tr>
+                    <tr><th>Invoice No</th><th>Visit Date</th><th>Centre</th><th>Doctor</th><th>Total</th><th>Paid & Mode</th><th>Balance</th><th>Actions</th></tr>
                 </thead>
                 <tbody id="patientBillsTableBody"></tbody>
             </table>
@@ -720,7 +718,6 @@
         </div>
     </div>
 
-    <!-- EDIT BILL & PCPNDT MODAL -->
     <div id="editBillModal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">
@@ -734,7 +731,6 @@
                 <select id="editBillDocSelect"></select>
             </div>
 
-            <!-- Instant Live Search in Edit Bill -->
             <div style="background: #f8fafc; border: 1px solid var(--border); padding: 12px; border-radius: 4px; margin-bottom: 12px;">
                 <label style="font-size: 0.88rem; font-weight: bold; color: #1a365d;">Search & Add Investigation to this Bill:</label>
                 <div class="live-search-container" style="margin-top: 6px;">
@@ -746,12 +742,7 @@
             <label style="font-size: 0.9rem; font-weight: bold; color: #1a365d;">Bill Items & Charges (Edit Rate directly):</label>
             <table style="margin-bottom: 10px;">
                 <thead>
-                    <tr>
-                        <th>Investigation / Service Name</th>
-                        <th style="width: 120px;">Category</th>
-                        <th style="width: 160px;">Charge / Rate (₹)</th>
-                        <th style="width: 60px;">Action</th>
-                    </tr>
+                    <tr><th>Investigation / Service Name</th><th style="width: 120px;">Category</th><th style="width: 160px;">Charge / Rate (₹)</th><th style="width: 60px;">Action</th></tr>
                 </thead>
                 <tbody id="editBillItemsTableBody"></tbody>
             </table>
@@ -766,25 +757,12 @@
             <div class="form-grid">
                 <div class="form-group"><label>Concession / Discount (₹):</label><input type="number" id="editBillDisc" oninput="recalcEditBillTotals()"></div>
                 <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="editBillPaid" oninput="recalcEditBillTotals()"></div>
-                <div class="form-group">
-                    <label>Payment Mode:</label>
-                    <select id="editBillPaymentMode">
-                        <option value="Cash">Cash</option>
-                        <option value="Online / UPI">Online / UPI</option>
-                        <option value="Card">Card</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Attach / Update Report (PDF/Word):</label>
-                    <input type="file" id="editBillFile">
-                </div>
+                <div class="form-group"><label>Payment Mode:</label><select id="editBillPaymentMode"><option value="Cash">Cash</option><option value="Online / UPI">Online / UPI</option><option value="Card">Card</option></select></div>
+                <div class="form-group"><label>Attach / Update Report (PDF/Word):</label><input type="file" id="editBillFile"></div>
             </div>
 
             <div class="pcpndt-panel" style="margin-top: 14px;">
-                <label class="pcpndt-checkbox-label">
-                    <input type="checkbox" id="editPcpndtToggle" onchange="document.getElementById('editPcpndtSection').style.display = this.checked ? 'block' : 'none'">
-                    PCPNDT Form F Attached
-                </label>
+                <label class="pcpndt-checkbox-label"><input type="checkbox" id="editPcpndtToggle" onchange="document.getElementById('editPcpndtSection').style.display = this.checked ? 'block' : 'none'"> PCPNDT Form F Attached</label>
                 <div id="editPcpndtSection" style="display: none; margin-top: 10px;">
                     <div class="form-grid">
                         <div class="form-group"><label>Relative Name:</label><input type="text" id="editPcpndtRel"></div>
@@ -800,7 +778,6 @@
         </div>
     </div>
 
-    <!-- DEDICATED PCPNDT EDIT MODAL -->
     <div id="editPcpndtStandaloneModal" class="modal">
         <div class="modal-content" style="max-width: 850px;">
             <div class="modal-header">
@@ -808,7 +785,6 @@
                 <button type="button" onclick="closeEditPcpndtModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
             </div>
             <input type="hidden" id="standalonePcpndtId">
-
             <div class="form-grid">
                 <div class="form-group full-width"><label>Relative Name:</label><input type="text" id="fRelNameInput"></div>
                 <div class="form-group"><label>L.M.P Date:</label><input type="date" id="fLmpInput"></div>
@@ -821,38 +797,22 @@
                 <div class="form-group"><label>Doctor Reg No:</label><input type="text" id="fDocRegInput" value="2009/09/3218"></div>
                 <div class="form-group"><label>Clinic Registration No:</label><input type="text" id="fClinicRegInput" value="RS197"></div>
             </div>
-
             <button type="button" class="btn-complete-reg" style="margin-top: 16px; width: 100%; padding: 12px;" onclick="saveStandalonePcpndtForm()">Update PCPNDT Form F</button>
         </div>
     </div>
 
-    <!-- ADMIN SETTINGS & MULTI-CENTRE MODAL -->
     <div id="adminModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Admin Settings & Multi-Centre Manager</h3>
                 <button type="button" onclick="closeAdminModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
             </div>
-
             <div id="adminAuthSection">
-                <div class="form-group">
-                    <label>Enter Admin Password:</label>
-                    <input type="password" id="adminPasswordInput" placeholder="Password (default: admin123)" onkeydown="if(event.key==='Enter') verifyAdmin()">
-                </div>
+                <div class="form-group"><label>Enter Admin Password:</label><input type="password" id="adminPasswordInput" placeholder="Password (default: admin123)" onkeydown="if(event.key==='Enter') verifyAdmin()"></div>
                 <button type="button" class="btn-view-bills" style="margin-top: 10px; width: 100%;" onclick="verifyAdmin()">Login to Settings</button>
             </div>
-
             <div id="adminPanelSection" style="display: none;">
-                <div class="card">
-                    <div class="card-title">Configured Clinic Centres</div>
-                    <table>
-                        <thead>
-                            <tr><th>Centre Name</th><th>Contact / Reg No</th><th>Status</th><th>Actions</th></tr>
-                        </thead>
-                        <tbody id="adminCentresListBody"></tbody>
-                    </table>
-                </div>
-
+                <div class="card"><div class="card-title">Configured Clinic Centres</div><table><thead><tr><th>Centre Name</th><th>Contact / Reg No</th><th>Status</th><th>Actions</th></tr></thead><tbody id="adminCentresListBody"></tbody></table></div>
                 <div class="card">
                     <div class="card-title" id="centreFormTitle">Add New Centre Profile</div>
                     <input type="hidden" id="editCentreId" value="">
@@ -868,20 +828,16 @@
                         <button type="button" class="btn-del" id="btnCancelCentreEdit" style="display: none;" onclick="cancelCentreEdit()">Cancel</button>
                     </div>
                 </div>
-
                 <div class="card">
                     <div class="card-title">Change Administrative Password</div>
-                    <div class="form-grid">
-                        <div class="form-group"><label>Old Password:</label><input type="password" id="passOld"></div>
-                        <div class="form-group"><label>New Password:</label><input type="password" id="passNew"></div>
-                    </div>
+                    <div class="form-grid"><div class="form-group"><label>Old Password:</label><input type="password" id="passOld"></div><div class="form-group"><label>New Password:</label><input type="password" id="passNew"></div></div>
                     <button type="button" class="btn-view-bills" style="margin-top: 10px; width: 100%;" onclick="changeAdminPassword()">Update Password</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- PRINT LAYOUT 1: INVOICE BILL -->
+    <!-- PRINT LAYOUTS -->
     <div id="invoicePrintArea" class="print-paper">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px;">
             <h2 id="prtClinicName">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
@@ -904,7 +860,6 @@
         </div>
     </div>
 
-    <!-- PRINT LAYOUT 2: EXACT STATUTORY 2-PAGE PCPNDT FORM F -->
     <div id="exactPcpndtDoc" style="display: none;">
         <div class="doc-page">
             <div class="doc-header-title">FORM FOR MAINTENANCE OF RECORD IN CASE OF PRENATAL DIAGNOSTIC TEST /PROCEDURE BY GENETIC CLINIC/ULTRASOUND CLINIC/IMAGING CENTRE</div>
@@ -937,20 +892,20 @@
                 <div class="indication-row"><div class="ind-num">i.</div><div class="ind-text">To diagnose intra-uterine and/or ectopic pregnancy and confirm viability.</div></div>
                 <div class="indication-row"><div class="ind-num">ii.</div><div class="ind-text">Estimation of gestational age (dating).</div></div>
                 <div class="indication-row"><div class="ind-num">iii.</div><div class="ind-text">Detection of number of foetuses and their chorionicity.</div></div>
-                <div class="indication-row"><div class="ind-num">iv.</div><div class="ind-text">Suspected pregnancy with IUCD in-situ or suspected pregnancy following contraceptive failure/MTP failure.</div></div>
+                <div class="indication-row"><div class="ind-num">iv.</div><div class="ind-text">Suspected pregnancy with IUCD in-situ or contraceptive failure.</div></div>
                 <div class="indication-row"><div class="ind-num">v.</div><div class="ind-text">Vaginal bleeding / leaking.</div></div>
                 <div class="indication-row"><div class="ind-num">vi.</div><div class="ind-text">Follow-up of cases of abortion.</div></div>
                 <div class="indication-row"><div class="ind-num">vii.</div><div class="ind-text">Assessment of cervical canal and diameter of internal os.</div></div>
                 <div class="indication-row"><div class="ind-num">viii.</div><div class="ind-text">Discrepancy between uterine size and period of amenorrhoea.</div></div>
                 <div class="indication-row"><div class="ind-num">ix.</div><div class="ind-text">Any suspected adenexal or uterine pathology / abnormality.</div></div>
-                <div class="indication-row"><div class="ind-num">x.</div><div class="ind-text">Detection of chromosomal abnormalities, foetal structural defects and other abnormalities and their follow-up.</div></div>
+                <div class="indication-row"><div class="ind-num">x.</div><div class="ind-text">Detection of chromosomal abnormalities and foetal structural defects.</div></div>
                 <div class="indication-row"><div class="ind-num">xi.</div><div class="ind-text">To evaluate foetal presentation and position.</div></div>
                 <div class="indication-row"><div class="ind-num">xii.</div><div class="ind-text">Assessment of liquor amnii.</div></div>
                 <div class="indication-row"><div class="ind-num">xiii.</div><div class="ind-text">Preterm labour / preterm premature rupture of membranes.</div></div>
                 <div class="indication-row"><div class="ind-num">xiv.</div><div class="ind-text">Evaluation of placental position, thickness, grading and abnormalities.</div></div>
-                <div class="indication-row"><div class="ind-num">xv.</div><div class="ind-text">Evaluation of umbilical cord - presentation, insertion, nuchal encirclement, number of vessels.</div></div>
+                <div class="indication-row"><div class="ind-num">xv.</div><div class="ind-text">Evaluation of umbilical cord and number of vessels.</div></div>
                 <div class="indication-row"><div class="ind-num">xvi.</div><div class="ind-text">Evaluation of previous Caesarean Section scars.</div></div>
-                <div class="indication-row"><div class="ind-num">xvii.</div><div class="ind-text">Evaluation of foetal growth parameters, foetal weight and foetal well being.</div></div>
+                <div class="indication-row"><div class="ind-num">xvii.</div><div class="ind-text">Evaluation of foetal growth parameters and well being.</div></div>
                 <div class="indication-row"><div class="ind-num">xviii.</div><div class="ind-text">Colour flow mapping and duplex Doppler studies.</div></div>
                 <div class="indication-row"><div class="ind-num">xix.</div><div class="ind-text">Ultrasound guided procedures such as medical termination of pregnancy.</div></div>
                 <div class="indication-row"><div class="ind-num">xx.</div><div class="ind-text">Adjunct to diagnostic and therapeutic invasive interventions.</div></div>
@@ -1006,7 +961,6 @@
         </div>
     </div>
 
-    <!-- PRINT LAYOUT 3: RADIOLOGY & IMAGING REPORT -->
     <div id="imagingReportPrintDoc" class="doc-page" style="display: none;">
         <div style="text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 6px; margin-bottom: 12px;">
             <h2 id="imgPrtClinicName" style="color: #1e3a8a; font-size: 1.25rem;">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
@@ -1029,38 +983,37 @@
         </div>
     </div>
 
-    <!-- CLIENT ENGINE -->
+    <!-- CLIENT CONTROLLER SCRIPT -->
     <script>
-        let testsList = [], doctorsList = [], patientsList = [], visitsList = [], pcpndtRegisterList = [], imagingTemplatesList = [], centresList = [], selectedBillTests = [];
-        let activeCentre = null, currentSelectedTemplate = null, currentSelectedVisit = null, activeEditingBillTests = [];
+        let testsList = [], doctorsList = [], patientsList = [], visitsList = [], pcpndtRegisterList = [];
+        let imagingTemplatesList = [], centresList = [], selectedBillTests = [];
+        let activeCentre = null, currentSelectedTemplate = null, currentSelectedVisit = null;
+        let activeEditingBillTests = [], currentEditingPatientId = null;
 
-        function escapeHtml(str) { return str ? str.replace(/'/g, "\\'").replace(/"/g, '&quot;') : ''; }
+        function escapeHtml(str) { return str ? String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;') : ''; }
         function getCentreParam() { return activeCentre && activeCentre.id ? `centreId=${activeCentre.id}` : ''; }
 
-        // Unlock System
         async function unlockApp() {
-            const password = document.getElementById('lockInput').value;
-            let verifyRes;
+            const password = document.getElementById('lockInput').value.trim();
             try {
-                verifyRes = await fetch('/api/auth/verify', {
+                const res = await fetch('/api/auth/verify', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password })
                 });
-            } catch (netErr) {
-                return alert('Connection Error: Cannot reach server. Ensure Node server is running.');
+                const json = await res.json();
+                if (!json.success) return alert('Incorrect administrative password.');
+
+                document.getElementById('appLockScreen').style.display = 'none';
+                await loadCentres();
+                await loadActiveCentre();
+                await loadDoctors();
+                await loadTests();
+                await loadImagingTemplates();
+                refreshAllCentreData();
+            } catch (err) {
+                alert('Cannot connect to server. Verify Node server connection.');
             }
-
-            const json = await verifyRes.json();
-            if (!json.success) return alert('Incorrect password.');
-
-            document.getElementById('appLockScreen').style.display = 'none';
-            await loadCentres();
-            await loadActiveCentre();
-            loadDoctors();
-            loadTests();
-            loadImagingTemplates();
-            refreshAllCentreData();
         }
 
         function refreshAllCentreData() {
@@ -1071,32 +1024,11 @@
             loadImagingVisitsDropdown();
         }
 
-        function openTab(tabId, btn) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            btn.classList.add('active');
-            if (tabId === 'tab-imaging-reports') loadImagingVisitsDropdown();
-            if (tabId === 'tab-pcpndt-register') loadPcpndtRegister();
-            if (tabId === 'tab-reports') loadReports();
-            if (tabId === 'tab-business') loadBusiness();
-            if (tabId === 'tab-masters') { loadDoctors(); loadTests(); }
-            if (tabId === 'tab-patients') loadPatientsDirectory();
-        }
-
-        function togglePCPNDT(show) { document.getElementById('pcpndtFields').style.display = show ? 'block' : 'none'; }
-        function quickOpenPCPNDT() {
-            document.getElementById('pcpndtToggle').checked = true;
-            togglePCPNDT(true);
-            document.getElementById('pcpndtContainer').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // Centres
         async function loadCentres() {
             try {
                 const res = await fetch('/api/centres');
                 const json = await res.json();
-                centresList = json.data || [];
+                centresList = json.data || json || [];
                 const sel = document.getElementById('activeCentreSelector');
                 sel.innerHTML = '';
                 centresList.forEach(c => {
@@ -1106,21 +1038,21 @@
                     if (c.is_active) opt.selected = true;
                     sel.appendChild(opt);
                 });
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error('Error loading centres:', e); }
         }
 
         async function loadActiveCentre() {
             try {
                 const res = await fetch('/api/centres/active');
                 const json = await res.json();
-                activeCentre = json.data;
+                activeCentre = json.data || json;
                 if (activeCentre) {
                     document.getElementById('topCentreTitle').textContent = activeCentre.centre_name;
                     document.getElementById('topCentreTagline').textContent = activeCentre.tagline || '';
                     const regInput = document.getElementById('pcpndtClinicReg');
                     if (regInput) regInput.value = activeCentre.reg_no || 'RS197';
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error('Error loading active centre:', e); }
         }
 
         async function switchCentre(id) {
@@ -1128,24 +1060,41 @@
             try {
                 const res = await fetch(`/api/centres/${id}/activate`, { method: 'POST' });
                 const json = await res.json();
-                if (json.success) {
+                if (json.success || json.id) {
                     await loadActiveCentre();
                     await loadCentres();
                     refreshAllCentreData();
-                } else { alert('Error: ' + json.error); }
-            } catch (e) { alert('Network error switching centre'); }
+                } else {
+                    alert('Error switching clinic centre: ' + (json.error || 'Unknown'));
+                }
+            } catch (e) { alert('Network error switching clinic centre.'); }
         }
 
-        // Admin Security Modal
+        function openTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+            
+            if (tabId === 'tab-imaging-reports') loadImagingVisitsDropdown();
+            if (tabId === 'tab-pcpndt-register') loadPcpndtRegister();
+            if (tabId === 'tab-reports') loadReports();
+            if (tabId === 'tab-business') loadBusiness();
+            if (tabId === 'tab-masters') { loadDoctors(); loadTests(); }
+            if (tabId === 'tab-patients') loadPatientsDirectory();
+        }
+
         function openAdminModal() {
             document.getElementById('adminModal').style.display = 'flex';
             document.getElementById('adminAuthSection').style.display = 'block';
             document.getElementById('adminPanelSection').style.display = 'none';
+            document.getElementById('adminPasswordInput').value = '';
         }
+
         function closeAdminModal() { document.getElementById('adminModal').style.display = 'none'; }
 
         async function verifyAdmin() {
-            const password = document.getElementById('adminPasswordInput').value;
+            const password = document.getElementById('adminPasswordInput').value.trim();
             const res = await fetch('/api/auth/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1156,7 +1105,7 @@
                 document.getElementById('adminAuthSection').style.display = 'none';
                 document.getElementById('adminPanelSection').style.display = 'block';
                 renderAdminCentres();
-            } else { alert('Incorrect admin password'); }
+            } else { alert('Incorrect administrative password.'); }
         }
 
         function renderAdminCentres() {
@@ -1165,10 +1114,10 @@
             centresList.forEach(c => {
                 tbody.innerHTML += `
                     <tr>
-                        <td><strong>${c.centre_name}</strong></td>
+                        <td><strong>${escapeHtml(c.centre_name)}</strong></td>
                         <td>${c.phone || '-'} | Reg: ${c.reg_no || 'RS197'}</td>
-                        <td>${c.is_active ? '<span class="badge-paid">Active</span>' : '<button class="btn-view-bills" onclick="switchCentre(\'' + c.id + '\')">Set Active</button>'}</td>
-                        <td><button class="btn-edit-patient" onclick="startEditCentre('${c.id}')">Edit</button></td>
+                        <td>${c.is_active ? '<span class="badge-paid">Active</span>' : `<button type="button" class="btn-view-bills" onclick="switchCentre('${c.id}')">Set Active</button>`}</td>
+                        <td><button type="button" class="btn-edit-patient" onclick="startEditCentre('${c.id}')">Edit</button></td>
                     </tr>
                 `;
             });
@@ -1183,12 +1132,14 @@
                 phone: document.getElementById('cPhoneInput').value.trim(),
                 reg_no: document.getElementById('cRegInput').value.trim() || 'RS197'
             };
+            if (!payload.centre_name) return alert('Centre name is required.');
+
             const url = editId ? `/api/centres/${editId}` : '/api/centres';
             const method = editId ? 'PUT' : 'POST';
             const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const json = await res.json();
-            if (json.success) {
-                alert('Centre profile updated');
+            if (json.success || json.id) {
+                alert('Centre details successfully saved.');
                 cancelCentreEdit();
                 await loadCentres();
                 await loadActiveCentre();
@@ -1206,7 +1157,7 @@
             document.getElementById('cPhoneInput').value = c.phone || '';
             document.getElementById('cRegInput').value = c.reg_no || 'RS197';
             document.getElementById('centreFormTitle').textContent = 'Edit Centre Profile';
-            document.getElementById('btnSaveCentre').textContent = 'Update Centre';
+            document.getElementById('btnSaveCentre').textContent = 'Update Centre Profile';
             document.getElementById('btnCancelCentreEdit').style.display = 'inline-block';
         }
 
@@ -1223,8 +1174,9 @@
         }
 
         async function changeAdminPassword() {
-            const oldPassword = document.getElementById('passOld').value;
-            const newPassword = document.getElementById('passNew').value;
+            const oldPassword = document.getElementById('passOld').value.trim();
+            const newPassword = document.getElementById('passNew').value.trim();
+            if (!newPassword) return alert('New password cannot be empty.');
             const res = await fetch('/api/auth/change-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1235,14 +1187,344 @@
             if (json.success) closeAdminModal();
         }
 
-        // ========================================================
-        // IMAGING REPORT WORKSPACE
-        // ========================================================
+        // DAILY AUDIT DASHBOARD
+        async function loadDailyAudit() {
+            const auditDate = document.getElementById('auditDateInput').value || new Date().toISOString().slice(0, 10);
+            document.getElementById('auditDateInput').value = auditDate;
+            
+            const res = await fetch(`/api/reports/executive-daily?date=${auditDate}`);
+            const json = await res.json();
+            const tbody = document.getElementById('auditTableBody');
+            tbody.innerHTML = '';
+
+            if (!json.success || !json.data.length) {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">No records found for this date.</td></tr>';
+                return;
+            }
+
+            let totals = { patients: 0, gross: 0, disc: 0, cash: 0, upi: 0, paid: 0, due: 0, cuts: 0, pcpndt: 0, usg: 0 };
+
+            json.data.forEach(row => {
+                totals.patients += parseInt(row.total_patients);
+                totals.gross += parseFloat(row.gross_revenue);
+                totals.disc += parseFloat(row.total_discount);
+                totals.cash += parseFloat(row.cash_collected);
+                totals.upi += parseFloat(row.upi_collected);
+                totals.paid += parseFloat(row.total_collected);
+                totals.due += parseFloat(row.pending_balance);
+                totals.cuts += parseFloat(row.total_cuts);
+                totals.pcpndt += parseInt(row.pcpndt_count);
+                totals.usg += parseInt(row.imaging_count);
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${escapeHtml(row.centre_name)}</strong></td>
+                        <td>${row.total_patients}</td>
+                        <td>₹${parseFloat(row.gross_revenue).toFixed(2)}</td>
+                        <td>₹${parseFloat(row.total_discount).toFixed(2)}</td>
+                        <td style="color:#00897b; font-weight:bold;">₹${parseFloat(row.cash_collected).toFixed(2)}</td>
+                        <td style="color:#1e3a8a; font-weight:bold;">₹${parseFloat(row.upi_collected).toFixed(2)}</td>
+                        <td style="font-weight:bold;">₹${parseFloat(row.total_collected).toFixed(2)}</td>
+                        <td style="color:#d84315; font-weight:bold;">₹${parseFloat(row.pending_balance).toFixed(2)}</td>
+                        <td style="color:#7c3aed;">₹${parseFloat(row.total_cuts).toFixed(2)}</td>
+                        <td>${row.pcpndt_count} Forms / ${row.imaging_count} USG</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML += `
+                <tr style="background:#e2e8f0; font-weight:bold; border-top:2px solid #333;">
+                    <td>CONSOLIDATED TOTAL</td>
+                    <td>${totals.patients}</td>
+                    <td>₹${totals.gross.toFixed(2)}</td>
+                    <td>₹${totals.disc.toFixed(2)}</td>
+                    <td style="color:#00897b;">₹${totals.cash.toFixed(2)}</td>
+                    <td style="color:#1e3a8a;">₹${totals.upi.toFixed(2)}</td>
+                    <td>₹${totals.paid.toFixed(2)}</td>
+                    <td style="color:#d84315;">₹${totals.due.toFixed(2)}</td>
+                    <td style="color:#7c3aed;">₹${totals.cuts.toFixed(2)}</td>
+                    <td>${totals.pcpndt} Forms / ${totals.usg} USG</td>
+                </tr>
+            `;
+        }
+
+        async function lookupPatient() {
+            const q = document.getElementById('lookupSearch').value.trim();
+            if (!q) return alert('Enter phone number or patient ID to search.');
+            try {
+                const res = await fetch(`/api/patients/lookup?query=${encodeURIComponent(q)}&${getCentreParam()}`);
+                const json = await res.json();
+                if (json.success && json.data.length > 0) {
+                    const p = json.data[0];
+                    document.getElementById('existingPatientId').value = p.id;
+                    document.getElementById('patientCode').value = p.patient_code || '';
+                    document.getElementById('patientFullName').value = p.full_name || '';
+                    document.getElementById('patientAge').value = p.age || '';
+                    document.getElementById('patientGender').value = p.gender || 'Female';
+                    document.getElementById('patientMobile').value = p.phone || '';
+                    document.getElementById('patientEmail').value = p.email || '';
+                    document.getElementById('patientAddress').value = p.address || '';
+                    alert(`Found existing patient record: ${p.full_name}`);
+                } else {
+                    alert('No matching patient found in this centre. Fill form to register new patient.');
+                }
+            } catch (e) { alert('Error performing patient lookup.'); }
+        }
+
+        function togglePCPNDT(show) { document.getElementById('pcpndtFields').style.display = show ? 'block' : 'none'; }
+        function quickOpenPCPNDT() {
+            document.getElementById('pcpndtToggle').checked = true;
+            togglePCPNDT(true);
+            document.getElementById('pcpndtContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function onLiveTestSearchInput(query) {
+            const box = document.getElementById('liveSearchResultsBox');
+            const q = (query || '').toLowerCase().trim();
+            if (!q) { box.style.display = 'none'; return; }
+            
+            const matches = testsList.filter(t => 
+                (t.test_name && t.test_name.toLowerCase().includes(q)) || 
+                (t.category && t.category.toLowerCase().includes(q))
+            );
+            box.innerHTML = '';
+            matches.forEach(t => {
+                const item = document.createElement('div');
+                item.className = 'live-search-item';
+                item.innerHTML = `<div><strong>${escapeHtml(t.test_name)}</strong> <span class="badge-cat">${t.category}</span></div><div style="font-weight:bold; color:#1e3a8a;">₹${t.price}</div>`;
+                item.onclick = () => {
+                    selectedBillTests.push({ ...t });
+                    renderSelectedTests();
+                    document.getElementById('liveTestInput').value = '';
+                    box.style.display = 'none';
+                };
+                box.appendChild(item);
+            });
+            box.style.display = matches.length > 0 ? 'block' : 'none';
+        }
+
+        function renderSelectedTests() {
+            const tbody = document.querySelector('#billItemsTable tbody');
+            tbody.innerHTML = '';
+            if (selectedBillTests.length === 0) {
+                tbody.innerHTML = `<tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected yet. Type in search above to add tests instantly.</td></tr>`;
+            } else {
+                selectedBillTests.forEach((t, idx) => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${escapeHtml(t.test_name)}</strong></td>
+                            <td><span class="badge-cat">${t.category || 'General'}</span></td>
+                            <td><input type="number" value="${t.price}" oninput="updateSelectedTestRate(${idx}, this.value)" style="width:110px; padding:4px; font-weight:bold; border:1px solid #ccc; border-radius:3px;"></td>
+                            <td><button type="button" class="btn-del" onclick="selectedBillTests.splice(${idx},1);renderSelectedTests();">✕</button></td>
+                        </tr>
+                    `;
+                });
+            }
+            calculateFinancialTotals();
+        }
+
+        function updateSelectedTestRate(index, newRate) {
+            selectedBillTests[index].price = parseFloat(newRate) || 0;
+            calculateFinancialTotals();
+        }
+
+        function calculateFinancialTotals() {
+            const gross = selectedBillTests.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
+            const discount = parseFloat(document.getElementById('inputDiscount').value) || 0;
+            const net = Math.max(0, gross - discount);
+            const paid = parseFloat(document.getElementById('inputPaid').value) || 0;
+            const bal = Math.max(0, net - paid);
+
+            document.getElementById('dispGross').textContent = `₹${gross.toFixed(2)}`;
+            document.getElementById('dispDiscount').textContent = `- ₹${discount.toFixed(2)}`;
+            document.getElementById('dispNet').textContent = `₹${net.toFixed(2)}`;
+            document.getElementById('dispBalance').textContent = `₹${bal.toFixed(2)}`;
+        }
+
+        async function processVisit(printInv) {
+            const fullName = document.getElementById('patientFullName').value.trim();
+            if (!fullName) return alert('Patient Full Name is required.');
+            if (selectedBillTests.length === 0) return alert('Please add at least one test or service to bill.');
+
+            const formData = new FormData();
+            formData.append('centreId', activeCentre?.id || '');
+            formData.append('existingPatientId', document.getElementById('existingPatientId').value.trim());
+            formData.append('patientCode', document.getElementById('patientCode').value.trim());
+            formData.append('fullName', fullName);
+            formData.append('age', document.getElementById('patientAge').value);
+            formData.append('gender', document.getElementById('patientGender').value);
+            formData.append('phone', document.getElementById('patientMobile').value.trim());
+            formData.append('email', document.getElementById('patientEmail').value.trim());
+            formData.append('address', document.getElementById('patientAddress').value.trim());
+            formData.append('referringDoctorId', document.getElementById('referringDoctorSelect').value);
+            formData.append('tests', JSON.stringify(selectedBillTests));
+            formData.append('concession', document.getElementById('inputDiscount').value || 0);
+            formData.append('paidAmount', document.getElementById('inputPaid').value || 0);
+            formData.append('paymentMode', document.getElementById('inputPaymentMode').value);
+
+            const isPcpndt = document.getElementById('pcpndtToggle').checked;
+            formData.append('isPcpndt', isPcpndt);
+            if (isPcpndt) {
+                formData.append('relativeName', document.getElementById('pcpndtRelativeName').value.trim());
+                formData.append('lmpDate', document.getElementById('pcpndtLMP').value);
+                formData.append('weeksOfPreg', document.getElementById('pcpndtWeeks').value.trim());
+                formData.append('noOfSons', document.getElementById('pcpndtNoOfSons').value || 0);
+                formData.append('sonsAge', document.getElementById('pcpndtSonsAge').value.trim());
+                formData.append('noOfDaughters', document.getElementById('pcpndtNoOfDaughters').value || 0);
+                formData.append('daughtersAge', document.getElementById('pcpndtDaughtersAge').value.trim());
+                formData.append('pcpndtIndications', document.getElementById('pcpndtIndication').value.trim());
+                formData.append('scanResult', document.getElementById('pcpndtFindings').value.trim());
+                formData.append('doctorName', document.getElementById('pcpndtDoctor').value.trim());
+                formData.append('doctorRegNo', document.getElementById('pcpndtDoctorReg').value.trim());
+                formData.append('clinicRegNo', document.getElementById('pcpndtClinicReg').value.trim());
+            }
+
+            const fileInput = document.getElementById('reportFileInput');
+            if (fileInput.files.length > 0) formData.append('reportFile', fileInput.files[0]);
+
+            try {
+                const res = await fetch('/api/register-visit', { method: 'POST', body: formData });
+                const json = await res.json();
+                if (json.success) {
+                    alert(`Visit Registered Successfully! Invoice No: ${json.data.invoiceNumber}`);
+                    const visitId = json.data.visitId;
+
+                    document.getElementById('existingPatientId').value = '';
+                    document.getElementById('patientCode').value = '';
+                    document.getElementById('patientFullName').value = '';
+                    document.getElementById('patientAge').value = '';
+                    document.getElementById('patientMobile').value = '';
+                    document.getElementById('patientEmail').value = '';
+                    document.getElementById('patientAddress').value = '';
+                    document.getElementById('inputDiscount').value = '0';
+                    document.getElementById('inputPaid').value = '0';
+                    document.getElementById('pcpndtToggle').checked = false;
+                    togglePCPNDT(false);
+                    selectedBillTests = [];
+                    renderSelectedTests();
+                    refreshAllCentreData();
+
+                    if (printInv) {
+                        printSingleInvoice(visitId);
+                        if (isPcpndt) printPCPNDTForm(visitId);
+                    }
+                } else {
+                    alert('Error processing registration: ' + json.error);
+                }
+            } catch (e) { alert('Network error during registration.'); }
+        }
+
+        async function printSingleInvoice(visitId) {
+            try {
+                const res = await fetch(`/api/invoice/${visitId}`);
+                const json = await res.json();
+                if (!json.success) return alert('Cannot retrieve invoice details.');
+
+                const v = json.data.visitDetails;
+                const items = json.data.investigations;
+
+                document.getElementById('prtClinicName').textContent = v.centre_name || activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
+                document.getElementById('prtClinicTagline').textContent = v.centre_tagline || activeCentre?.tagline || '';
+                document.getElementById('prtClinicAddress').textContent = v.centre_address || activeCentre?.address || '';
+                document.getElementById('prtClinicContact').textContent = `Tel: ${v.centre_phone || activeCentre?.phone || ''} | PCPNDT Reg: ${v.centre_reg_no || 'RS197'}`;
+
+                document.getElementById('prtPatName').textContent = v.full_name;
+                document.getElementById('prtPatMeta').textContent = `${v.age || 'N/A'} Yrs / ${v.gender || '-'}`;
+                document.getElementById('prtDocName').textContent = v.doctor_name || 'Self / Direct OPD';
+                document.getElementById('prtPatAddress').textContent = v.address || 'Local';
+                document.getElementById('prtInvNo').textContent = v.invoice_number;
+                document.getElementById('prtDate').textContent = new Date(v.created_at).toLocaleDateString('en-GB');
+
+                const tbody = document.getElementById('prtItemsBody');
+                tbody.innerHTML = '';
+                items.forEach(itm => {
+                    tbody.innerHTML += `<tr><td style="border:1px solid #333; padding:6px 10px;">${escapeHtml(itm.test_name)}</td><td style="border:1px solid #333; padding:6px 10px; text-align:right; font-weight:bold;">₹${parseFloat(itm.price).toFixed(2)}</td></tr>`;
+                });
+
+                document.getElementById('prtGross').textContent = parseFloat(v.total_amount).toFixed(2);
+                document.getElementById('prtDisc').textContent = parseFloat(v.concession || 0).toFixed(2);
+                document.getElementById('prtNet').textContent = (parseFloat(v.total_amount) - parseFloat(v.concession || 0)).toFixed(2);
+                document.getElementById('prtPaid').textContent = parseFloat(v.paid_amount).toFixed(2);
+                document.getElementById('prtMode').textContent = v.payment_mode || 'Cash';
+                document.getElementById('prtBal').textContent = parseFloat(v.balance_amount).toFixed(2);
+
+                const printEl = document.getElementById('invoicePrintArea');
+                printEl.classList.add('print-active');
+                window.print();
+                printEl.classList.remove('print-active');
+            } catch (e) { alert('Error preparing invoice for printing.'); }
+        }
+
+        async function printPCPNDTForm(visitId) {
+            try {
+                const res = await fetch(`/api/invoice/${visitId}`);
+                const json = await res.json();
+                if (!json.success || !json.data.pcpndtForm) return alert('No statutory PCPNDT Form F record exists for this visit.');
+
+                const v = json.data.visitDetails;
+                const f = json.data.pcpndtForm;
+                const formattedDate = new Date(f.created_at || v.created_at).toLocaleDateString('en-GB');
+
+                document.getElementById('docClinicName').textContent = v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
+                document.getElementById('docClinicAddress').textContent = v.centre_address || '';
+                document.getElementById('docClinicReg').textContent = f.clinic_reg_no || v.centre_reg_no || 'RS197';
+
+                document.getElementById('docPatName').textContent = v.full_name;
+                document.getElementById('docPatAge').textContent = v.age || 'N/A';
+                document.getElementById('docMaleKids').textContent = f.no_of_sons || '0';
+                document.getElementById('docFemaleKids').textContent = f.no_of_daughters || '0';
+                document.getElementById('docSonsDetail').textContent = `${f.no_of_sons || 0} Son(s) - Age: ${f.sons_age || 'None'}`;
+                document.getElementById('docDaughtersDetail').textContent = `${f.no_of_daughters || 0} Daughter(s) - Age: ${f.daughters_age || 'None'}`;
+                document.getElementById('docRelativeName').textContent = f.relative_name || '-';
+                document.getElementById('docPatAddress').textContent = v.address || 'Mumbai';
+                document.getElementById('docPatPhone').textContent = v.phone || '-';
+
+                if (v.doctor_name && !v.doctor_name.toLowerCase().includes('self')) {
+                    document.getElementById('docRefDoc').textContent = v.doctor_name;
+                    document.getElementById('docSelfRef').textContent = 'NO';
+                } else {
+                    document.getElementById('docRefDoc').textContent = 'N/A';
+                    document.getElementById('docSelfRef').textContent = 'YES';
+                }
+
+                document.getElementById('docLmp').textContent = f.lmp_date || 'N/A';
+                document.getElementById('docWeeks').textContent = f.weeks_of_preg || 'N/A';
+                document.getElementById('docDoctorName').textContent = f.doctor_name || 'Dr NIKUNJ KOTHIA';
+                document.getElementById('docDeclDate').textContent = formattedDate;
+                document.getElementById('docProcDate').textContent = formattedDate;
+                document.getElementById('docProcResult').textContent = f.scan_result || 'Single live intrauterine gestation with regular cardiac activity and adequate liquor.';
+                document.getElementById('docConveyDate').textContent = formattedDate;
+                document.getElementById('docSignDate').textContent = formattedDate;
+                document.getElementById('docSignDate2').textContent = formattedDate;
+
+                document.getElementById('docSignDocName').textContent = f.doctor_name || 'Dr NIKUNJ KOTHIA';
+                document.getElementById('docSignDocReg').textContent = f.doctor_reg_no || '2009/09/3218';
+                document.getElementById('docSignDocName2').textContent = f.doctor_name || 'Dr NIKUNJ KOTHIA';
+                document.getElementById('docSignDocReg2').textContent = f.doctor_reg_no || '2009/09/3218';
+                document.getElementById('docDeclDoctor').textContent = f.doctor_name || 'Dr NIKUNJ KOTHIA';
+                document.getElementById('docDeclDocReg').textContent = f.doctor_reg_no || '2009/09/3218';
+                document.getElementById('docAckClinic').textContent = v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
+
+                const printEl = document.getElementById('exactPcpndtDoc');
+                printEl.classList.add('print-active');
+                window.print();
+                printEl.classList.remove('print-active');
+            } catch (e) { alert('Error preparing statutory PCPNDT Form F for printing.'); }
+        }
+
+        function shareWhatsAppInvoice(phone, patName, invNo, net, bal, centreName) {
+            if (!phone) return alert('Patient does not have a registered mobile number.');
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            const num = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+            const msg = `Dear ${patName},\nThank you for choosing ${centreName || 'RESQ Heart Clinic & Diagnostic Imaging'}.\n\nInvoice No: ${invNo}\nNet Bill Amount: ₹${net}\nBalance Due: ₹${bal}\n\nFor queries contact: +91 8433838285.`;
+            window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
         async function loadImagingTemplates() {
             try {
                 const res = await fetch('/api/imaging/templates');
                 const json = await res.json();
-                imagingTemplatesList = json.data || [];
+                imagingTemplatesList = json.data || json || [];
                 const box = document.getElementById('templatesListBox');
                 box.innerHTML = '';
                 imagingTemplatesList.forEach((tmpl, idx) => {
@@ -1254,7 +1536,7 @@
                     box.appendChild(btn);
                 });
                 if (imagingTemplatesList.length > 0) selectImagingTemplate(imagingTemplatesList[0], box.children[0]);
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error('Error loading imaging templates:', e); }
         }
 
         function selectImagingTemplate(tmpl, btnElement) {
@@ -1270,10 +1552,11 @@
             const tbody = document.getElementById('dynamicFieldsTableBody');
             tbody.innerHTML = '';
             (schema || []).forEach(f => {
+                const isLmp = f.key.toLowerCase().includes('lmp_date');
                 tbody.innerHTML += `
                     <tr>
                         <td style="font-weight: 600;">${escapeHtml(f.label || f.key)}</td>
-                        <td><input type="${f.type || 'text'}" id="field_val_${f.key}" value="${escapeHtml(f.default || '')}"></td>
+                        <td><input type="${f.type || 'text'}" id="field_val_${f.key}" value="${escapeHtml(f.default || '')}" ${isLmp ? 'onchange="recalculateEDDFromLMP(this.value)"' : ''}></td>
                     </tr>
                 `;
             });
@@ -1282,8 +1565,26 @@
             document.getElementById('imagingImpressionInput').value = tmpl.default_impression || '';
         }
 
+        function recalculateEDDFromLMP(lmpDateStr) {
+            if (!lmpDateStr) return;
+            const lmp = new Date(lmpDateStr);
+            if (isNaN(lmp.getTime())) return;
+
+            const edd = new Date(lmp.getTime() + (280 * 24 * 60 * 60 * 1000));
+            const eddStr = edd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+            const diffDays = Math.floor((new Date() - lmp) / (24 * 60 * 60 * 1000));
+            const gaWeeks = Math.floor(diffDays / 7);
+            const gaDays = diffDays % 7;
+
+            const eddInput = document.getElementById('field_val_LMP_EDD');
+            const weeksInput = document.getElementById('field_val_LMP_Weeks');
+            if (eddInput) eddInput.value = eddStr;
+            if (weeksInput) weeksInput.value = `${gaWeeks} Weeks ${gaDays} Days`;
+        }
+
         function mergeFieldsToReport() {
-            if (!currentSelectedTemplate) return alert('Select a template first.');
+            if (!currentSelectedTemplate) return alert('Please select a reporting template first.');
             let text = currentSelectedTemplate.template_body;
             let impression = currentSelectedTemplate.default_impression || '';
             let schema = currentSelectedTemplate.fields_schema;
@@ -1301,7 +1602,7 @@
 
             document.getElementById('imagingReportEditor').value = text;
             document.getElementById('imagingImpressionInput').value = impression;
-            alert('Fields merged into report preview!');
+            alert('Biometry parameter values merged into the report preview!');
         }
 
         async function loadImagingVisitsDropdown() {
@@ -1340,7 +1641,7 @@
 
         async function saveImagingReport() {
             if (!currentSelectedVisit) return alert('Select patient visit first.');
-            if (!currentSelectedTemplate) return alert('Select template first.');
+            if (!currentSelectedTemplate) return alert('Select reporting template first.');
             const payload = {
                 visitId: currentSelectedVisit.id,
                 patientId: currentSelectedVisit.patient_id,
@@ -1356,12 +1657,12 @@
                 body: JSON.stringify(payload)
             });
             const json = await res.json();
-            if (json.success) alert('Report saved successfully!');
-            else alert('Error: ' + json.error);
+            if (json.success || json.id) alert('Imaging report saved successfully!');
+            else alert('Error: ' + (json.error || 'Failed to save report.'));
         }
 
         function printImagingReport() {
-            if (!currentSelectedVisit) return alert('Select patient visit to print.');
+            if (!currentSelectedVisit) return alert('Select a patient visit to print report.');
             document.getElementById('imgPrtClinicName').textContent = currentSelectedVisit.centre_name || activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
             document.getElementById('imgPrtClinicTagline').textContent = currentSelectedVisit.centre_tagline || activeCentre?.tagline || '';
             document.getElementById('imgPrtClinicAddress').textContent = currentSelectedVisit.centre_address || activeCentre?.address || '';
@@ -1370,10 +1671,10 @@
             document.getElementById('imgPrtPatName').textContent = currentSelectedVisit.full_name;
             document.getElementById('imgPrtPatAge').textContent = `${currentSelectedVisit.age || 'N/A'} Yrs`;
             document.getElementById('imgPrtPatGender').textContent = currentSelectedVisit.gender || '-';
-            document.getElementById('imgPrtRefDoc').textContent = currentSelectedVisit.doctor_name || 'Direct';
+            document.getElementById('imgPrtRefDoc').textContent = currentSelectedVisit.doctor_name || 'Direct OPD';
             document.getElementById('imgPrtInvNo').textContent = currentSelectedVisit.invoice_number;
             document.getElementById('imgPrtDate').textContent = new Date(currentSelectedVisit.created_at).toLocaleDateString('en-GB');
-            document.getElementById('imgPrtStudyTitle').textContent = currentSelectedTemplate?.title || 'DIAGNOSTIC REPORT';
+            document.getElementById('imgPrtStudyTitle').textContent = currentSelectedTemplate?.title || 'DIAGNOSTIC IMAGING REPORT';
             document.getElementById('imgPrtReportText').textContent = document.getElementById('imagingReportEditor').value;
             document.getElementById('imgPrtImpression').textContent = document.getElementById('imagingImpressionInput').value;
 
@@ -1384,50 +1685,539 @@
         }
 
         function openReportWorkspaceForVisit(visitId) {
-            openTab('tab-imaging-reports', document.querySelectorAll('.tab-btn')[1]);
+            openTab('tab-imaging-reports', document.querySelectorAll('.tab-btn')[2]);
             const sel = document.getElementById('imagingVisitSelect');
             sel.value = visitId;
             onImagingVisitSelected(visitId);
         }
 
-        // ========================================================
-        // MASTERS (DOCTORS & TESTS)
-        // ========================================================
-        async function loadDoctors() {
+        async function openEditBillModal(visitId) {
             try {
-                const res = await fetch('/api/doctors');
+                const res = await fetch(`/api/invoice/${visitId}`);
                 const json = await res.json();
-                doctorsList = json.data || [];
-                const sel = document.getElementById('referringDoctorSelect');
-                const busSel = document.getElementById('busDocSelect');
-                const editBillDocSel = document.getElementById('editBillDocSelect');
+                if (!json.success) return alert('Cannot retrieve visit record.');
 
-                sel.innerHTML = '<option value="">Select Doctor</option>';
-                busSel.innerHTML = '<option value="">All Doctors</option>';
-                if (editBillDocSel) editBillDocSel.innerHTML = '<option value="">Direct / Self</option>';
+                const v = json.data.visitDetails;
+                const items = json.data.investigations;
+                const pcpndt = json.data.pcpndtForm;
 
+                document.getElementById('editBillRowId').value = v.id;
+                document.getElementById('editBillModalTitle').textContent = `Edit Invoice: ${v.invoice_number} (${v.full_name})`;
+
+                const docSel = document.getElementById('editBillDocSelect');
+                docSel.innerHTML = '<option value="">Select Doctor</option>';
                 doctorsList.forEach(d => {
-                    const opt = `<option value="${d.id}">${d.doctor_name} (${d.hospital_clinic_name || 'General'})</option>`;
-                    sel.innerHTML += opt;
-                    busSel.innerHTML += `<option value="${d.id}">${d.doctor_name}</option>`;
-                    if (editBillDocSel) editBillDocSel.innerHTML += opt;
+                    docSel.innerHTML += `<option value="${d.id}" ${d.id === v.referring_doctor_id ? 'selected' : ''}>${escapeHtml(d.doctor_name)}</option>`;
                 });
 
-                const tbody = document.getElementById('doctorsTableBody');
+                activeEditingBillTests = items.map(itm => ({
+                    id: itm.test_id,
+                    test_name: itm.test_name,
+                    category: itm.category,
+                    price: parseFloat(itm.price)
+                }));
+                renderEditBillItems();
+
+                document.getElementById('editBillDisc').value = v.concession || 0;
+                document.getElementById('editBillPaid').value = v.paid_amount || 0;
+                document.getElementById('editBillPaymentMode').value = v.payment_mode || 'Cash';
+
+                if (pcpndt) {
+                    document.getElementById('editPcpndtToggle').checked = true;
+                    document.getElementById('editPcpndtSection').style.display = 'block';
+                    document.getElementById('editPcpndtRel').value = pcpndt.relative_name || '';
+                    document.getElementById('editPcpndtLmp').value = pcpndt.lmp_date || '';
+                    document.getElementById('editPcpndtWeeks').value = pcpndt.weeks_of_preg || '';
+                    document.getElementById('editPcpndtInd').value = pcpndt.indications || '';
+                    document.getElementById('editPcpndtScan').value = pcpndt.scan_result || '';
+                } else {
+                    document.getElementById('editPcpndtToggle').checked = false;
+                    document.getElementById('editPcpndtSection').style.display = 'none';
+                }
+
+                document.getElementById('editBillModal').style.display = 'flex';
+            } catch (e) { alert('Error preparing bill for editing.'); }
+        }
+
+        function closeEditBillModal() { document.getElementById('editBillModal').style.display = 'none'; }
+
+        function onEditBillLiveTestSearchInput(query) {
+            const box = document.getElementById('editBillLiveSearchResultsBox');
+            const q = (query || '').toLowerCase().trim();
+            if (!q) { box.style.display = 'none'; return; }
+            
+            const matches = testsList.filter(t => 
+                (t.test_name && t.test_name.toLowerCase().includes(q)) || 
+                (t.category && t.category.toLowerCase().includes(q))
+            );
+            box.innerHTML = '';
+            matches.forEach(t => {
+                const item = document.createElement('div');
+                item.className = 'live-search-item';
+                item.innerHTML = `<div><strong>${escapeHtml(t.test_name)}</strong> <span class="badge-cat">${t.category}</span></div><div style="font-weight:bold; color:#1e3a8a;">₹${t.price}</div>`;
+                item.onclick = () => {
+                    activeEditingBillTests.push({ ...t });
+                    renderEditBillItems();
+                    document.getElementById('editBillLiveTestInput').value = '';
+                    box.style.display = 'none';
+                };
+                box.appendChild(item);
+            });
+            box.style.display = matches.length > 0 ? 'block' : 'none';
+        }
+
+        function renderEditBillItems() {
+            const tbody = document.getElementById('editBillItemsTableBody');
+            tbody.innerHTML = '';
+            activeEditingBillTests.forEach((itm, idx) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${escapeHtml(itm.test_name)}</strong></td>
+                        <td><span class="badge-cat">${itm.category || 'General'}</span></td>
+                        <td><input type="number" value="${itm.price}" oninput="activeEditingBillTests[${idx}].price = parseFloat(this.value)||0; recalcEditBillTotals();" style="width:120px; padding:4px; font-weight:bold; border:1px solid #ccc; border-radius:3px;"></td>
+                        <td><button type="button" class="btn-del" onclick="activeEditingBillTests.splice(${idx},1); renderEditBillItems();">✕</button></td>
+                    </tr>
+                `;
+            });
+            recalcEditBillTotals();
+        }
+
+        function recalcEditBillTotals() {
+            const gross = activeEditingBillTests.reduce((sum, t) => sum + (parseFloat(t.price) || 0), 0);
+            const disc = parseFloat(document.getElementById('editBillDisc').value) || 0;
+            const net = Math.max(0, gross - disc);
+            const paid = parseFloat(document.getElementById('editBillPaid').value) || 0;
+            const bal = Math.max(0, net - paid);
+
+            document.getElementById('editDispGross').textContent = `₹${gross.toFixed(2)}`;
+            document.getElementById('editDispDisc').textContent = `- ₹${disc.toFixed(2)}`;
+            document.getElementById('editDispNet').textContent = `₹${net.toFixed(2)}`;
+            document.getElementById('editDispBal').textContent = `₹${bal.toFixed(2)}`;
+        }
+
+        async function submitFullEditBill() {
+            const visitId = document.getElementById('editBillRowId').value;
+            const formData = new FormData();
+            formData.append('referringDoctorId', document.getElementById('editBillDocSelect').value);
+            formData.append('tests', JSON.stringify(activeEditingBillTests));
+            formData.append('concession', document.getElementById('editBillDisc').value || 0);
+            formData.append('paidAmount', document.getElementById('editBillPaid').value || 0);
+            formData.append('paymentMode', document.getElementById('editBillPaymentMode').value);
+
+            const isPcpndt = document.getElementById('editPcpndtToggle').checked;
+            formData.append('isPcpndt', isPcpndt);
+            if (isPcpndt) {
+                formData.append('relativeName', document.getElementById('editPcpndtRel').value.trim());
+                formData.append('lmpDate', document.getElementById('editPcpndtLmp').value);
+                formData.append('weeksOfPreg', document.getElementById('editPcpndtWeeks').value.trim());
+                formData.append('pcpndtIndications', document.getElementById('editPcpndtInd').value.trim());
+                formData.append('scanResult', document.getElementById('editPcpndtScan').value.trim());
+            }
+
+            const fileInput = document.getElementById('editBillFile');
+            if (fileInput.files.length > 0) formData.append('reportFile', fileInput.files[0]);
+
+            try {
+                const res = await fetch(`/api/visits/${visitId}`, { method: 'PUT', body: formData });
+                const json = await res.json();
+                if (json.success) {
+                    alert('Bill successfully updated.');
+                    closeEditBillModal();
+                    refreshAllCentreData();
+                } else {
+                    alert('Error updating bill: ' + json.error);
+                }
+            } catch (e) { alert('Network error updating bill.'); }
+        }
+
+        async function loadPatientsDirectory() {
+            try {
+                const q = document.getElementById('patientDirectorySearch').value.trim();
+                const res = await fetch(`/api/patients?${getCentreParam()}${q ? `&search=${encodeURIComponent(q)}` : ''}`);
+                const json = await res.json();
+                const patients = json.data || json || [];
+                const tbody = document.getElementById('patientsDirectoryBody');
                 tbody.innerHTML = '';
-                doctorsList.forEach(d => {
+                patients.forEach(p => {
                     tbody.innerHTML += `
                         <tr>
-                            <td><strong>${d.doctor_name}</strong></td>
-                            <td>${d.hospital_clinic_name || '-'}</td>
+                            <td><strong>${p.patient_code || '-'}</strong></td>
+                            <td><strong>${escapeHtml(p.full_name)}</strong></td>
+                            <td>${p.age || '-'} Yrs / ${p.gender || '-'}</td>
+                            <td>${p.phone || '-'}</td>
                             <td>
-                                <button class="btn-view-bills" style="padding: 3px 10px;" onclick="startEditDoctor('${d.id}')">Edit</button>
-                                <button class="btn-del" onclick="deleteDoctor('${d.id}')">X</button>
+                                <button type="button" class="btn-edit-patient" onclick="openEditPatientModal('${p.id}')">✏️ Edit</button>
+                                <button type="button" class="btn-view-bills" onclick="openPatientBillsModal('${p.id}', '${escapeHtml(p.full_name)}')">📂 View Bills</button>
                             </td>
                         </tr>
                     `;
                 });
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error('Error loading patients:', e); }
+        }
+
+        function filterPatientsDirectory() { loadPatientsDirectory(); }
+
+        async function openEditPatientModal(patientId) {
+            try {
+                currentEditingPatientId = patientId;
+                const res = await fetch(`/api/patients?${getCentreParam()}`);
+                const json = await res.json();
+                const p = (json.data || json || []).find(x => String(x.id) === String(patientId));
+                if (!p) return alert('Patient not found.');
+
+                document.getElementById('editPatRowId').value = p.id;
+                document.getElementById('editPatCode').value = p.patient_code || '';
+                document.getElementById('editPatName').value = p.full_name || '';
+                document.getElementById('editPatAge').value = p.age || '';
+                document.getElementById('editPatGender').value = p.gender || 'Female';
+                document.getElementById('editPatMobile').value = p.phone || '';
+                document.getElementById('editPatEmail').value = p.email || '';
+                document.getElementById('editPatAddress').value = p.address || '';
+                document.getElementById('editPatientModal').style.display = 'flex';
+            } catch (e) { alert('Error opening patient modal.'); }
+        }
+
+        function closeEditPatientModal() { document.getElementById('editPatientModal').style.display = 'none'; }
+
+        async function submitEditPatient() {
+            const id = document.getElementById('editPatRowId').value;
+            const payload = {
+                patientCode: document.getElementById('editPatCode').value.trim(),
+                fullName: document.getElementById('editPatName').value.trim(),
+                age: document.getElementById('editPatAge').value,
+                gender: document.getElementById('editPatGender').value,
+                phone: document.getElementById('editPatMobile').value.trim(),
+                email: document.getElementById('editPatEmail').value.trim(),
+                address: document.getElementById('editPatAddress').value.trim()
+            };
+            if (!payload.fullName) return alert('Patient name is required.');
+
+            try {
+                const res = await fetch(`/api/patients/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                if (json.success) {
+                    alert('Patient record updated successfully.');
+                    closeEditPatientModal();
+                    loadPatientsDirectory();
+                } else {
+                    alert('Error updating patient: ' + json.error);
+                }
+            } catch (e) { alert('Network error updating patient.'); }
+        }
+
+        async function openPatientBillsModal(patientId, patientName) {
+            try {
+                document.getElementById('patientBillsTitle').textContent = `Bills & Records: ${patientName}`;
+                const res = await fetch(`/api/patients/${patientId}/visits?${getCentreParam()}`);
+                const json = await res.json();
+                const visits = json.data || [];
+                const tbody = document.getElementById('patientBillsTableBody');
+                tbody.innerHTML = '';
+                visits.forEach(v => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${v.invoice_number}</strong></td>
+                            <td>${new Date(v.created_at).toLocaleDateString('en-GB')}</td>
+                            <td>${escapeHtml(v.centre_name || 'Active')}</td>
+                            <td>${escapeHtml(v.doctor_name || 'Direct')}</td>
+                            <td>₹${parseFloat(v.total_amount).toFixed(2)}</td>
+                            <td>₹${parseFloat(v.paid_amount).toFixed(2)} (${v.payment_mode || 'Cash'})</td>
+                            <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
+                            <td>
+                                <button type="button" class="btn-wa-inv" onclick="printSingleInvoice('${v.id}')">🖨️ Bill</button>
+                                ${v.has_pcpndt ? `<button type="button" class="btn-pcpndt-btn" onclick="printPCPNDTForm('${v.id}')">📝 Form F</button>` : ''}
+                                <button type="button" class="btn-report-action" onclick="openReportWorkspaceForVisit('${v.id}')">🩻 Report</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('patientBillsModal').style.display = 'flex';
+            } catch (e) { alert('Error retrieving patient bills.'); }
+        }
+
+        function closePatientBillsModal() { document.getElementById('patientBillsModal').style.display = 'none'; }
+
+        async function loadPcpndtRegister() {
+            try {
+                const start = document.getElementById('pcpndtFilterStart').value;
+                const end = document.getElementById('pcpndtFilterEnd').value;
+                const month = document.getElementById('pcpndtFilterMonth').value;
+                const search = document.getElementById('pcpndtFilterSearch').value.trim();
+
+                let url = `/api/pcpndt?${getCentreParam()}`;
+                if (start) url += `&startDate=${start}`;
+                if (end) url += `&endDate=${end}`;
+                if (month) url += `&month=${month}`;
+                if (search) url += `&search=${encodeURIComponent(search)}`;
+
+                const res = await fetch(url);
+                const json = await res.json();
+                const records = json.data || json || [];
+                const tbody = document.getElementById('pcpndtRegisterTableBody');
+                tbody.innerHTML = '';
+                records.forEach(f => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${new Date(f.form_date || f.created_at).toLocaleDateString('en-GB')}</td>
+                            <td><strong>${f.invoice_number || '-'}</strong></td>
+                            <td><strong>${escapeHtml(f.patient_name)}</strong> (${f.patient_age || '-'} Yrs)</td>
+                            <td>${escapeHtml(f.relative_name || '-')}</td>
+                            <td>${f.lmp_date || '-'} (${f.weeks_of_preg || '-'})</td>
+                            <td>${f.no_of_sons || 0}M / ${f.no_of_daughters || 0}F</td>
+                            <td>${escapeHtml(f.doctor_name)}<br><small>Reg: ${f.doctor_reg_no || '-'}</small></td>
+                            <td>
+                                <button type="button" class="btn-pcpndt-btn" onclick="printPCPNDTForm('${f.visit_id}')">🖨️ Print Statutory</button>
+                                <button type="button" class="btn-edit-bill" onclick="openEditPcpndtStandaloneModal('${f.id}')">✏️ Edit</button>
+                                <button type="button" class="btn-del" onclick="deleteStandalonePcpndtForm('${f.id}')">✕ Del</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) { console.error('Error loading PCPNDT register:', e); }
+        }
+
+        function filterPcpndtRegister() { loadPcpndtRegister(); }
+
+        function resetPcpndtRegisterFilters() {
+            document.getElementById('pcpndtFilterStart').value = '';
+            document.getElementById('pcpndtFilterEnd').value = '';
+            document.getElementById('pcpndtFilterMonth').value = '';
+            document.getElementById('pcpndtFilterSearch').value = '';
+            loadPcpndtRegister();
+        }
+
+        async function openEditPcpndtStandaloneModal(pcpndtId) {
+            try {
+                const res = await fetch(`/api/pcpndt/${pcpndtId}`);
+                const json = await res.json();
+                if (!json.success) return alert('Cannot retrieve statutory record.');
+                const f = json.data;
+
+                document.getElementById('standalonePcpndtId').value = f.id;
+                document.getElementById('fRelNameInput').value = f.relative_name || '';
+                document.getElementById('fLmpInput').value = f.lmp_date || '';
+                document.getElementById('fWeeksInput').value = f.weeks_of_preg || '';
+                document.getElementById('fSonsCountInput').value = f.no_of_sons || 0;
+                document.getElementById('fSonsAgeInput').value = f.sons_age || '';
+                document.getElementById('fDaughtersCountInput').value = f.no_of_daughters || 0;
+                document.getElementById('fDaughtersAgeInput').value = f.daughters_age || '';
+                document.getElementById('fIndicationInput').value = f.indications || '';
+                document.getElementById('fFindingsInput').value = f.scan_result || '';
+                document.getElementById('fDocNameInput').value = f.doctor_name || 'Dr NIKUNJ KOTHIA';
+                document.getElementById('fDocRegInput').value = f.doctor_reg_no || '2009/09/3218';
+                document.getElementById('fClinicRegInput').value = f.clinic_reg_no || activeCentre?.reg_no || 'RS197';
+
+                document.getElementById('editPcpndtStandaloneModal').style.display = 'flex';
+            } catch (e) { alert('Error preparing PCPNDT record for editing.'); }
+        }
+
+        function closeEditPcpndtModal() { document.getElementById('editPcpndtStandaloneModal').style.display = 'none'; }
+
+        async function saveStandalonePcpndtForm() {
+            const id = document.getElementById('standalonePcpndtId').value;
+            const payload = {
+                relativeName: document.getElementById('fRelNameInput').value.trim(),
+                lmpDate: document.getElementById('fLmpInput').value,
+                weeksOfPreg: document.getElementById('fWeeksInput').value.trim(),
+                noOfSons: document.getElementById('fSonsCountInput').value || 0,
+                sonsAge: document.getElementById('fSonsAgeInput').value.trim(),
+                noOfDaughters: document.getElementById('fDaughtersCountInput').value || 0,
+                daughtersAge: document.getElementById('fDaughtersAgeInput').value.trim(),
+                pcpndtIndications: document.getElementById('fIndicationInput').value.trim(),
+                scanResult: document.getElementById('fFindingsInput').value.trim(),
+                doctorName: document.getElementById('fDocNameInput').value.trim(),
+                doctorRegNo: document.getElementById('fDocRegInput').value.trim(),
+                clinicRegNo: document.getElementById('fClinicRegInput').value.trim()
+            };
+
+            try {
+                const res = await fetch(`/api/pcpndt/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                if (json.success) {
+                    alert('PCPNDT Form F record updated successfully.');
+                    closeEditPcpndtModal();
+                    loadPcpndtRegister();
+                } else {
+                    alert('Error updating PCPNDT Form: ' + json.error);
+                }
+            } catch (e) { alert('Network error updating statutory form.'); }
+        }
+
+        async function deleteStandalonePcpndtForm(id) {
+            if (!confirm('Are you sure you want to delete this PCPNDT record?')) return;
+            try {
+                const res = await fetch(`/api/pcpndt/${id}`, { method: 'DELETE' });
+                const json = await res.json();
+                if (json.success) {
+                    alert('Record deleted.');
+                    loadPcpndtRegister();
+                }
+            } catch (e) { alert('Error deleting PCPNDT record.'); }
+        }
+
+        async function loadReports() {
+            try {
+                const cat = document.getElementById('repCategorySelect').value;
+                const start = document.getElementById('repStartDate').value;
+                const end = document.getElementById('repEndDate').value;
+                const month = document.getElementById('repMonth').value;
+                const pat = document.getElementById('repPatientName').value.trim();
+
+                let url = `/api/reports/collection?${getCentreParam()}`;
+                if (cat) url += `&category=${encodeURIComponent(cat)}`;
+                if (start) url += `&startDate=${start}`;
+                if (end) url += `&endDate=${end}`;
+                if (month) url += `&month=${month}`;
+                if (pat) url += `&patientName=${encodeURIComponent(pat)}`;
+
+                const res = await fetch(url);
+                const json = await res.json();
+                const data = json.data || [];
+                const sum = json.summary || { totalCollection: 0, totalPending: 0, recordCount: 0 };
+
+                document.getElementById('repSummaryBanner').innerHTML = `
+                    <span>Total Collected: <strong style="color:#00897b;">₹${sum.totalCollection.toFixed(2)}</strong></span> | 
+                    <span>Pending Balance: <strong style="color:#d84315;">₹${sum.totalPending.toFixed(2)}</strong></span> | 
+                    <span>Total Records: <strong>${sum.recordCount}</strong></span>
+                `;
+
+                const tbody = document.getElementById('reportsTableBody');
+                tbody.innerHTML = '';
+                data.forEach(v => {
+                    const net = (parseFloat(v.total_amount) - parseFloat(v.concession || 0)).toFixed(2);
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${new Date(v.created_at).toLocaleDateString('en-GB')}</td>
+                            <td>${escapeHtml(v.centre_name || 'Active')}</td>
+                            <td><strong>${escapeHtml(v.full_name)}</strong><br><small>${v.phone || ''}</small></td>
+                            <td><span class="badge-cat">${v.categories || 'General'}</span></td>
+                            <td>₹${parseFloat(v.total_amount).toFixed(2)}</td>
+                            <td>₹${parseFloat(v.concession || 0).toFixed(2)}</td>
+                            <td>₹${parseFloat(v.paid_amount).toFixed(2)} <span class="badge-mode">${v.payment_mode || 'Cash'}</span></td>
+                            <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
+                            <td>${v.payment_status === 'Paid' ? '<span class="badge-paid">Paid</span>' : '<span class="badge-pending">Pending</span>'}</td>
+                            <td>
+                                <button type="button" class="btn-wa-inv" onclick="printSingleInvoice('${v.visit_id}')">🖨️ Bill</button>
+                                <button type="button" class="btn-wa-inv" style="background:#25d366;" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}')">📱 WA</button>
+                                ${v.has_pcpndt ? `<button type="button" class="btn-pcpndt-btn" onclick="printPCPNDTForm('${v.visit_id}')">📝 Form F</button>` : ''}
+                                <button type="button" class="btn-report-action" onclick="openReportWorkspaceForVisit('${v.visit_id}')">🩻 Report</button>
+                                <button type="button" class="btn-edit-bill" onclick="openEditBillModal('${v.visit_id}')">✏️ Edit</button>
+                                <button type="button" class="btn-del" onclick="deleteBill('${v.visit_id}')">✕</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) { console.error('Error loading collections:', e); }
+        }
+
+        function filterReports() { loadReports(); }
+
+        function resetReportFilters() {
+            document.getElementById('repCategorySelect').value = '';
+            document.getElementById('repStartDate').value = '';
+            document.getElementById('repEndDate').value = '';
+            document.getElementById('repMonth').value = '';
+            document.getElementById('repPatientName').value = '';
+            loadReports();
+        }
+
+        async function deleteBill(visitId) {
+            if (!confirm('Are you sure you want to permanently delete this visit and invoice?')) return;
+            try {
+                const res = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
+                const json = await res.json();
+                if (json.success) {
+                    alert('Visit deleted successfully.');
+                    refreshAllCentreData();
+                }
+            } catch (e) { alert('Error deleting visit record.'); }
+        }
+
+        async function loadBusiness() {
+            try {
+                const docId = document.getElementById('busDocSelect').value;
+                const start = document.getElementById('busStartDate').value;
+                const end = document.getElementById('busEndDate').value;
+                const month = document.getElementById('busMonth').value;
+                const pat = document.getElementById('busPatientName').value.trim();
+
+                let url = `/api/reports/doctor-detailed?${getCentreParam()}`;
+                if (docId) url += `&doctorId=${docId}`;
+                if (start) url += `&startDate=${start}`;
+                if (end) url += `&endDate=${end}`;
+                if (month) url += `&month=${month}`;
+                if (pat) url += `&patientName=${encodeURIComponent(pat)}`;
+
+                const res = await fetch(url);
+                const json = await res.json();
+                const data = json.data || [];
+
+                let totalBiz = 0, totalCut = 0;
+                const tbody = document.getElementById('businessTableBody');
+                tbody.innerHTML = '';
+                data.forEach(b => {
+                    totalBiz += parseFloat(b.total_amount || 0);
+                    totalCut += parseFloat(b.doctor_commission || 0);
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${new Date(b.created_at).toLocaleDateString('en-GB')}</td>
+                            <td><strong>${escapeHtml(b.doctor_name)}</strong><br><small>${escapeHtml(b.hospital_clinic_name || '')}</small></td>
+                            <td>${escapeHtml(b.full_name)}</td>
+                            <td>${b.invoice_number}</td>
+                            <td>₹${parseFloat(b.total_amount).toFixed(2)}</td>
+                            <td style="color:#6d28d9; font-weight:bold;">₹${parseFloat(b.doctor_commission).toFixed(2)}</td>
+                            <td><button type="button" class="btn-wa-inv" onclick="printSingleInvoice('${b.visit_id}')">🖨️ View Bill</button></td>
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('busSummaryBanner').innerHTML = `
+                    <span>Total Gross Referred Business: <strong style="color:#1e3a8a;">₹${totalBiz.toFixed(2)}</strong></span> | 
+                    <span>Total Doctor Commission Cut: <strong style="color:#7c3aed;">₹${totalCut.toFixed(2)}</strong></span> | 
+                    <span>Referrals: <strong>${data.length}</strong></span>
+                `;
+            } catch (e) { console.error('Error loading business analytics:', e); }
+        }
+
+        function filterBusiness() { loadBusiness(); }
+
+        async function loadDoctors() {
+            try {
+                const res = await fetch('/api/doctors');
+                const json = await res.json();
+                doctorsList = json.data || json || [];
+
+                const sel = document.getElementById('referringDoctorSelect');
+                const busSel = document.getElementById('busDocSelect');
+                sel.innerHTML = '<option value="">Select Doctor</option>';
+                busSel.innerHTML = '<option value="">All Doctors</option>';
+
+                const tbody = document.getElementById('doctorsTableBody');
+                tbody.innerHTML = '';
+
+                doctorsList.forEach(d => {
+                    sel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
+                    busSel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${escapeHtml(d.doctor_name)}</strong></td>
+                            <td>${escapeHtml(d.hospital_clinic_name || '-')}</td>
+                            <td>
+                                <button type="button" class="btn-edit-patient" onclick="startEditDoctor('${d.id}')">✏️</button>
+                                <button type="button" class="btn-del" onclick="deleteDoctor('${d.id}')">✕</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) { console.error('Error loading doctors:', e); }
         }
 
         async function saveDoctor() {
@@ -1438,22 +2228,29 @@
                 commissionType: document.getElementById('docCommType').value,
                 commissionValue: parseFloat(document.getElementById('docCutInput').value) || 0
             };
-            const url = editId ? `/api/doctors/${editId}` : '/api/doctors';
-            const method = editId ? 'PUT' : 'POST';
-            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            const data = await res.json();
-            if (data.success) {
-                alert(editId ? 'Doctor updated' : 'Doctor added');
-                cancelDocEdit();
-                loadDoctors();
-            }
+            if (!payload.doctorName) return alert('Doctor name is required.');
+
+            try {
+                const res = await fetch('/api/doctors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                if (json.success || json.id) {
+                    alert('Referring doctor successfully saved.');
+                    cancelDocEdit();
+                    loadDoctors();
+                }
+            } catch (e) { alert('Error saving doctor.'); }
         }
 
         function startEditDoctor(id) {
             const d = doctorsList.find(x => String(x.id) === String(id));
             if (!d) return;
+            openTab('tab-masters', document.querySelectorAll('.tab-btn')[4]);
             document.getElementById('editDocId').value = d.id;
-            document.getElementById('docNameInput').value = d.doctor_name || '';
+            document.getElementById('docNameInput').value = d.doctor_name;
             document.getElementById('docHospInput').value = d.hospital_clinic_name || '';
             document.getElementById('docCommType').value = d.commission_type || 'percentage';
             document.getElementById('docCutInput').value = d.commission_value || 0;
@@ -1473,811 +2270,82 @@
         }
 
         async function deleteDoctor(id) {
-            if (!confirm('Delete doctor?')) return;
-            await fetch(`/api/doctors/${id}`, { method: 'DELETE' });
-            loadDoctors();
+            if (!confirm('Are you sure you want to delete this doctor?')) return;
+            try {
+                const res = await fetch(`/api/doctors/${id}`, { method: 'DELETE' });
+                const json = await res.json();
+                if (json.success) {
+                    alert('Doctor deleted.');
+                    loadDoctors();
+                }
+            } catch (e) { alert('Error deleting doctor.'); }
         }
 
         async function loadTests() {
             try {
                 const res = await fetch('/api/tests');
                 const json = await res.json();
-                testsList = json.data || [];
-                renderExistingTestsTable(testsList);
-            } catch (e) { console.error(e); }
+                testsList = json.data || json || [];
+                filterExistingTestsList();
+            } catch (e) { console.error('Error loading tests:', e); }
         }
 
-        function renderExistingTestsTable(list) {
+        function filterExistingTestsList() {
+            const q = (document.getElementById('existingTestSearch')?.value || '').toLowerCase().trim();
             const tbody = document.getElementById('testsTableBody');
             tbody.innerHTML = '';
-            list.forEach(t => {
+            const filtered = testsList.filter(t => 
+                (t.test_name && t.test_name.toLowerCase().includes(q)) || 
+                (t.category && t.category.toLowerCase().includes(q))
+            );
+            filtered.forEach(t => {
                 tbody.innerHTML += `
                     <tr>
-                        <td><strong>${t.test_name}</strong><br><small class="badge-cat">${t.category || 'Pathology'}</small></td>
+                        <td><strong>${escapeHtml(t.test_name)}</strong><br><small><span class="badge-cat">${t.category}</span></small></td>
                         <td>₹${parseFloat(t.price).toFixed(2)}</td>
                         <td>₹${parseFloat(t.test_cut || 0).toFixed(2)}</td>
-                        <td>
-                            <button class="btn-view-bills" style="padding: 3px 10px;" onclick="startEditTest('${t.id}')">Edit</button>
-                            <button class="btn-del" onclick="deleteTest('${t.id}')">X</button>
-                        </td>
+                        <td><button type="button" class="btn-del" onclick="deleteTest('${t.id}')">✕</button></td>
                     </tr>
                 `;
             });
         }
 
-        function filterExistingTestsList() {
-            const query = document.getElementById('existingTestSearch').value.toLowerCase().trim();
-            if (!query) return renderExistingTestsTable(testsList);
-            const filtered = testsList.filter(t => t.test_name.toLowerCase().includes(query) || (t.category && t.category.toLowerCase().includes(query)));
-            renderExistingTestsTable(filtered);
-        }
-
         async function saveTest() {
-            const editId = document.getElementById('editTestId').value;
             const payload = {
                 testName: document.getElementById('testNameInput').value.trim(),
                 category: document.getElementById('testCatInput').value,
                 price: parseFloat(document.getElementById('testPriceInput').value) || 0,
                 testCut: parseFloat(document.getElementById('testCutInput').value) || 0
             };
-            const url = editId ? `/api/tests/${editId}` : '/api/tests';
-            const method = editId ? 'PUT' : 'POST';
-            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            const data = await res.json();
-            if (data.success) {
-                alert('Test saved');
-                cancelTestEdit();
-                loadTests();
-            }
-        }
+            if (!payload.testName) return alert('Test/Investigation name is required.');
 
-        function startEditTest(id) {
-            const t = testsList.find(x => String(x.id) === String(id));
-            if (!t) return;
-            document.getElementById('editTestId').value = t.id;
-            document.getElementById('testNameInput').value = t.test_name;
-            document.getElementById('testCatInput').value = t.category || 'Pathology';
-            document.getElementById('testPriceInput').value = t.price;
-            document.getElementById('testCutInput').value = t.test_cut || '';
-            document.getElementById('testFormTitle').textContent = 'Edit Test & Cuts';
-            document.getElementById('btnSaveTest').textContent = 'Update Test / Service';
-            document.getElementById('btnCancelTestEdit').style.display = 'inline-block';
-        }
-
-        function cancelTestEdit() {
-            document.getElementById('editTestId').value = '';
-            document.getElementById('testNameInput').value = '';
-            document.getElementById('testPriceInput').value = '';
-            document.getElementById('testCutInput').value = '';
-            document.getElementById('testFormTitle').textContent = 'Add / Edit Tests & Cuts';
-            document.getElementById('btnSaveTest').textContent = 'Save Test / Service';
-            document.getElementById('btnCancelTestEdit').style.display = 'none';
+            try {
+                const res = await fetch('/api/tests', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                if (json.success || json.id) {
+                    alert('Investigation/Test saved.');
+                    document.getElementById('testNameInput').value = '';
+                    document.getElementById('testPriceInput').value = '';
+                    document.getElementById('testCutInput').value = '';
+                    loadTests();
+                }
+            } catch (e) { alert('Error saving test.'); }
         }
 
         async function deleteTest(id) {
-            if (!confirm('Delete test from catalog?')) return;
-            await fetch(`/api/tests/${id}`, { method: 'DELETE' });
-            loadTests();
-        }
-
-        // Live Test Search
-        function onLiveTestSearchInput(query) {
-            const box = document.getElementById('liveSearchResultsBox');
-            const q = (query || '').toLowerCase().trim();
-            if (!q) { box.style.display = 'none'; return; }
-            const matches = testsList.filter(t => (t.test_name && t.test_name.toLowerCase().includes(q)) || (t.category && t.category.toLowerCase().includes(q)));
-            box.innerHTML = '';
-            matches.forEach(t => {
-                const item = document.createElement('div');
-                item.className = 'live-search-item';
-                item.innerHTML = `<div><strong>${escapeHtml(t.test_name)}</strong><span class="badge-cat" style="margin-left: 6px;">${escapeHtml(t.category)}</span></div><div style="display: flex; align-items: center; gap: 8px;"><strong>₹${t.price}</strong><span style="background: #28a745; color: white; padding: 2px 7px; border-radius: 3px; font-size: 0.75rem;">+ Add</span></div>`;
-                item.onclick = () => {
-                    selectedBillTests.push({ ...t });
-                    renderSelectedTests();
-                    document.getElementById('liveTestInput').value = '';
-                    box.style.display = 'none';
-                };
-                box.appendChild(item);
-            });
-            box.style.display = matches.length > 0 ? 'block' : 'none';
-        }
-
-        function renderSelectedTests() {
-            const tbody = document.querySelector('#billItemsTable tbody');
-            tbody.innerHTML = '';
-            if (selectedBillTests.length === 0) {
-                tbody.innerHTML = `<tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected.</td></tr>`;
-            } else {
-                selectedBillTests.forEach((t, idx) => {
-                    tbody.innerHTML += `<tr><td>${t.test_name}</td><td>${t.category}</td><td>₹${parseFloat(t.price).toFixed(2)}</td><td><button type="button" class="btn-del" onclick="removeSelectedTest(${idx})">X</button></td></tr>`;
-                });
-            }
-            calculateFinancialTotals();
-        }
-
-        function removeSelectedTest(idx) { selectedBillTests.splice(idx, 1); renderSelectedTests(); }
-        function calculateFinancialTotals() {
-            const gross = selectedBillTests.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
-            const discount = parseFloat(document.getElementById('inputDiscount').value) || 0;
-            const net = Math.max(0, gross - discount);
-            const paid = parseFloat(document.getElementById('inputPaid').value) || 0;
-            const balance = Math.max(0, net - paid);
-            document.getElementById('dispGross').textContent = `₹${gross.toFixed(2)}`;
-            document.getElementById('dispDiscount').textContent = `- ₹${discount.toFixed(2)}`;
-            document.getElementById('dispNet').textContent = `₹${net.toFixed(2)}`;
-            document.getElementById('dispBalance').textContent = `₹${balance.toFixed(2)}`;
-        }
-
-        // Quick Lookup
-        async function lookupPatient() {
-            const query = document.getElementById('lookupSearch').value.trim();
-            if (!query) return alert('Enter search query');
-            const res = await fetch(`/api/patients/lookup?query=${encodeURIComponent(query)}&${getCentreParam()}`);
-            const json = await res.json();
-            if (json.success && json.data.length > 0) {
-                const p = json.data[0];
-                document.getElementById('existingPatientId').value = p.id;
-                document.getElementById('patientFullName').value = p.full_name || '';
-                document.getElementById('patientAge').value = p.age || '';
-                document.getElementById('patientGender').value = p.gender || 'Female';
-                document.getElementById('patientMobile').value = p.phone || '';
-                document.getElementById('patientEmail').value = p.email || '';
-                document.getElementById('patientAddress').value = p.address || '';
-                document.getElementById('patientCode').value = p.patient_code || '';
-                alert('Patient record loaded!');
-            } else {
-                alert('Patient not found in this centre');
-            }
-        }
-
-        // Process Registration
-        async function processVisit(printInv) {
-            const fullName = document.getElementById('patientFullName').value.trim();
-            if (!fullName) return alert('Enter Patient Full Name');
-            if (selectedBillTests.length === 0) return alert('Add at least one test / investigation.');
-
-            const isPcpndt = document.getElementById('pcpndtToggle').checked;
-            const formData = new FormData();
-            formData.append('centreId', activeCentre?.id || '');
-            formData.append('existingPatientId', document.getElementById('existingPatientId').value);
-            formData.append('fullName', fullName);
-            formData.append('age', document.getElementById('patientAge').value);
-            formData.append('gender', document.getElementById('patientGender').value);
-            formData.append('phone', document.getElementById('patientMobile').value);
-            formData.append('email', document.getElementById('patientEmail').value);
-            formData.append('address', document.getElementById('patientAddress').value);
-            formData.append('patientCode', document.getElementById('patientCode').value);
-            formData.append('referringDoctorId', document.getElementById('referringDoctorSelect').value);
-            formData.append('tests', JSON.stringify(selectedBillTests.map(t => ({ id: t.id, price: t.price }))));
-            formData.append('concession', document.getElementById('inputDiscount').value);
-            formData.append('paidAmount', document.getElementById('inputPaid').value);
-            formData.append('paymentMode', document.getElementById('inputPaymentMode').value);
-            formData.append('isPcpndt', isPcpndt);
-
-            if (isPcpndt) {
-                formData.append('relativeName', document.getElementById('pcpndtRelativeName').value.trim());
-                formData.append('lmpDate', document.getElementById('pcpndtLMP').value);
-                formData.append('weeksOfPreg', document.getElementById('pcpndtWeeks').value.trim());
-                formData.append('noOfSons', document.getElementById('pcpndtNoOfSons').value);
-                formData.append('sonsAge', document.getElementById('pcpndtSonsAge').value.trim());
-                formData.append('noOfDaughters', document.getElementById('pcpndtNoOfDaughters').value);
-                formData.append('daughtersAge', document.getElementById('pcpndtDaughtersAge').value.trim());
-                formData.append('pcpndtIndications', document.getElementById('pcpndtIndication').value.trim());
-                formData.append('scanResult', document.getElementById('pcpndtFindings').value.trim());
-                formData.append('doctorName', document.getElementById('pcpndtDoctor').value.trim());
-                formData.append('doctorRegNo', document.getElementById('pcpndtDoctorReg').value.trim());
-                formData.append('clinicRegNo', activeCentre?.reg_no || 'RS197');
-            }
-
-            const res = await fetch('/api/register-visit', { method: 'POST', body: formData });
-            const json = await res.json();
-            if (json.success) {
-                alert(`Saved! Invoice: ${json.data.invoiceNumber}`);
-                if (printInv) {
-                    if (isPcpndt) {
-                        const opt = confirm("Visit saved! OK to Print Form F, Cancel for Standard Invoice.");
-                        if (opt) printPCPNDTForm(json.data.visitId);
-                        else printSingleInvoice(json.data.visitId);
-                    } else {
-                        printSingleInvoice(json.data.visitId);
-                    }
+            if (!confirm('Are you sure you want to remove this investigation from test master?')) return;
+            try {
+                const res = await fetch(`/api/tests/${id}`, { method: 'DELETE' });
+                const json = await res.json();
+                if (json.success) {
+                    alert('Investigation deleted.');
+                    loadTests();
                 }
-                document.getElementById('existingPatientId').value = '';
-                document.getElementById('patientFullName').value = '';
-                document.getElementById('patientMobile').value = '';
-                document.getElementById('patientAddress').value = '';
-                document.getElementById('patientCode').value = '';
-                document.getElementById('pcpndtToggle').checked = false;
-                togglePCPNDT(false);
-                selectedBillTests = [];
-                renderSelectedTests();
-                refreshAllCentreData();
-            } else { alert('Error: ' + json.error); }
-        }
-
-        // ========================================================
-        // PRINT HANDLERS (INVOICE & FORM F)
-        // ========================================================
-        async function printSingleInvoice(visitId) {
-            try {
-                const res = await fetch(`/api/invoice/${visitId}`);
-                const json = await res.json();
-                if (!json.success) return alert('Failed to fetch invoice');
-
-                const v = json.data.visitDetails;
-                const items = json.data.investigations || [];
-
-                document.getElementById('prtClinicName').textContent = v.centre_name || activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
-                document.getElementById('prtClinicTagline').textContent = v.centre_tagline || activeCentre?.tagline || '';
-                document.getElementById('prtClinicAddress').textContent = v.centre_address || activeCentre?.address || '';
-                document.getElementById('prtClinicContact').textContent = `Phone: ${v.centre_phone || activeCentre?.phone || ''} | Reg No: ${v.centre_reg_no || 'RS197'}`;
-
-                document.getElementById('prtPatName').textContent = v.full_name || '';
-                document.getElementById('prtPatMeta').textContent = `${v.age || 'N/A'} Y / ${v.gender || '-'}`;
-                document.getElementById('prtPatAddress').textContent = v.address || '-';
-                document.getElementById('prtDocName').textContent = v.doctor_name || 'Direct / Self';
-                document.getElementById('prtInvNo').textContent = v.invoice_number;
-                document.getElementById('prtDate').textContent = new Date(v.created_at).toLocaleDateString();
-
-                const itemsBody = document.getElementById('prtItemsBody');
-                itemsBody.innerHTML = '';
-                items.forEach(t => {
-                    itemsBody.innerHTML += `<tr><td style="border:1px solid #777;padding:6px;">${t.test_name}</td><td style="border:1px solid #777;padding:6px;">₹${parseFloat(t.price).toFixed(2)}</td></tr>`;
-                });
-
-                document.getElementById('prtGross').textContent = parseFloat(v.total_amount).toFixed(2);
-                document.getElementById('prtDisc').textContent = parseFloat(v.concession).toFixed(2);
-                document.getElementById('prtNet').textContent = (parseFloat(v.total_amount) - parseFloat(v.concession)).toFixed(2);
-                document.getElementById('prtPaid').textContent = parseFloat(v.paid_amount).toFixed(2);
-                document.getElementById('prtMode').textContent = v.payment_mode || 'Cash';
-                document.getElementById('prtBal').textContent = parseFloat(v.balance_amount).toFixed(2);
-
-                const printArea = document.getElementById('invoicePrintArea');
-                printArea.classList.add('print-active');
-                window.print();
-                printArea.classList.remove('print-active');
-            } catch (e) { console.error(e); }
-        }
-
-        async function printPCPNDTForm(visitId) {
-            try {
-                const res = await fetch(`/api/invoice/${visitId}`);
-                const json = await res.json();
-                if (!json.success) return alert('Failed to fetch details');
-
-                const v = json.data.visitDetails || {};
-                const f = json.data.pcpndtForm;
-                if (!f) return alert('No Form F attached to this bill');
-
-                const cName = v.centre_name || activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
-                const cAddr = v.centre_address || activeCentre?.address || '';
-                const cReg = f.clinic_reg_no || v.centre_reg_no || 'RS197';
-                const vDate = new Date(v.created_at).toLocaleDateString('en-GB');
-
-                document.getElementById('docClinicName').textContent = cName;
-                document.getElementById('docClinicAddress').textContent = cAddr;
-                document.getElementById('docClinicReg').textContent = cReg;
-                document.getElementById('docPatName').textContent = v.full_name || '';
-                document.getElementById('docPatAge').textContent = v.age || 'N/A';
-                document.getElementById('docMaleKids').textContent = f.no_of_sons || '0';
-                document.getElementById('docFemaleKids').textContent = f.no_of_daughters || '0';
-                document.getElementById('docSonsDetail').textContent = f.sons_age ? `${f.no_of_sons || 0} (${f.sons_age})` : (f.no_of_sons || '0');
-                document.getElementById('docDaughtersDetail').textContent = f.daughters_age ? `${f.no_of_daughters || 0} (${f.daughters_age})` : (f.no_of_daughters || '0');
-                document.getElementById('docRelativeName').textContent = f.relative_name || '-';
-                document.getElementById('docPatAddress').textContent = v.address || 'Kandivali West Mumbai';
-                document.getElementById('docPatPhone').textContent = v.phone || '-';
-                document.getElementById('docRefDoc').textContent = v.doctor_name || 'Self / Direct';
-                document.getElementById('docSelfRef').textContent = v.doctor_name ? 'No' : 'Yes';
-                document.getElementById('docLmp').textContent = f.lmp_date ? `LMP: ${f.lmp_date}` : 'LMP: -';
-                document.getElementById('docWeeks').textContent = f.weeks_of_preg ? `${f.weeks_of_preg}` : '-';
-
-                const dName = f.doctor_name || 'Dr NIKUNJ KOTHIA';
-                const dReg = f.doctor_reg_no || '2009/09/3218';
-                document.getElementById('docDoctorName').textContent = dName;
-                document.getElementById('docDeclDate').textContent = vDate;
-                document.getElementById('docProcDate').textContent = vDate;
-                document.getElementById('docProcResult').textContent = f.scan_result || 'Single live intrauterine fetus of normal gestational parameters.';
-                document.getElementById('docConveyDate').textContent = vDate;
-                document.getElementById('docSignDate').textContent = vDate;
-                document.getElementById('docSignDocName').textContent = dName;
-                document.getElementById('docSignDocReg').textContent = dReg;
-
-                document.getElementById('docSignDate2').textContent = vDate;
-                document.getElementById('docSignDocName2').textContent = dName;
-                document.getElementById('docSignDocReg2').textContent = dReg;
-                document.getElementById('docDeclDoctor').textContent = dName;
-                document.getElementById('docDeclDocReg').textContent = dReg;
-                document.getElementById('docAckClinic').textContent = cName;
-
-                const docContainer = document.getElementById('exactPcpndtDoc');
-                docContainer.classList.add('print-active');
-                window.print();
-                docContainer.classList.remove('print-active');
-            } catch (e) { alert('Print error: ' + e.message); }
-        }
-
-        // ========================================================
-        // PATIENTS DIRECTORY & PATIENT BILLS MODAL
-        // ========================================================
-        async function loadPatientsDirectory() {
-            try {
-                const res = await fetch(`/api/patients?${getCentreParam()}`);
-                const json = await res.json();
-                patientsList = json.data || [];
-                renderPatientsDirectory(patientsList);
-            } catch (e) { console.error(e); }
-        }
-
-        function renderPatientsDirectory(list) {
-            const tbody = document.getElementById('patientsDirectoryBody');
-            tbody.innerHTML = '';
-            if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 16px;">No patients found in this centre.</td></tr>`;
-                return;
-            }
-            list.forEach(p => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td><strong>${p.patient_code || p.id.slice(0, 8)}</strong></td>
-                        <td>${p.full_name}</td>
-                        <td>${p.age ? p.age + ' Yrs / ' : ''}${p.gender || '-'}</td>
-                        <td>${p.phone || '-'}</td>
-                        <td>
-                            <button class="btn-edit-patient" onclick="openEditPatientModal('${p.id}')">Edit Patient</button>
-                            <button class="btn-view-bills" onclick="openPatientBillsModal('${p.id}', '${escapeHtml(p.full_name)}')">View Bills</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        function filterPatientsDirectory() {
-            const q = document.getElementById('patientDirectorySearch').value.toLowerCase().trim();
-            if (!q) return renderPatientsDirectory(patientsList);
-            const filtered = patientsList.filter(p => p.full_name.toLowerCase().includes(q) || (p.phone && p.phone.includes(q)));
-            renderPatientsDirectory(filtered);
-        }
-
-        function openEditPatientModal(id) {
-            const p = patientsList.find(x => String(x.id) === String(id));
-            if (!p) return;
-            document.getElementById('editPatRowId').value = p.id;
-            document.getElementById('editPatCode').value = p.patient_code || '';
-            document.getElementById('editPatName').value = p.full_name || '';
-            document.getElementById('editPatAge').value = p.age || '';
-            document.getElementById('editPatGender').value = p.gender || 'Female';
-            document.getElementById('editPatMobile').value = p.phone || '';
-            document.getElementById('editPatEmail').value = p.email || '';
-            document.getElementById('editPatAddress').value = p.address || '';
-            document.getElementById('editPatientModal').style.display = 'flex';
-        }
-        function closeEditPatientModal() { document.getElementById('editPatientModal').style.display = 'none'; }
-
-        async function submitEditPatient() {
-            const id = document.getElementById('editPatRowId').value;
-            const payload = {
-                patientCode: document.getElementById('editPatCode').value.trim(),
-                fullName: document.getElementById('editPatName').value.trim(),
-                age: document.getElementById('editPatAge').value,
-                gender: document.getElementById('editPatGender').value,
-                phone: document.getElementById('editPatMobile').value.trim(),
-                email: document.getElementById('editPatEmail').value.trim(),
-                address: document.getElementById('editPatAddress').value.trim()
-            };
-            const res = await fetch(`/api/patients/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            const data = await res.json();
-            if (data.success) {
-                alert('Patient updated');
-                closeEditPatientModal();
-                loadPatientsDirectory();
-            }
-        }
-
-        async function openPatientBillsModal(id, name) {
-            document.getElementById('patientBillsTitle').textContent = `Bills History for: ${name}`;
-            const res = await fetch(`/api/patients/${id}/visits?${getCentreParam()}`);
-            const json = await res.json();
-            const bills = json.data || [];
-            const tbody = document.getElementById('patientBillsTableBody');
-            tbody.innerHTML = '';
-            if (bills.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#888;">No bills found for this centre.</td></tr>`;
-            } else {
-                bills.forEach(b => {
-                    const waText = encodeURIComponent(`Hello ${name}, your bill for invoice ${b.invoice_number} is ₹${b.total_amount}. Paid: ₹${b.paid_amount}, Due: ₹${b.balance_amount}.`);
-                    const waLink = b.phone ? `https://wa.me/91${b.phone.replace(/\D/g,'')}?text=${waText}` : '#';
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><strong>${b.invoice_number}</strong></td>
-                            <td>${new Date(b.created_at).toLocaleString()}</td>
-                            <td>${b.centre_name || 'Active'}</td>
-                            <td>${b.doctor_name || 'Self'}</td>
-                            <td>₹${parseFloat(b.total_amount).toFixed(2)}</td>
-                            <td>₹${parseFloat(b.paid_amount || 0).toFixed(2)} <span class="badge-mode">${b.payment_mode || 'Cash'}</span></td>
-                            <td>₹${parseFloat(b.balance_amount || 0).toFixed(2)}</td>
-                            <td>
-                                <button class="btn-wa-inv" onclick="printSingleInvoice('${b.id}')">Print</button>
-                                ${b.has_pcpndt ? `<button class="btn-pcpndt-btn" onclick="printPCPNDTForm('${b.id}')">Form F</button>` : ''}
-                                <a href="${waLink}" target="_blank" class="btn-wa-inv" style="background:#25d366;">WA</a>
-                                <button class="btn-edit-bill" onclick="openEditBillModal('${b.id}')">Edit</button>
-                                <button class="btn-del" onclick="deleteBill('${b.id}')">Delete</button>
-                            </td>
-                        </tr>
-                    `;
-                });
-            }
-            document.getElementById('patientBillsModal').style.display = 'flex';
-        }
-        function closePatientBillsModal() { document.getElementById('patientBillsModal').style.display = 'none'; }
-
-        // ========================================================
-        // EDIT BILL MODAL (DYNAMIC TEST ADDITION & RATES)
-        // ========================================================
-        async function openEditBillModal(id) {
-            try {
-                const res = await fetch(`/api/invoice/${id}`);
-                const json = await res.json();
-                if (!json.success) return alert('Failed to fetch invoice');
-
-                const v = json.data.visitDetails || {};
-                const invs = json.data.investigations || [];
-                const p = json.data.pcpndtForm;
-
-                document.getElementById('editBillRowId').value = v.id;
-                document.getElementById('editBillModalTitle').textContent = `Edit Bill - ${v.invoice_number} (${v.full_name})`;
-                document.getElementById('editBillDisc').value = v.concession || 0;
-                document.getElementById('editBillPaid').value = v.paid_amount || 0;
-                document.getElementById('editBillPaymentMode').value = v.payment_mode || 'Cash';
-                if (document.getElementById('editBillDocSelect')) document.getElementById('editBillDocSelect').value = v.referring_doctor_id || '';
-
-                activeEditingBillTests = invs.map(item => ({
-                    id: item.test_id,
-                    test_name: item.test_name,
-                    category: item.category || 'Pathology',
-                    price: parseFloat(item.price) || 0
-                }));
-
-                if (p) {
-                    document.getElementById('editPcpndtToggle').checked = true;
-                    document.getElementById('editPcpndtSection').style.display = 'block';
-                    document.getElementById('editPcpndtRel').value = p.relative_name || '';
-                    document.getElementById('editPcpndtLmp').value = p.lmp_date || '';
-                    document.getElementById('editPcpndtWeeks').value = p.weeks_of_preg || '';
-                    document.getElementById('editPcpndtInd').value = p.indications || '';
-                    document.getElementById('editPcpndtScan').value = p.scan_result || '';
-                } else {
-                    document.getElementById('editPcpndtToggle').checked = false;
-                    document.getElementById('editPcpndtSection').style.display = 'none';
-                }
-
-                renderEditBillTestsTable();
-                document.getElementById('editBillModal').style.display = 'flex';
-            } catch (e) { alert('Error: ' + e.message); }
-        }
-
-        function closeEditBillModal() { document.getElementById('editBillModal').style.display = 'none'; }
-
-        function renderEditBillTestsTable() {
-            const tbody = document.getElementById('editBillItemsTableBody');
-            tbody.innerHTML = '';
-            activeEditingBillTests.forEach((t, idx) => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td><strong>${t.test_name}</strong></td>
-                        <td><span class="badge-cat">${t.category}</span></td>
-                        <td><input type="number" value="${t.price}" style="width: 130px; padding: 5px; font-weight: bold;" oninput="updateEditBillTestPrice(${idx}, this.value)"></td>
-                        <td><button type="button" class="btn-del" onclick="removeTestFromEditBill(${idx})">X</button></td>
-                    </tr>
-                `;
-            });
-            recalcEditBillTotals();
-        }
-
-        function onEditBillLiveTestSearchInput(query) {
-            const box = document.getElementById('editBillLiveSearchResultsBox');
-            const q = (query || '').toLowerCase().trim();
-            if (!q) { box.style.display = 'none'; return; }
-            const matches = testsList.filter(t => t.test_name.toLowerCase().includes(q) || (t.category && t.category.toLowerCase().includes(q)));
-            box.innerHTML = '';
-            matches.forEach(t => {
-                const item = document.createElement('div');
-                item.className = 'live-search-item';
-                item.innerHTML = `<div><strong>${escapeHtml(t.test_name)}</strong></div><div>₹${t.price}</div>`;
-                item.onclick = () => {
-                    activeEditingBillTests.push({ id: t.id, test_name: t.test_name, category: t.category, price: parseFloat(t.price) || 0 });
-                    renderEditBillTestsTable();
-                    document.getElementById('editBillLiveTestInput').value = '';
-                    box.style.display = 'none';
-                };
-                box.appendChild(item);
-            });
-            box.style.display = matches.length > 0 ? 'block' : 'none';
-        }
-
-        function removeTestFromEditBill(idx) { activeEditingBillTests.splice(idx, 1); renderEditBillTestsTable(); }
-        function updateEditBillTestPrice(idx, val) { activeEditingBillTests[idx].price = parseFloat(val) || 0; recalcEditBillTotals(); }
-        function recalcEditBillTotals() {
-            const gross = activeEditingBillTests.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
-            const disc = parseFloat(document.getElementById('editBillDisc').value) || 0;
-            const net = Math.max(0, gross - disc);
-            const paid = parseFloat(document.getElementById('editBillPaid').value) || 0;
-            document.getElementById('editDispGross').textContent = `₹${gross.toFixed(2)}`;
-            document.getElementById('editDispDisc').textContent = `- ₹${disc.toFixed(2)}`;
-            document.getElementById('editDispNet').textContent = `₹${net.toFixed(2)}`;
-            document.getElementById('editDispBal').textContent = `₹${Math.max(0, net - paid).toFixed(2)}`;
-        }
-
-        async function submitFullEditBill() {
-            const id = document.getElementById('editBillRowId').value;
-            const formData = new FormData();
-            formData.append('concession', document.getElementById('editBillDisc').value);
-            formData.append('paidAmount', document.getElementById('editBillPaid').value);
-            formData.append('paymentMode', document.getElementById('editBillPaymentMode').value);
-            formData.append('referringDoctorId', document.getElementById('editBillDocSelect').value);
-            formData.append('tests', JSON.stringify(activeEditingBillTests));
-            const isPcpndt = document.getElementById('editPcpndtToggle').checked;
-            formData.append('isPcpndt', isPcpndt);
-            if (isPcpndt) {
-                formData.append('relativeName', document.getElementById('editPcpndtRel').value.trim());
-                formData.append('lmpDate', document.getElementById('editPcpndtLmp').value);
-                formData.append('weeksOfPreg', document.getElementById('editPcpndtWeeks').value.trim());
-                formData.append('pcpndtIndications', document.getElementById('editPcpndtInd').value.trim());
-                formData.append('scanResult', document.getElementById('editPcpndtScan').value.trim());
-            }
-            const res = await fetch(`/api/visits/${id}`, { method: 'PUT', body: formData });
-            const data = await res.json();
-            if (data.success) {
-                alert('Bill updated successfully');
-                closeEditBillModal();
-                refreshAllCentreData();
-                closePatientBillsModal();
-            }
-        }
-
-        async function deleteBill(id) {
-            if (!confirm('Delete this visit bill permanently?')) return;
-            const res = await fetch(`/api/visits/${id}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (data.success) {
-                alert('Bill deleted');
-                refreshAllCentreData();
-                closePatientBillsModal();
-            }
-        }
-
-        // ========================================================
-        // DEDICATED PCPNDT REGISTER CRUD
-        // ========================================================
-        async function loadPcpndtRegister() {
-            try {
-                const res = await fetch(`/api/pcpndt?${getCentreParam()}`);
-                const json = await res.json();
-                pcpndtRegisterList = json.data || [];
-                renderPcpndtRegister(pcpndtRegisterList);
-            } catch (e) { console.error(e); }
-        }
-
-        function renderPcpndtRegister(list) {
-            const tbody = document.getElementById('pcpndtRegisterTableBody');
-            tbody.innerHTML = '';
-            if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:14px;color:#888;">No Form F records found.</td></tr>`;
-                return;
-            }
-            list.forEach(f => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${new Date(f.form_date).toLocaleDateString('en-GB')}</td>
-                        <td><strong>${f.invoice_number}</strong></td>
-                        <td><strong>${escapeHtml(f.patient_name)}</strong><br><small>${f.patient_age || ''} Yrs | ${f.patient_phone || ''}</small></td>
-                        <td>${escapeHtml(f.relative_name || '-')}</td>
-                        <td><strong>LMP:</strong> ${f.lmp_date || '-'}<br><small><strong>Wks:</strong> ${f.weeks_of_preg || '-'}</small></td>
-                        <td>Sons: ${f.no_of_sons || 0} / Daught: ${f.no_of_daughters || 0}</td>
-                        <td>${f.doctor_name || 'Dr NIKUNJ KOTHIA'}</td>
-                        <td>
-                            <button class="btn-pcpndt-btn" onclick="printPCPNDTForm('${f.visit_id}')">🖨️ Form F</button>
-                            <button class="btn-edit-bill" onclick="openEditPcpndtStandaloneModal('${f.id}')">✏️ Edit</button>
-                            <button class="btn-del" onclick="deleteStandalonePcpndtForm('${f.id}')">🗑️ Del</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        async function filterPcpndtRegister() {
-            const start = document.getElementById('pcpndtFilterStart').value;
-            const end = document.getElementById('pcpndtFilterEnd').value;
-            const month = document.getElementById('pcpndtFilterMonth').value;
-            const search = document.getElementById('pcpndtFilterSearch').value.trim();
-            const res = await fetch(`/api/pcpndt?startDate=${start}&endDate=${end}&month=${month}&search=${encodeURIComponent(search)}&${getCentreParam()}`);
-            const json = await res.json();
-            renderPcpndtRegister(json.data || []);
-        }
-
-        function resetPcpndtRegisterFilters() {
-            document.getElementById('pcpndtFilterStart').value = '';
-            document.getElementById('pcpndtFilterEnd').value = '';
-            document.getElementById('pcpndtFilterMonth').value = '';
-            document.getElementById('pcpndtFilterSearch').value = '';
-            loadPcpndtRegister();
-        }
-
-        async function openEditPcpndtStandaloneModal(id) {
-            const res = await fetch(`/api/pcpndt/${id}`);
-            const json = await res.json();
-            if (!json.success) return alert('Failed to fetch Form F');
-            const f = json.data;
-            document.getElementById('standalonePcpndtId').value = f.id;
-            document.getElementById('fRelNameInput').value = f.relative_name || '';
-            document.getElementById('fLmpInput').value = f.lmp_date || '';
-            document.getElementById('fWeeksInput').value = f.weeks_of_preg || '';
-            document.getElementById('fSonsCountInput').value = f.no_of_sons || 0;
-            document.getElementById('fSonsAgeInput').value = f.sons_age || '';
-            document.getElementById('fDaughtersCountInput').value = f.no_of_daughters || 0;
-            document.getElementById('fDaughtersAgeInput').value = f.daughters_age || '';
-            document.getElementById('fIndicationInput').value = f.indications || '';
-            document.getElementById('fFindingsInput').value = f.scan_result || '';
-            document.getElementById('editPcpndtStandaloneModal').style.display = 'flex';
-        }
-
-        function closeEditPcpndtModal() { document.getElementById('editPcpndtStandaloneModal').style.display = 'none'; }
-
-        async function saveStandalonePcpndtForm() {
-            const id = document.getElementById('standalonePcpndtId').value;
-            const payload = {
-                relativeName: document.getElementById('fRelNameInput').value.trim(),
-                lmpDate: document.getElementById('fLmpInput').value,
-                weeksOfPreg: document.getElementById('fWeeksInput').value.trim(),
-                noOfSons: document.getElementById('fSonsCountInput').value,
-                sonsAge: document.getElementById('fSonsAgeInput').value.trim(),
-                noOfDaughters: document.getElementById('fDaughtersCountInput').value,
-                daughtersAge: document.getElementById('fDaughtersAgeInput').value.trim(),
-                pcpndtIndications: document.getElementById('fIndicationInput').value.trim(),
-                scanResult: document.getElementById('fFindingsInput').value.trim(),
-                clinicRegNo: activeCentre?.reg_no || 'RS197'
-            };
-            const res = await fetch(`/api/pcpndt/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            const json = await res.json();
-            if (json.success) {
-                alert('Form F updated');
-                closeEditPcpndtModal();
-                loadPcpndtRegister();
-            }
-        }
-
-        async function deleteStandalonePcpndtForm(id) {
-            if (!confirm('Delete this Form F record?')) return;
-            await fetch(`/api/pcpndt/${id}`, { method: 'DELETE' });
-            loadPcpndtRegister();
-        }
-
-        // ========================================================
-        // REPORTS & DOCTOR BUSINESS
-        // ========================================================
-        async function loadReports() {
-            try {
-                const res = await fetch(`/api/reports/collection?${getCentreParam()}`);
-                const json = await res.json();
-                visitsList = json.data || [];
-                const tbody = document.getElementById('reportsTableBody');
-                tbody.innerHTML = '';
-                let totalBiz = 0, totalPaid = 0, totalBal = 0;
-
-                visitsList.forEach(v => {
-                    const tot = parseFloat(v.total_amount) || 0;
-                    const paid = parseFloat(v.paid_amount) || 0;
-                    const bal = parseFloat(v.balance_amount) || 0;
-                    totalBiz += tot; totalPaid += paid; totalBal += bal;
-
-                    const waInv = v.phone ? `https://wa.me/91${v.phone.replace(/\D/g,'')}?text=${encodeURIComponent(`Invoice ${v.invoice_number}: Total ₹${tot}, Paid ₹${paid}, Due ₹${bal}`)}` : '#';
-
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>${new Date(v.created_at).toLocaleString()}</td>
-                            <td>${v.centre_name || 'Active'}</td>
-                            <td><strong>${v.full_name}</strong></td>
-                            <td><span class="badge-cat">${v.categories || 'General'}</span></td>
-                            <td>₹${tot.toFixed(2)}</td>
-                            <td>₹${parseFloat(v.concession || 0).toFixed(2)}</td>
-                            <td>₹${paid.toFixed(2)} <span class="badge-mode">${v.payment_mode || 'Cash'}</span></td>
-                            <td>₹${bal.toFixed(2)}</td>
-                            <td>${bal <= 0 ? '<span class="badge-paid">Paid</span>' : '<span class="badge-pending">Pending</span>'}</td>
-                            <td>
-                                <button class="btn-wa-inv" onclick="printSingleInvoice('${v.visit_id}')">Print</button>
-                                ${v.has_pcpndt ? `<button class="btn-pcpndt-btn" onclick="printPCPNDTForm('${v.visit_id}')">Form F</button>` : ''}
-                                <button class="btn-report-action" onclick="openReportWorkspaceForVisit('${v.visit_id}')">🩻 Report</button>
-                                <a href="${waInv}" target="_blank" class="btn-wa-inv">WA</a>
-                                <button class="btn-edit-bill" onclick="openEditBillModal('${v.visit_id}')">Edit</button>
-                                <button class="btn-del" onclick="deleteBill('${v.visit_id}')">Delete</button>
-                            </td>
-                        </tr>
-                    `;
-                });
-
-                document.getElementById('repSummaryBanner').innerHTML = `
-                    Total Collection: ₹${totalPaid.toFixed(2)} &nbsp;|&nbsp; Total Billed: ₹${totalBiz.toFixed(2)} &nbsp;|&nbsp; Due: ₹${totalBal.toFixed(2)} &nbsp;|&nbsp; Records: ${visitsList.length}
-                `;
-            } catch (e) { console.error(e); }
-        }
-
-        async function filterReports() {
-            const start = document.getElementById('repStartDate').value;
-            const end = document.getElementById('repEndDate').value;
-            const month = document.getElementById('repMonth').value;
-            const pName = document.getElementById('repPatientName').value.trim();
-            const cat = document.getElementById('repCategorySelect').value;
-            const res = await fetch(`/api/reports/collection?startDate=${start}&endDate=${end}&month=${month}&patientName=${encodeURIComponent(pName)}&category=${encodeURIComponent(cat)}&${getCentreParam()}`);
-            const json = await res.json();
-            visitsList = json.data || [];
-            loadReports();
-        }
-
-        function resetReportFilters() {
-            document.getElementById('repStartDate').value = '';
-            document.getElementById('repEndDate').value = '';
-            document.getElementById('repMonth').value = '';
-            document.getElementById('repPatientName').value = '';
-            document.getElementById('repCategorySelect').value = '';
-            loadReports();
-        }
-
-        async function loadBusiness() {
-            try {
-                const res = await fetch(`/api/reports/doctor-detailed?${getCentreParam()}`);
-                const json = await res.json();
-                const list = json.data || [];
-                const tbody = document.getElementById('businessTableBody');
-                tbody.innerHTML = '';
-                let totalBiz = 0, totalCuts = 0;
-
-                list.forEach(b => {
-                    const biz = parseFloat(b.total_amount) || 0;
-                    const cut = parseFloat(b.doctor_commission) || 0;
-                    totalBiz += biz; totalCuts += cut;
-
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>${new Date(b.created_at).toLocaleString()}</td>
-                            <td><strong>${b.doctor_name}</strong></td>
-                            <td>${b.full_name}</td>
-                            <td>${b.invoice_number}</td>
-                            <td>₹${biz.toFixed(2)}</td>
-                            <td style="color:green;font-weight:bold;">₹${cut.toFixed(2)}</td>
-                            <td><button class="btn-edit-patient" onclick="startEditDoctor('${b.doctor_id}')">Edit Doctor</button></td>
-                        </tr>
-                    `;
-                });
-
-                document.getElementById('busSummaryBanner').innerHTML = `
-                    Doctor Commissions | Total Business: ₹${totalBiz.toFixed(2)} | Cuts: ₹${totalCuts.toFixed(2)} | Records: ${list.length}
-                `;
-            } catch (e) { console.error(e); }
-        }
-
-        async function filterBusiness() {
-            const docId = document.getElementById('busDocSelect').value;
-            const start = document.getElementById('busStartDate').value;
-            const end = document.getElementById('busEndDate').value;
-            const month = document.getElementById('busMonth').value;
-            const pName = document.getElementById('busPatientName').value.trim();
-            const res = await fetch(`/api/reports/doctor-detailed?doctorId=${docId}&startDate=${start}&endDate=${end}&month=${month}&patientName=${encodeURIComponent(pName)}&${getCentreParam()}`);
-            const json = await res.json();
-            const list = json.data || [];
-            const tbody = document.getElementById('businessTableBody');
-            tbody.innerHTML = '';
-            list.forEach(b => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${new Date(b.created_at).toLocaleString()}</td>
-                        <td><strong>${b.doctor_name}</strong></td>
-                        <td>${b.full_name}</td>
-                        <td>${b.invoice_number}</td>
-                        <td>₹${parseFloat(b.total_amount).toFixed(2)}</td>
-                        <td style="color:green;font-weight:bold;">₹${parseFloat(b.doctor_commission).toFixed(2)}</td>
-                        <td><button class="btn-edit-patient" onclick="startEditDoctor('${b.doctor_id}')">Edit Doctor</button></td>
-                    </tr>
-                `;
-            });
+            } catch (e) { alert('Error deleting test.'); }
         }
     </script>
 </body>

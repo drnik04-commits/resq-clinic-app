@@ -1,3 +1,6 @@
 node_modules/
-uploads/
+clinic_server.log
+uploads/*.pdf
+uploads/*.doc
+uploads/*.docx
 .env
