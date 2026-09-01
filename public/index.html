@@ -91,7 +91,7 @@
         .btn-view-bills { background-color: #1976d2; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8rem; font-weight: bold; }
         .btn-wa-inv { background-color: #25d366; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; margin-right: 3px; text-decoration: none; display: inline-block; }
         .btn-pcpndt-btn { background-color: #ca8a04; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; margin-right: 3px; }
-        .btn-edit-bill { background-color: #f59e0b; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; margin-right: 3px; }
+        .btn-edit-bill { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; margin-right: 3px; }
         .btn-del { background-color: var(--danger); color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.78rem; font-weight: bold; }
 
         .badge-paid { background-color: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 0.8rem; }
@@ -508,7 +508,7 @@
                     </div>
                 </div>
                 <div class="search-row"><input type="text" id="patientDirectorySearch" placeholder="Search by name, phone or ID..." oninput="loadPatientsDirectory()"></div>
-                <table><thead><tr><th>Patient Code</th><th>Name</th><th>Age / Gender</th><th>Mobile</th><th>Total Billed / Due</th><th style="width: 260px;">Actions</th></tr></thead><tbody id="patientsDirectoryBody"></tbody></table>
+                <table><thead><tr><th>Patient Code</th><th>Name</th><th>Age / Gender</th><th>Mobile</th><th>Total Billed / Due</th><th style="width: 290px;">Actions</th></tr></thead><tbody id="patientsDirectoryBody"></tbody></table>
             </div>
         </div>
 
@@ -535,7 +535,7 @@
                     Loading Summary...
                 </div>
 
-                <table><thead><tr><th>Date</th><th>Centre</th><th>Patient Name</th><th>Services</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th style="width: 260px;">Actions</th></tr></thead><tbody id="reportsTableBody"></tbody></table>
+                <table><thead><tr><th>Date</th><th>Centre</th><th>Patient Name</th><th>Services</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th style="width: 290px;">Actions</th></tr></thead><tbody id="reportsTableBody"></tbody></table>
             </div>
         </div>
 
@@ -638,6 +638,23 @@
             <div class="modal-header"><h3 id="patientBillsTitle">Bills History</h3><button type="button" onclick="closePatientBillsModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
             <table><thead><tr><th>Invoice No</th><th>Date</th><th>Centre</th><th>Total</th><th>Paid</th><th>Balance</th><th>Actions</th></tr></thead><tbody id="patientBillsTableBody"></tbody></table>
             <button type="button" class="btn-del" style="margin-top: 14px;" onclick="closePatientBillsModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- EDIT INVOICE/BILL MODAL -->
+    <div id="editVisitModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header"><h3>Edit Bill / Payment Details</h3><button type="button" onclick="closeEditVisitModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
+            <input type="hidden" id="editVisitId">
+            <div class="form-grid">
+                <div class="form-group full-width"><label>Invoice Number:</label><input type="text" id="editVisitInvoiceNo" readonly style="background:#eee;"></div>
+                <div class="form-group"><label>Gross Total Amount (₹):</label><input type="number" id="editVisitGross"></div>
+                <div class="form-group"><label>Discount / Concession (₹):</label><input type="number" id="editVisitConcession"></div>
+                <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="editVisitPaid"></div>
+                <div class="form-group"><label>Payment Mode:</label><select id="editVisitMode"><option value="Cash">Cash</option><option value="Online / UPI">Online / UPI</option><option value="Card">Card</option><option value="Net Banking">Net Banking</option></select></div>
+                <div class="form-group full-width"><label>Doctor Commission (₹):</label><input type="number" id="editVisitDocCut"></div>
+            </div>
+            <button type="button" class="btn-complete-reg" style="margin-top: 14px; width: 100%;" onclick="submitEditVisit()">Update Invoice</button>
         </div>
     </div>
 
@@ -836,7 +853,7 @@
         </div>
     </div>
 
-    <!-- CLIENT LOGIC SCRIPT -->
+    <!-- CLIENT SCRIPT LOGIC -->
     <script>
         let testsList = [], doctorsList = [], patientsList = [], dropdownPatientsList = [];
         let imagingTemplatesList = [], centresList = [], selectedBillTests = [];
@@ -1380,11 +1397,27 @@
         async function onImagingVisitSelected(dropdownKey) {
             if (!dropdownKey) return;
             const p = dropdownPatientsList.find(x => String(x.dropdown_key) === String(dropdownKey));
-            if (p) {
-                currentSelectedVisit = p;
-                document.getElementById('imgDispPatName').textContent = p.full_name || '-';
-                document.getElementById('imgDispPatMeta').textContent = `${p.age || 'N/A'} Yrs / ${p.gender || '-'}`;
-                document.getElementById('imgDispDocName').textContent = p.doctor_name || 'Self / Direct OPD';
+            if (!p) return;
+
+            currentSelectedVisit = p;
+            document.getElementById('imgDispPatName').textContent = p.full_name || '-';
+            document.getElementById('imgDispPatMeta').textContent = `${p.age || 'N/A'} Yrs / ${p.gender || '-'}`;
+            document.getElementById('imgDispDocName').textContent = p.doctor_name || 'Self / Direct OPD';
+
+            // Auto-load previously saved diagnostic report
+            if (p.visit_id) {
+                try {
+                    const res = await apiFetch(`/api/imaging/reports/${p.visit_id}`);
+                    const json = await res.json();
+                    if (json.success && json.data) {
+                        const rep = json.data;
+                        document.getElementById('liveReportTitle').value = rep.template_name || 'DIAGNOSTIC REPORT';
+                        document.getElementById('liveReportFindings').value = rep.report_text || '';
+                        document.getElementById('liveReportImpression').value = rep.impression || '';
+                    }
+                } catch (err) {
+                    console.warn('No prior report found for this visit.');
+                }
             }
         }
 
@@ -1395,107 +1428,22 @@
             const reportText = document.getElementById('liveReportFindings').value || '';
             const impression = document.getElementById('liveReportImpression').value || '• NO SIGNIFICANT ABNORMALITY DETECTED.';
             const isPreprinted = document.getElementById('chkPreprintedLetterhead').checked;
-            const patientName = currentSelectedVisit.full_name || 'Patient';
-            const cleanAge = currentSelectedVisit.age ? `${currentSelectedVisit.age} Yrs` : 'N/A';
-            const cleanGender = (currentSelectedVisit.gender || '-').toUpperCase();
-            const refDoctor = currentSelectedVisit.doctor_name || 'Self / Direct OPD';
-            const invoiceNo = currentSelectedVisit.invoice_number || '-';
-            const studyDate = new Date(currentSelectedVisit.created_at || Date.now()).toLocaleDateString('en-GB');
+            
+            const payload = {
+                visitId: currentSelectedVisit.visit_id,
+                patientId: currentSelectedVisit.patient_id,
+                patientName: currentSelectedVisit.full_name || 'Patient',
+                age: currentSelectedVisit.age || '',
+                gender: currentSelectedVisit.gender || '',
+                doctorName: currentSelectedVisit.doctor_name || 'Self / Direct OPD',
+                invoiceNumber: currentSelectedVisit.invoice_number || '-',
+                templateTitle: templateTitle,
+                reportText: reportText,
+                impression: impression,
+                isPreprinted: isPreprinted
+            };
 
-            const centreName = activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
-            const centreTagline = activeCentre?.tagline || 'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging';
-            const centreAddress = activeCentre?.address || 'Kandivali West, Mumbai';
-            const centrePhone = activeCentre?.phone || '+91 8433838285';
-            const centreReg = activeCentre?.reg_no || 'RS197';
-
-            const topMargin = isPreprinted ? '45mm' : '15mm';
-
-            const wordDocumentHTML = `
-                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-                <head>
-                    <meta charset="utf-8">
-                    <title>${templateTitle}</title>
-                    <style>
-                        @page Section1 { size: 210mm 297mm; margin: ${topMargin} 15mm 15mm 15mm; }
-                        div.Section1 { page: Section1; }
-                        body { font-family: 'Arial', sans-serif; font-size: 10pt; line-height: 1.35; color: #000; }
-                        .header-banner { text-align: center; border-bottom: 2px solid #19486a; padding-bottom: 6px; margin-bottom: 12px; }
-                        .clinic-title { font-size: 15pt; font-weight: bold; color: #19486a; margin: 0; }
-                        .clinic-sub { font-size: 9pt; font-style: italic; margin: 2px 0; color: #333; }
-                        .clinic-meta { font-size: 8.5pt; margin: 2px 0; color: #444; }
-                        .patient-box-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9.5pt; border: 1.5px solid #000; }
-                        .patient-box-table td { padding: 4px 8px; border: 1px solid #000; vertical-align: middle; }
-                        .report-heading { text-align: center; font-size: 11pt; font-weight: bold; color: #1a4b75; text-decoration: underline; margin: 10px 0 12px 0; text-transform: uppercase; letter-spacing: 0.3px; }
-                        .report-body-text { font-family: 'Arial', sans-serif; font-size: 9.8pt; line-height: 1.4; white-space: pre-wrap; margin-bottom: 16px; min-height: 380px; }
-                        .impression-block { border-top: 1.5px solid #000; padding-top: 6px; margin-top: 12px; font-size: 10pt; }
-                        .sign-block { margin-top: 35px; width: 100%; border: none; }
-                    </style>
-                </head>
-                <body>
-                    <div class="Section1">
-                        ${!isPreprinted ? `
-                            <div class="header-banner">
-                                <div class="clinic-title">${centreName}</div>
-                                <div class="clinic-sub">${centreTagline}</div>
-                                <div class="clinic-meta">${centreAddress}</div>
-                                <div class="clinic-meta">Tel: ${centrePhone} | PCPNDT Reg: ${centreReg}</div>
-                            </div>
-                        ` : ''}
-
-                        <table class="patient-box-table">
-                            <tr>
-                                <td style="width: 18%; font-weight: bold;">NAME</td>
-                                <td style="width: 42%; font-weight: bold;">${patientName.toUpperCase()}</td>
-                                <td style="width: 15%; font-weight: bold;">DATE</td>
-                                <td style="width: 25%;">${studyDate}</td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight: bold;">REF. BY DR.</td>
-                                <td>${refDoctor}</td>
-                                <td style="font-weight: bold;">AGE</td>
-                                <td>${cleanAge}</td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight: bold;">INVOICE NO</td>
-                                <td>${invoiceNo}</td>
-                                <td style="font-weight: bold;">SEX</td>
-                                <td>${cleanGender}</td>
-                            </tr>
-                        </table>
-
-                        <div class="report-heading">${templateTitle}</div>
-                        <div class="report-body-text">${reportText}</div>
-
-                        <div class="impression-block">
-                            <strong><u>IMPRESSION :-</u></strong><br>
-                            <div style="font-weight: bold; margin-top: 4px; white-space: pre-wrap;">${impression}</div>
-                        </div>
-
-                        <table class="sign-block">
-                            <tr>
-                                <td style="font-size: 8.5pt; font-style: italic; vertical-align: bottom;">Electronically verified diagnostic imaging report.</td>
-                                <td style="text-align: right; font-size: 9.5pt;">
-                                    <strong>DR. NIKUNJ KOTHIA</strong><br>
-                                    <span>Consultant Radiologist / Sonologist</span><br>
-                                    <span style="font-size: 8.5pt; color: #444;">Reg. No: 2009/09/3218</span>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-                </body>
-                </html>
-            `;
-
-            const safePatName = patientName.replace(/[^a-zA-Z0-9]/g, '_');
-            const fileName = `Report_${safePatName}_${Date.now()}.doc`;
-            const blob = new Blob(['\ufeff', wordDocumentHTML], { type: 'application/msword;charset=utf-8' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
+            // Save report in Database
             if (currentSelectedVisit.visit_id) {
                 apiFetch('/api/imaging/reports', {
                     method: 'POST',
@@ -1509,6 +1457,69 @@
                     })
                 }).catch(() => {});
             }
+
+            // Launch Native Desktop Microsoft Word via Node child_process
+            try {
+                const res = await apiFetch('/api/imaging/launch-desktop-word', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                if (json.success) return; // Launched natively
+            } catch (e) {
+                console.warn('Desktop launcher unavailable, falling back to browser download.');
+            }
+
+            // Fallback: Browser Download
+            const studyDate = new Date().toLocaleDateString('en-GB');
+            const wordDocumentHTML = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head>
+                    <meta charset="utf-8">
+                    <title>${templateTitle}</title>
+                    <style>
+                        @page Section1 { size: 210mm 297mm; margin: ${isPreprinted ? '45mm' : '15mm'} 15mm 15mm 15mm; }
+                        div.Section1 { page: Section1; }
+                        body { font-family: 'Arial', sans-serif; font-size: 10pt; line-height: 1.35; color: #000; }
+                        .patient-box-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9.5pt; border: 1.5px solid #000; }
+                        .patient-box-table td { padding: 4px 8px; border: 1px solid #000; vertical-align: middle; }
+                        .report-heading { text-align: center; font-size: 11pt; font-weight: bold; text-decoration: underline; margin: 10px 0; text-transform: uppercase; }
+                        .report-body-text { font-family: 'Arial', sans-serif; font-size: 9.8pt; line-height: 1.4; white-space: pre-wrap; margin-bottom: 16px; min-height: 380px; }
+                        .impression-block { border-top: 1.5px solid #000; padding-top: 6px; margin-top: 12px; font-size: 10pt; }
+                        .sign-block { margin-top: 35px; width: 100%; border: none; }
+                    </style>
+                </head>
+                <body>
+                    <div class="Section1">
+                        <table class="patient-box-table">
+                            <tr><td style="font-weight:bold;width:18%;">NAME</td><td style="width:42%;">${(payload.patientName).toUpperCase()}</td><td style="font-weight:bold;width:15%;">DATE</td><td style="width:25%;">${studyDate}</td></tr>
+                            <tr><td style="font-weight:bold;">REF. BY</td><td>${payload.doctorName}</td><td style="font-weight:bold;">AGE / SEX</td><td>${payload.age} Yrs / ${payload.gender}</td></tr>
+                        </table>
+                        <div class="report-heading">${templateTitle}</div>
+                        <div class="report-body-text">${reportText}</div>
+                        <div class="impression-block"><strong><u>IMPRESSION :-</u></strong><br><div style="font-weight:bold;margin-top:4px;white-space:pre-wrap;">${impression}</div></div>
+                        <table class="sign-block">
+                            <tr>
+                                <td style="font-size:8.5pt;font-style:italic;">Electronically verified diagnostic imaging report.</td>
+                                <td style="text-align:right;font-size:9.5pt;"><strong>DR. NIKUNJ KOTHIA</strong><br><span>Consultant Radiologist / Sonologist</span></td>
+                            </tr>
+                        </table>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            const blob = new Blob(['\ufeff', wordDocumentHTML], { type: 'application/msword;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Report_${(payload.patientName).replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.doc`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function sendWhatsAppInvoice(visitId) {
+            window.open(`/api/whatsapp/invoice-link/${visitId}`, '_blank');
         }
 
         async function handleBulkTemplateUpload(event) {
@@ -1755,7 +1766,6 @@
             const paid = parseFloat(document.getElementById('inputPaid').value) || 0;
             const bal = Math.max(0, net - paid);
 
-            // Calculate doctor cut: Test-wise cuts if available, otherwise Doctor master percentage/cut
             let calculatedDocCut = 0;
             const itemWiseCutsSum = selectedBillTests.reduce((acc, t) => acc + (parseFloat(t.test_cut) || 0), 0);
             
@@ -1990,8 +2000,8 @@
                             <td>₹${parseFloat(p.total_billed || 0).toFixed(2)} (Due: ₹${parseFloat(p.total_due || 0).toFixed(2)})</td>
                             <td>
                                 <button type="button" class="btn-edit-patient" onclick="openEditPatientModal('${p.id}')">✏️ Edit</button>
-                                <button type="button" class="btn-view-bills" onclick="openPatientBillsModal('${p.id}', '${escapeHtml(p.full_name)}')">📂 View Bills</button>
-                                <button type="button" class="btn-wa-inv" style="background:#0284c7;" onclick="document.getElementById('lookupSearch').value='${p.phone || p.full_name}'; lookupPatient(); openTab('tab-billing', document.querySelectorAll('.tab-btn')[0]);">➕ New Bill</button>
+                                <button type="button" class="btn-view-bills" onclick="openPatientBillsModal('${p.id}', '${escapeHtml(p.full_name)}')">📂 Bills</button>
+                                <button type="button" class="btn-edit-bill" onclick="document.getElementById('lookupSearch').value='${p.phone || p.full_name}'; lookupPatient(); openTab('tab-billing', document.querySelectorAll('.tab-btn')[0]);">➕ Bill</button>
                             </td>
                         </tr>
                     `;
@@ -2058,9 +2068,11 @@
                             <td>₹${parseFloat(v.paid_amount).toFixed(2)}</td>
                             <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
                             <td>
-                                <button type="button" class="btn-wa-inv" onclick="printSingleInvoice('${v.id}')">🖨️ Bill</button>
-                                ${v.has_pcpndt ? `<button type="button" class="btn-pcpndt-btn" onclick="printPCPNDTForm('${v.id}')">📝 Form F</button>` : ''}
-                                <button type="button" class="btn-del" onclick="deleteBill('${v.id}')">✕ Del</button>
+                                <button type="button" class="btn-wa-inv" style="background:#0284c7;" onclick="printSingleInvoice('${v.id}')">🖨️</button>
+                                <button type="button" class="btn-wa-inv" style="background:#25d366;" onclick="sendWhatsAppInvoice('${v.id}')">💬</button>
+                                <button type="button" class="btn-edit-bill" onclick="openEditVisitModal('${v.id}')">✏️</button>
+                                ${v.has_pcpndt ? `<button type="button" class="btn-pcpndt-btn" onclick="printPCPNDTForm('${v.id}')">📝</button>` : ''}
+                                <button type="button" class="btn-del" onclick="deleteBill('${v.id}')">✕</button>
                             </td>
                         </tr>
                     `;
@@ -2070,6 +2082,47 @@
         }
 
         function closePatientBillsModal() { document.getElementById('patientBillsModal').style.display = 'none'; }
+
+        async function openEditVisitModal(visitId) {
+            try {
+                const res = await apiFetch(`/api/invoice/${visitId}`);
+                const json = await res.json();
+                if (!json.success || !json.data) return alert('Failed to retrieve invoice details.');
+                const v = json.data.visitDetails;
+
+                document.getElementById('editVisitId').value = String(v.id);
+                document.getElementById('editVisitInvoiceNo').value = v.invoice_number || '';
+                document.getElementById('editVisitGross').value = v.total_amount || 0;
+                document.getElementById('editVisitConcession').value = v.concession || 0;
+                document.getElementById('editVisitPaid').value = v.paid_amount || 0;
+                document.getElementById('editVisitMode').value = v.payment_mode || 'Cash';
+                document.getElementById('editVisitDocCut').value = v.doctor_commission || 0;
+                document.getElementById('editVisitModal').style.display = 'flex';
+            } catch (e) { alert('Error opening bill edit modal.'); }
+        }
+
+        function closeEditVisitModal() { document.getElementById('editVisitModal').style.display = 'none'; }
+
+        async function submitEditVisit() {
+            const id = document.getElementById('editVisitId').value;
+            const payload = {
+                total_amount: document.getElementById('editVisitGross').value,
+                concession: document.getElementById('editVisitConcession').value,
+                paid_amount: document.getElementById('editVisitPaid').value,
+                payment_mode: document.getElementById('editVisitMode').value,
+                doctor_commission: document.getElementById('editVisitDocCut').value
+            };
+
+            const res = await apiFetch(`/api/visits/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+            const json = await res.json();
+            if (json.success) {
+                alert('Invoice updated successfully.');
+                closeEditVisitModal();
+                refreshAllCentreData();
+            } else {
+                alert('Error updating invoice: ' + json.error);
+            }
+        }
 
         async function loadReports() {
             try {
@@ -2109,7 +2162,6 @@
                     return;
                 }
                 data.forEach(v => {
-                    const net = (parseFloat(v.total_amount) - parseFloat(v.concession || 0)).toFixed(2);
                     tbody.innerHTML += `
                         <tr>
                             <td>${new Date(v.created_at).toLocaleDateString('en-GB')}</td>
@@ -2121,9 +2173,11 @@
                             <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
                             <td>${v.payment_status === 'Paid' ? '<span class="badge-paid">Paid</span>' : '<span class="badge-pending">Pending</span>'}</td>
                             <td>
-                                <button type="button" class="btn-wa-inv" onclick="printSingleInvoice('${v.visit_id}')">🖨️ Bill</button>
-                                ${v.has_pcpndt ? `<button type="button" class="btn-pcpndt-btn" onclick="printPCPNDTForm('${v.visit_id}')">📝 Form F</button>` : ''}
-                                <button type="button" class="btn-del" onclick="deleteBill('${v.visit_id}')">✕ Del</button>
+                                <button type="button" class="btn-wa-inv" style="background:#0284c7;" onclick="printSingleInvoice('${v.visit_id}')">🖨️</button>
+                                <button type="button" class="btn-wa-inv" style="background:#25d366;" onclick="sendWhatsAppInvoice('${v.visit_id}')">💬</button>
+                                <button type="button" class="btn-edit-bill" onclick="openEditVisitModal('${v.visit_id}')">✏️</button>
+                                ${v.has_pcpndt ? `<button type="button" class="btn-pcpndt-btn" onclick="printPCPNDTForm('${v.visit_id}')">📝</button>` : ''}
+                                <button type="button" class="btn-del" onclick="deleteBill('${v.visit_id}')">✕</button>
                             </td>
                         </tr>
                     `;
@@ -2411,7 +2465,7 @@
                             <td>${b.invoice_number}</td>
                             <td>₹${parseFloat(b.total_amount).toFixed(2)}</td>
                             <td style="color:#6d28d9; font-weight:bold;">₹${parseFloat(b.doctor_commission).toFixed(2)}</td>
-                            <td><button type="button" class="btn-wa-inv" onclick="printSingleInvoice('${b.visit_id}')">🖨️ Bill</button></td>
+                            <td><button type="button" class="btn-wa-inv" style="background:#0284c7;" onclick="printSingleInvoice('${b.visit_id}')">🖨️ Bill</button></td>
                         </tr>
                     `;
                 });
