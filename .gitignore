@@ -4,3 +4,5 @@ uploads/*.pdf
 uploads/*.doc
 uploads/*.docx
 .env
+echo .env* >> .gitignore
+echo *.env.txt >> .gitignore
