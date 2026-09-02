@@ -6,52 +6,86 @@
     <title>ResQ Clinic - Management, Billing & Diagnostic Imaging System</title>
     <style>
         :root {
-            --primary: #19486a; --primary-dark: #123352; --tab-active: #2196f3; --tab-inactive: #90caf9;
-            --bg: #f4f7f9; --card-bg: #ffffff; --border: #ccd7e2; --text: #2c3e50; --green: #28a745;
-            --orange: #f59e0b; --danger: #dc3545;
+            --primary: #19486a;
+            --primary-dark: #123352;
+            --tab-active: #2196f3;
+            --tab-inactive: #90caf9;
+            --bg: #f4f7f9;
+            --card-bg: #ffffff;
+            --border: #ccd7e2;
+            --text: #2c3e50;
+            --green: #28a745;
+            --purple: #8e24aa;
+            --orange: #f59e0b;
+            --btn-blue: #1976d2;
+            --danger: #dc3545;
         }
+
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
         body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
         #dbStatusBanner { display: none; background: #fee2e2; color: #991b1b; padding: 8px 16px; font-size: 0.85rem; font-weight: bold; border-bottom: 1px solid #f87171; text-align: center; }
+
         #appLockScreen { position: fixed; inset: 0; background: #123352; z-index: 99999; display: flex; justify-content: center; align-items: center; }
         .lock-box { background: white; padding: 30px; border-radius: 6px; width: 90%; max-width: 380px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .lock-box input, .lock-box select { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 12px; outline: none; }
+        .lock-box h2 { color: var(--primary-dark); font-size: 1.25rem; margin-bottom: 6px; }
+        .lock-box p { color: #666; font-size: 0.85rem; margin-bottom: 18px; }
+        .lock-box input, .lock-box select { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 12px; outline: none; font-size: 0.9rem; }
+
         header { background-color: var(--primary); color: #ffffff; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .header-title h1 { font-size: 1.25rem; font-weight: 700; }
+        .header-title p { font-size: 0.8rem; color: #a9c7e2; }
         .centre-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .centre-nav select { padding: 6px 10px; border-radius: 4px; border: none; font-weight: bold; background: #fff; color: var(--primary-dark); cursor: pointer; }
         .btn-sync-cloud { background-color: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.82rem; font-weight: bold; cursor: pointer; }
         .btn-gov-portal { background-color: #d97706; color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.82rem; font-weight: bold; }
         .btn-settings { background: #008080; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; font-weight: bold; }
+
         .tab-nav { background-color: #bbdefb; display: flex; padding: 4px 16px 0; gap: 4px; border-bottom: 2px solid #90caf9; overflow-x: auto; }
         .tab-btn { background-color: var(--tab-inactive); color: #0d47a1; border: none; padding: 10px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border-radius: 4px 4px 0 0; white-space: nowrap; }
         .tab-btn.active { background-color: var(--tab-active); color: #ffffff; }
+
         .main-container { max-width: 1440px; margin: 16px auto; padding: 0 16px; width: 100%; flex: 1; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+
         .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
         .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 4px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
         .card-title { font-size: 1.1rem; font-weight: 700; color: #1a365d; margin-bottom: 14px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+
         .search-row { display: flex; gap: 8px; margin-bottom: 14px; }
         .search-row input { flex: 1; padding: 8px 12px; border: 1px solid #90caf9; border-radius: 4px; outline: none; }
         .btn-search { background-color: #00c853; color: white; border: none; padding: 8px 18px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+
         .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
         .form-group { display: flex; flex-direction: column; gap: 4px; }
         .form-group.full-width { grid-column: span 2; }
         .form-group label { font-size: 0.82rem; font-weight: 600; color: #4a5568; }
         .form-group input, .form-group select, .form-group textarea { padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem; outline: none; }
+
         .live-search-container { position: relative; width: 100%; margin-bottom: 10px; }
-        .live-search-box { position: absolute; top: 100%; left: 0; right: 0; background: #ffffff; border: 1px solid #90caf9; border-radius: 0 0 6px 6px; max-height: 240px; overflow-y: auto; z-index: 500; display: none; }
+        .live-search-box { position: absolute; top: 100%; left: 0; right: 0; background: #ffffff; border: 1px solid #90caf9; border-radius: 0 0 6px 6px; max-height: 240px; overflow-y: auto; z-index: 500; box-shadow: 0 6px 18px rgba(0,0,0,0.15); display: none; }
         .live-search-item { padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; cursor: pointer; }
         .live-search-item:hover { background-color: #e3f2fd; }
+
         .pcpndt-panel { background-color: #fbf8e8; border: 1px solid #e8d8a0; padding: 14px 16px; border-radius: 4px; margin: 14px 0; }
         .pcpndt-checkbox-label { font-size: 0.95rem; font-weight: bold; color: #854d0e; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+
         .btn-quick-pcpndt { background: #eab308; color: #713f12; border: 1px solid #ca8a04; padding: 5px 12px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
         .btn-complete-reg { background-color: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; flex: 1; }
         .btn-generate-inv { background-color: #2196f3; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; flex: 1; }
+
         .rates-summary-panel { display: flex; flex-direction: column; align-items: flex-end; margin-top: 10px; gap: 4px; font-size: 0.95rem; font-weight: bold; }
+        .rates-summary-panel .subtotal { color: #333; }
+        .rates-summary-panel .concession { color: #e53935; }
+        .rates-summary-panel .payable { color: #00897b; }
+        .rates-summary-panel .balance { color: #d84315; }
+
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         table th, table td { border: 1px solid var(--border); padding: 8px 10px; font-size: 0.88rem; text-align: left; }
         table th { background-color: #f1f5f9; color: #1a365d; }
+
+        /* Action Buttons with clear descriptive labels */
         .btn-act { border: none; padding: 5px 9px; border-radius: 4px; cursor: pointer; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; margin-right: 3px; text-decoration: none; }
         .btn-act-edit { background-color: #f59e0b; color: white; }
         .btn-act-bills { background-color: #1976d2; color: white; }
@@ -59,32 +93,83 @@
         .btn-act-wa { background-color: #25d366; color: white; }
         .btn-act-formf { background-color: #ca8a04; color: white; }
         .btn-act-del { background-color: #dc3545; color: white; }
+
+        .badge-paid { background-color: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 0.8rem; }
+        .badge-pending { background-color: #ffebee; color: #c62828; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 0.8rem; }
+        .badge-cat { background-color: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 3px; font-weight: 600; font-size: 0.76rem; }
+
+        .btn-hero-word-launcher {
+            background: linear-gradient(135deg, #1e40af, #2563eb, #3b82f6);
+            color: #ffffff !important;
+            border: 2px solid #1d4ed8;
+            padding: 14px 20px;
+            border-radius: 8px;
+            font-size: 1.05rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            text-transform: uppercase;
+        }
+
         .imaging-workspace-grid { display: grid; grid-template-columns: 280px 1fr; gap: 16px; min-height: 520px; }
         .template-list-box { border: 1px solid var(--border); border-radius: 4px; max-height: 480px; overflow-y: auto; background: #fafbfc; }
         .template-item-btn { display: block; width: 100%; text-align: left; padding: 10px 12px; border: none; border-bottom: 1px solid #e2e8f0; background: white; font-size: 0.85rem; cursor: pointer; }
+        .template-item-btn:hover { background-color: #e0f2fe; }
         .template-item-btn.selected { background-color: #0284c7; color: white; font-weight: bold; }
+        .tmpl-cat { display: block; font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+
         .studio-right-panel { border: 1px solid var(--border); border-radius: 6px; padding: 18px; background: #ffffff; display: flex; flex-direction: column; gap: 12px; }
+
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); justify-content: center; align-items: center; z-index: 10000; }
-        .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 20px; }
+        .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 850px; max-height: 90vh; overflow-y: auto; padding: 20px; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 14px; }
+
+        /* ================= EXACT 2-PAGE STATUTORY PCPNDT PRINT STYLES ================= */
         @media print {
             body * { visibility: hidden; }
             #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc * { visibility: visible; }
             .print-active { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
-            .doc-page { page-break-after: always; page-break-inside: avoid; margin: 0; padding: 8mm 12mm; box-sizing: border-box; font-family: Arial, sans-serif !important; color: #000 !important; background: #fff !important; font-size: 7.7pt; line-height: 1.2; }
+            
+            .doc-page { 
+                page-break-after: always; 
+                page-break-inside: avoid;
+                margin: 0; 
+                padding: 8mm 12mm 6mm 12mm; 
+                box-sizing: border-box; 
+                font-family: Arial, Helvetica, sans-serif !important; 
+                color: #000 !important; 
+                background: #fff !important; 
+                font-size: 7.7pt;
+                line-height: 1.2;
+            }
+            .doc-page:last-child {
+                page-break-after: auto;
+            }
             @page { size: A4 portrait; margin: 0; }
         }
+
         .print-paper { display: none; background: white; padding: 20px; border: 1px solid #333; color: #000; }
+        .doc-header-title { text-align: center; font-size: 8.5pt; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; border-bottom: 1.5px solid #000; padding-bottom: 2px; }
+        .doc-sec-heading { font-weight: bold; font-size: 8.8pt; margin-top: 3px; margin-bottom: 2px; text-decoration: underline; }
         .doc-line-item { display: flex; margin-bottom: 1.5px; font-size: 7.7pt; }
-        .doc-line-item .label { min-width: 250px; }
+        .doc-line-item .label { min-width: 250px; font-weight: normal; }
         .doc-line-item .val { flex: 1; font-weight: bold; }
-        .indications-grid { margin-left: 8px; font-size: 6.8pt; line-height: 1.1; }
+        
+        .indications-grid { margin-left: 8px; margin-top: 2px; margin-bottom: 3px; font-size: 6.8pt; line-height: 1.1; }
         .indication-row { display: flex; margin-bottom: 0.5px; }
         .ind-num { min-width: 22px; font-weight: bold; }
-        .sec-c-grid { font-size: 7.2pt; line-height: 1.15; }
+        .ind-text { flex: 1; }
+        
+        .sec-c-grid { font-size: 7.2pt; line-height: 1.15; margin-top: 2px; }
         .sec-c-row { display: flex; margin-bottom: 1px; }
         .sec-c-lbl { flex: 1; }
         .sec-c-val { width: 140px; font-weight: bold; }
+
         .doc-sign-box { display: flex; justify-content: space-between; margin-top: 6px; font-size: 7.7pt; }
     </style>
 </head>
@@ -95,22 +180,31 @@
     <div id="appLockScreen">
         <div class="lock-box">
             <h2>RESQ CLINIC SYSTEM</h2>
-            <p>Select clinic centre and enter PIN / password</p>
-            <select id="lockCentreSelect" style="margin-bottom:12px;"></select>
-            <input type="password" id="lockInput" placeholder="PIN (default: 1234)" onkeydown="if(event.key==='Enter') unlockApp()">
+            <p>Select clinic centre and enter branch PIN / password</p>
+            <div style="margin-bottom: 12px; text-align: left;">
+                <label style="font-size: 0.8rem; font-weight: bold; color: #475569;">Select Centre:</label>
+                <select id="lockCentreSelect">
+                    <option value="c1111111-1111-1111-1111-111111111111">RESQ HEART CLINIC (Kandivali West)</option>
+                    <option value="c2222222-2222-2222-2222-222222222222">RESQ DIAGNOSTIC (Branch 2)</option>
+                </select>
+            </div>
+            <input type="password" id="lockInput" placeholder="Password / PIN (default: 1234 or admin123)" onkeydown="if(event.key==='Enter') unlockApp()">
             <button type="button" class="btn-complete-reg" style="width: 100%; padding: 10px;" onclick="unlockApp()">Unlock Workspace</button>
         </div>
     </div>
 
     <header>
-        <div>
+        <div class="header-title">
             <h1 id="topCentreTitle">RESQ HEART CLINIC AND IMAGING CENTRE</h1>
             <p id="topCentreTagline">Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging</p>
         </div>
         <div class="centre-nav">
             <button type="button" class="btn-sync-cloud" onclick="triggerCloudSync()">☁️ Sync Cloud</button>
             <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" class="btn-gov-portal">🏛️ Maha PCPNDT</a>
-            <select id="activeCentreSelector" onchange="switchCentre(this.value)"></select>
+            <select id="activeCentreSelector" onchange="switchCentre(this.value)">
+                <option value="c1111111-1111-1111-1111-111111111111">RESQ HEART CLINIC (Kandivali West)</option>
+                <option value="c2222222-2222-2222-2222-222222222222">RESQ DIAGNOSTIC (Branch 2)</option>
+            </select>
             <button type="button" class="btn-settings" onclick="openAdminModal()">⚙ Settings</button>
         </div>
     </header>
@@ -133,16 +227,20 @@
             <div class="card">
                 <div class="card-title">
                     <span>Patient Registration & Billing</span>
-                    <button type="button" class="btn-quick-pcpndt" onclick="quickOpenPCPNDT()">📝 Fill PCPNDT Form F</button>
+                    <button type="button" class="btn-quick-pcpndt" onclick="quickOpenPCPNDT()">📝 Direct Link: Fill PCPNDT Form F</button>
                 </div>
 
                 <div class="search-row">
-                    <input type="text" id="lookupSearch" placeholder="🔍 Quick Lookup Patient by Phone, Name, or ID...">
+                    <input type="text" id="lookupSearch" placeholder="🔍 Quick Lookup Patient by Mobile Number, Name, or Patient ID...">
                     <button type="button" class="btn-search" onclick="lookupPatient()">Search</button>
                 </div>
 
+                <!-- Patient Loaded Action Bar -->
                 <div id="loadedPatientBanner" style="display: none; background: #e0f2fe; border: 1.5px solid #0284c7; padding: 10px 14px; border-radius: 4px; margin-bottom: 12px; justify-content: space-between; align-items: center;">
-                    <div><span style="font-size: 0.85rem; color: #0369a1;">Patient Loaded:</span> <strong id="loadedPatientTitle" style="color: #1e3a8a;"></strong></div>
+                    <div>
+                        <span style="font-size: 0.85rem; color: #0369a1;">Patient Loaded:</span>
+                        <strong id="loadedPatientTitle" style="font-size: 0.95rem; color: #1e3a8a; margin-left: 6px;"></strong>
+                    </div>
                     <div style="display: flex; gap: 6px;">
                         <button type="button" class="btn-act btn-act-del" onclick="deleteLoadedPatientRecord()">🗑️ Delete Patient Record</button>
                         <button type="button" class="btn-act btn-act-edit" style="background:#64748b;" onclick="clearPatientRegistrationForm()">🔄 Clear Form</button>
@@ -151,21 +249,29 @@
 
                 <div class="form-grid">
                     <input type="hidden" id="existingPatientId">
-                    <div class="form-group"><label>Patient ID (Optional):</label><input type="text" id="patientCode" placeholder="Auto-generated if blank"></div>
-                    <div class="form-group"><label>Full Name *:</label><input type="text" id="patientFullName" required></div>
-                    <div class="form-group"><label>Age (Years):</label><input type="number" id="patientAge"></div>
-                    <div class="form-group"><label>Gender:</label><select id="patientGender"><option value="Female">Female</option><option value="Male">Male</option><option value="Other">Other</option></select></div>
-                    <div class="form-group"><label>Mobile Number:</label><input type="text" id="patientMobile"></div>
-                    <div class="form-group"><label>Email ID:</label><input type="email" id="patientEmail"></div>
-                    <div class="form-group full-width"><label>Address:</label><input type="text" id="patientAddress"></div>
+                    <div class="form-group"><label>Patient ID / Unique Code:</label><input type="text" id="patientCode" placeholder="e.g. PAT-001 (Auto-generated if blank)"></div>
+                    <div class="form-group"><label>Full Name *:</label><input type="text" id="patientFullName" placeholder="Patient Full Name" required></div>
+                    <div class="form-group"><label>Age (Years):</label><input type="number" id="patientAge" placeholder="Age"></div>
+                    <div class="form-group">
+                        <label>Gender:</label>
+                        <select id="patientGender">
+                            <option value="Female">Female</option>
+                            <option value="Male">Male</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Mobile Number:</label><input type="text" id="patientMobile" placeholder="10 Digit Mobile"></div>
+                    <div class="form-group"><label>Email ID:</label><input type="email" id="patientEmail" placeholder="patient@example.com"></div>
+                    <div class="form-group full-width"><label>Address:</label><input type="text" id="patientAddress" placeholder="Address"></div>
                     
-                    <!-- Searchable & Auto-Add Doctor Selection -->
+                    <!-- Searchable Doctor Selection on Registration Page -->
                     <div class="form-group full-width">
-                        <label>Referring Doctor (Select or Type New):</label>
+                        <label>Referring Doctor:</label>
                         <div style="display: flex; gap: 8px;">
-                            <input type="text" id="docSearchQuickInput" placeholder="Type doctor name to search or add new..." oninput="onFilterDoctorSelect(this.value)" style="flex: 1;">
-                            <select id="referringDoctorSelect" onchange="onDoctorDropdownChanged(this.value)" style="flex: 1.5;"><option value="">Select Doctor (or Direct OPD)</option></select>
-                            <button type="button" class="btn-act btn-act-bills" style="background:#059669; padding:0 12px;" onclick="quickAddNewDoctor()">➕ Add & Select</button>
+                            <input type="text" id="docSearchQuickInput" placeholder="🔍 Type to filter doctor..." oninput="onFilterDoctorSelect(this.value)" style="flex: 1; padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.88rem;">
+                            <select id="referringDoctorSelect" style="flex: 1.5; padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem;">
+                                <option value="">Select Doctor (or Direct OPD)</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -179,14 +285,14 @@
                         <div class="form-grid">
                             <div class="form-group"><label>Husband / Relative Name:</label><input type="text" id="pcpndtRelativeName"></div>
                             <div class="form-group"><label>L.M.P Date:</label><input type="date" id="pcpndtLMP"></div>
-                            <div class="form-group"><label>Weeks of Gestation:</label><input type="text" id="pcpndtWeeks" placeholder="e.g. 28 Weeks"></div>
-                            <div class="form-group"><label>Living Sons & Age:</label><div style="display:flex;gap:6px;"><input type="number" id="pcpndtNoOfSons" placeholder="Count" style="width:80px;"><input type="text" id="pcpndtSonsAge" placeholder="Ages"></div></div>
-                            <div class="form-group"><label>Living Daughters & Age:</label><div style="display:flex;gap:6px;"><input type="number" id="pcpndtNoOfDaughters" placeholder="Count" style="width:80px;"><input type="text" id="pcpndtDaughtersAge" placeholder="Ages"></div></div>
-                            <div class="form-group full-width"><label>Indications:</label><input type="text" id="pcpndtIndication" value="Routine Antenatal Anomaly Evaluation"></div>
-                            <div class="form-group full-width"><label>Observations / Findings:</label><textarea id="pcpndtFindings" rows="2"></textarea></div>
-                            <div class="form-group"><label>Doctor:</label><input type="text" id="pcpndtDoctor" value="Dr NIKUNJ KOTHIA"></div>
-                            <div class="form-group"><label>Doctor Reg:</label><input type="text" id="pcpndtDoctorReg" value="2009/09/3218"></div>
-                            <div class="form-group"><label>Clinic Reg:</label><input type="text" id="pcpndtClinicReg" value="RC197"></div>
+                            <div class="form-group"><label>Weeks of Gestation:</label><input type="text" id="pcpndtWeeks" placeholder="e.g. 28 Weeks 4 Days"></div>
+                            <div class="form-group"><label>Living Sons & Age:</label><div style="display:flex;gap:6px;"><input type="number" id="pcpndtNoOfSons" placeholder="Count" style="width:90px;"><input type="text" id="pcpndtSonsAge" placeholder="Age(s)"></div></div>
+                            <div class="form-group"><label>Living Daughters & Age:</label><div style="display:flex;gap:6px;"><input type="number" id="pcpndtNoOfDaughters" placeholder="Count" style="width:90px;"><input type="text" id="pcpndtDaughtersAge" placeholder="Age(s)"></div></div>
+                            <div class="form-group full-width"><label>Clinical Indications:</label><input type="text" id="pcpndtIndication" placeholder="e.g. Routine Antenatal Anomaly Evaluation"></div>
+                            <div class="form-group full-width"><label>Observations / Findings *:</label><textarea id="pcpndtFindings" rows="3"></textarea></div>
+                            <div class="form-group"><label>Performing Doctor:</label><input type="text" id="pcpndtDoctor" value="Dr NIKUNJ KOTHIA"></div>
+                            <div class="form-group"><label>Doctor Reg No:</label><input type="text" id="pcpndtDoctorReg" value="2009/09/3218"></div>
+                            <div class="form-group"><label>Clinic Reg No:</label><input type="text" id="pcpndtClinicReg" value="RC197"></div>
                         </div>
                     </div>
                 </div>
@@ -194,23 +300,23 @@
                 <div style="margin-top: 14px;">
                     <label style="font-size: 0.9rem; font-weight: bold; color: #1a365d;">Search & Add Investigations / Services:</label>
                     <div class="live-search-container" style="margin-top: 6px;">
-                        <input type="text" id="liveTestInput" placeholder="🔍 Start typing test name (e.g. USG, Echo, CBC)..." oninput="onLiveTestSearchInput(this.value)" autocomplete="off" style="width:100%; padding:10px 14px; border:2px solid #90caf9; border-radius:4px; outline:none;">
+                        <input type="text" id="liveTestInput" placeholder="🔍 Start typing test name..." oninput="onLiveTestSearchInput(this.value)" autocomplete="off" style="width: 100%; padding: 10px 14px; border: 2px solid #90caf9; border-radius: 4px; outline: none;">
                         <div id="liveSearchResultsBox" class="live-search-box"></div>
                     </div>
                 </div>
 
                 <div style="margin-top: 14px;">
+                    <!-- Registration Items Table (Doctor Cut column omitted from billing page) -->
                     <table id="billItemsTable">
                         <thead><tr><th>Investigation</th><th>Category</th><th style="width: 140px;">Rate (₹)</th><th style="width: 80px;">Action</th></tr></thead>
-                        <tbody><tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected.</td></tr></tbody>
+                        <tbody><tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected yet. Type above to add.</td></tr></tbody>
                     </table>
 
                     <div class="rates-summary-panel">
-                        <div>Gross Subtotal: <span id="dispGross">₹0.00</span></div>
-                        <div>Concession / Discount: <span id="dispDiscount">- ₹0.00</span></div>
-                        <div>Net Payable Amount: <span id="dispNet" style="color:#00897b;">₹0.00</span></div>
-                        <div>Balance Due: <span id="dispBalance" style="color:#d84315;">₹0.00</span></div>
-                        <div style="margin-top: 4px; color:#7c3aed; font-size:0.9rem;">Calculated Doctor Cut: <input type="number" id="manualDocCut" style="width:110px; padding:3px 6px; font-weight:bold; color:#7c3aed; border:1.5px solid #c4b5fd; border-radius:4px;" value="0"></div>
+                        <div class="subtotal">Gross Subtotal: <span id="dispGross">₹0.00</span></div>
+                        <div class="concession">Concession / Discount: <span id="dispDiscount">- ₹0.00</span></div>
+                        <div class="payable">Net Payable Amount: <span id="dispNet">₹0.00</span></div>
+                        <div class="balance">Balance Due: <span id="dispBalance">₹0.00</span></div>
                     </div>
                 </div>
 
@@ -218,7 +324,7 @@
                     <div class="form-group full-width"><label>Attach Report / Document (PDF/Word):</label><input type="file" id="reportFileInput" accept=".pdf,.doc,.docx"></div>
                     <div class="form-group"><label>Concession / Discount (₹):</label><input type="number" id="inputDiscount" value="0" oninput="calculateFinancialTotals()"></div>
                     <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="inputPaid" value="0" oninput="calculateFinancialTotals()"></div>
-                    <div class="form-group"><label>Payment Mode:</label><select id="inputPaymentMode"><option value="Cash">Cash</option><option value="Online / UPI">Online / UPI</option><option value="Card">Card</option></select></div>
+                    <div class="form-group"><label>Payment Mode:</label><select id="inputPaymentMode"><option value="Cash">Cash</option><option value="Online / UPI">Online / UPI</option><option value="Card">Card</option><option value="Net Banking">Net Banking</option></select></div>
                 </div>
 
                 <div style="margin-top: 20px; display: flex; gap: 14px;">
@@ -251,8 +357,8 @@
         <div id="tab-imaging-reports" class="tab-content">
             <div class="card">
                 <div class="card-title">
-                    <span>🩻 Diagnostic Report Studio (Auto Word .doc)</span>
-                    <label style="font-size: 0.85rem; font-weight: bold; cursor: pointer;"><input type="checkbox" id="chkPreprintedLetterhead"> 🖨️ Preprinted Margin (45mm Top)</label>
+                    <span>🩻 Diagnostic Report Studio (Automatic Word .doc)</span>
+                    <label style="font-size: 0.85rem; font-weight: bold; cursor: pointer;"><input type="checkbox" id="chkPreprintedLetterhead"> 🖨️ Preprinted Letterhead Margin (45mm Top)</label>
                 </div>
 
                 <div style="background: #f1f5f9; border: 1px solid var(--border); padding: 12px 16px; border-radius: 6px; display: flex; gap: 16px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">
@@ -262,22 +368,33 @@
                             <option value="">-- Choose Registered Patient / Visit --</option>
                         </select>
                     </div>
-                    <div><span style="font-size: 0.75rem; color: #64748b;">Patient:</span><br><strong id="imgDispPatName">-</strong></div>
-                    <div><span style="font-size: 0.75rem; color: #64748b;">Age / Sex:</span><br><strong id="imgDispPatMeta">-</strong></div>
-                    <div><span style="font-size: 0.75rem; color: #64748b;">Ref Doctor:</span><br><strong id="imgDispDocName">-</strong></div>
+                    <div><span style="font-size: 0.75rem; color: #64748b;">Patient:</span><br><strong id="imgDispPatName" style="font-size: 0.95rem;">-</strong></div>
+                    <div><span style="font-size: 0.75rem; color: #64748b;">Age / Sex:</span><br><strong id="imgDispPatMeta" style="font-size: 0.95rem;">-</strong></div>
+                    <div><span style="font-size: 0.75rem; color: #64748b;">Ref Doctor:</span><br><strong id="imgDispDocName" style="font-size: 0.95rem;">-</strong></div>
                 </div>
 
                 <div class="imaging-workspace-grid">
                     <div>
-                        <input type="text" id="templateSearchInput" placeholder="🔍 Search template..." oninput="filterTemplatesList(this.value)" style="padding: 6px 10px; width: 100%; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                        <input type="text" id="templateSearchInput" placeholder="🔍 Search template..." oninput="filterTemplatesList(this.value)" style="padding: 6px 10px; width: 100%; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.88rem;">
                         <div class="template-list-box" id="templatesListBox"></div>
                     </div>
 
                     <div class="studio-right-panel">
-                        <div class="form-group full-width"><label style="font-weight: bold; color: #1e3a8a;">Report Title / Heading:</label><input type="text" id="liveReportTitle" style="font-weight: bold; color: #1e40af;"></div>
-                        <div class="form-group full-width"><label style="font-weight: bold;">Report Findings & Observations:</label><textarea id="liveReportFindings" rows="11" style="font-family: Arial, sans-serif; font-size: 0.9rem;"></textarea></div>
-                        <div class="form-group full-width"><label style="font-weight: bold; color: #991b1b;">Impression / Conclusion:</label><textarea id="liveReportImpression" rows="3" style="font-family: Arial, sans-serif; font-weight: bold;"></textarea></div>
-                        <button type="button" class="btn-complete-reg" style="background:#1e40af;" onclick="openReportInExternalWord()">🚀 SAVE & DOWNLOAD MICROSOFT WORD (.DOC)</button>
+                        <div class="form-group full-width">
+                            <label style="font-weight: bold; color: #1e3a8a;">Report Title / Heading:</label>
+                            <input type="text" id="liveReportTitle" style="font-weight: bold; font-size: 1rem; color: #1e40af;">
+                        </div>
+                        <div class="form-group full-width">
+                            <label style="font-weight: bold;">Report Findings & Observations (Editable):</label>
+                            <textarea id="liveReportFindings" rows="11" style="font-family: Arial, sans-serif; font-size: 0.9rem; line-height: 1.35; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px;"></textarea>
+                        </div>
+                        <div class="form-group full-width">
+                            <label style="font-weight: bold; color: #991b1b;">Impression / Conclusion:</label>
+                            <textarea id="liveReportImpression" rows="3" style="font-family: Arial, sans-serif; font-size: 0.9rem; font-weight: bold; padding: 8px; border: 1px solid #fca5a5; border-radius: 4px;"></textarea>
+                        </div>
+                        <button type="button" class="btn-hero-word-launcher" onclick="openReportInExternalWord()">
+                            🚀 SAVE & DOWNLOAD AS MICROSOFT WORD (.DOC)
+                        </button>
                     </div>
                 </div>
             </div>
@@ -302,6 +419,7 @@
         <!-- TAB 5: DOCTORS & TESTS MASTERS -->
         <div id="tab-masters" class="tab-content">
             <div class="dashboard-grid">
+                <!-- Referring Doctors Section -->
                 <div>
                     <div class="card">
                         <div class="card-title" id="docFormTitle">Add / Edit Referring Doctors</div>
@@ -310,39 +428,48 @@
                             <div class="form-group full-width"><label>Doctor Name *:</label><input type="text" id="docNameInput" placeholder="Dr. Full Name"></div>
                             <div class="form-group full-width"><label>Hospital / Clinic Name:</label><input type="text" id="docHospInput"></div>
                             <div class="form-group"><label>Commission Type:</label><select id="docCommType"><option value="percentage">Percentage (%)</option><option value="fixed">Fixed Amount (₹)</option></select></div>
-                            <div class="form-group"><label>Commission Value:</label><input type="number" id="docCutInput" value="30"></div>
+                            <div class="form-group"><label>Commission Value:</label><input type="number" id="docCutInput" value="0"></div>
                         </div>
                         <div style="margin-top: 12px; display: flex; gap: 8px;">
                             <button type="button" class="btn-complete-reg" id="btnSaveDoc" onclick="saveDoctor()">Save Doctor</button>
-                            <button type="button" class="btn-act btn-act-del" id="btnCancelDocEdit" style="display: none;" onclick="cancelDocEdit()">Cancel</button>
+                            <button type="button" class="btn-del" id="btnCancelDocEdit" style="display: none;" onclick="cancelDocEdit()">Cancel</button>
                         </div>
                     </div>
                     <div class="card">
-                        <div class="card-title"><span>Doctors List</span></div>
-                        <div class="search-row" style="margin-bottom: 8px;"><input type="text" id="doctorSearchInput" placeholder="🔍 Search doctor..." oninput="filterDoctorsList()"></div>
+                        <div class="card-title">
+                            <span>Doctors List</span>
+                        </div>
+                        <div class="search-row" style="margin-bottom: 8px;">
+                            <input type="text" id="doctorSearchInput" placeholder="🔍 Search doctor by name or hospital..." oninput="filterDoctorsList()">
+                        </div>
                         <table><thead><tr><th>Name</th><th>Hospital</th><th>Cut</th><th style="width: 140px;">Actions</th></tr></thead><tbody id="doctorsTableBody"></tbody></table>
                     </div>
                 </div>
 
+                <!-- Tests & Services Section -->
                 <div>
                     <div class="card">
                         <div class="card-title" id="testFormTitle">Add / Edit Tests & Cuts</div>
                         <input type="hidden" id="editTestId">
                         <div class="form-grid">
-                            <div class="form-group full-width"><label>Test Name *:</label><input type="text" id="testNameInput"></div>
+                            <div class="form-group full-width"><label>Test Name *:</label><input type="text" id="testNameInput" placeholder="Investigation Name"></div>
                             <div class="form-group full-width"><label>Category:</label><select id="testCatInput"><option value="Pathology">Pathology</option><option value="Imaging">Imaging</option><option value="Cardiology">Cardiology</option><option value="Obstetrics">Obstetrics</option><option value="Consulting">Consulting</option></select></div>
                             <div class="form-group"><label>Price (₹) *:</label><input type="number" id="testPriceInput" value="0"></div>
-                            <div class="form-group"><label>Doctor Cut Type:</label><select id="testCutTypeInput"><option value="percentage">Percentage (%)</option><option value="fixed">Fixed Amount (₹)</option></select></div>
-                            <div class="form-group"><label>Doctor Cut Value:</label><input type="number" id="testCutInput" value="30"></div>
+                            <div class="form-group"><label>Doctor Cut Type:</label><select id="testCutTypeInput"><option value="fixed">Fixed Amount (₹)</option><option value="percentage">Percentage (%)</option></select></div>
+                            <div class="form-group"><label>Doctor Cut Value:</label><input type="number" id="testCutInput" value="0"></div>
                         </div>
                         <div style="margin-top: 12px; display: flex; gap: 8px;">
                             <button type="button" class="btn-complete-reg" id="btnSaveTest" onclick="saveTest()">Save Test</button>
-                            <button type="button" class="btn-act btn-act-del" id="btnCancelTestEdit" style="display: none;" onclick="cancelTestEdit()">Cancel</button>
+                            <button type="button" class="btn-del" id="btnCancelTestEdit" style="display: none;" onclick="cancelTestEdit()">Cancel</button>
                         </div>
                     </div>
                     <div class="card">
-                        <div class="card-title"><span>Existing Tests & Services</span></div>
-                        <div class="search-row" style="margin-bottom: 8px;"><input type="text" id="existingTestSearch" placeholder="🔍 Search test..." oninput="filterExistingTestsList()"></div>
+                        <div class="card-title">
+                            <span>Existing Tests & Services</span>
+                        </div>
+                        <div class="search-row" style="margin-bottom: 8px;">
+                            <input type="text" id="existingTestSearch" placeholder="🔍 Search test by name or category..." oninput="filterExistingTestsList()">
+                        </div>
                         <table><thead><tr><th>Test</th><th>Price</th><th>Cut</th><th style="width: 140px;">Actions</th></tr></thead><tbody id="testsTableBody"></tbody></table>
                     </div>
                 </div>
@@ -362,23 +489,27 @@
         <div id="tab-reports" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Collections & Departmental Invoices Summary</span></div>
-                <div id="repSummaryBanner" style="background:#e3f2fd; border:1px solid #90caf9; padding:12px 16px; border-radius:4px; font-weight:bold; margin-bottom:14px;">Loading Summary...</div>
+                <div id="repSummaryBanner" style="background:#e3f2fd; border:1px solid #90caf9; padding:12px 16px; border-radius:4px; font-weight:bold; margin-bottom:14px; line-height: 1.6; font-size: 0.9rem;">Loading Summary...</div>
                 <table><thead><tr><th>Date</th><th>Centre</th><th>Patient Name</th><th>Services</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th style="width: 290px;">Actions</th></tr></thead><tbody id="reportsTableBody"></tbody></table>
             </div>
         </div>
 
-        <!-- TAB 8: DOCTOR BUSINESS -->
+        <!-- TAB 8: DOCTOR BUSINESS (Full Filter Bar Restored) -->
         <div id="tab-business" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Doctor Business & Referral Commissions</span></div>
+
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px;">
-                    <div><label style="font-size:0.8rem; font-weight:bold;">Doctor:</label><br><select id="busDocSelect" style="padding:6px; border:1px solid #ccc; border-radius:4px;"><option value="">All Doctors</option></select></div>
-                    <div><label style="font-size:0.8rem; font-weight:bold;">Start:</label><br><input type="date" id="busStartDate" style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
-                    <div><label style="font-size:0.8rem; font-weight:bold;">End:</label><br><input type="date" id="busEndDate" style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
-                    <div><label style="font-size:0.8rem; font-weight:bold;">Month:</label><br><input type="month" id="busMonth" style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
-                    <div><label style="font-size:0.8rem; font-weight:bold;">Patient:</label><br><input type="text" id="busPatientName" placeholder="Search Patient" style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">Select Doctor:</label><br><select id="busDocSelect" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"><option value="">All Doctors</option></select></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">Start Date:</label><br><input type="date" id="busStartDate" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">End Date:</label><br><input type="date" id="busEndDate" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">OR Month:</label><br><input type="month" id="busMonth" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">Patient Name:</label><br><input type="text" id="busPatientName" placeholder="Search Patient" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
                     <button type="button" class="btn-search" onclick="loadBusiness()">🔍 Filter</button>
+                    <button type="button" class="btn-act btn-act-edit" onclick="resetBusinessFilters()">Show All</button>
+                    <button type="button" class="btn-act btn-act-bill-prt" onclick="window.print()">🖨️ Print Report</button>
                 </div>
+
                 <div id="busSummaryBanner" style="background:#ede7f6; border:1px solid #d1c4e9; padding:10px 14px; border-radius:4px; font-weight:bold; margin-bottom:12px;">Loading Summary...</div>
                 <table><thead><tr><th>Date</th><th>Doctor Name</th><th>Patient</th><th>Invoice No</th><th>Business (₹)</th><th>Doctor Cut (₹)</th><th>Action</th></tr></thead><tbody id="businessTableBody"></tbody></table>
             </div>
@@ -386,24 +517,16 @@
 
     </div>
 
-    <!-- PATIENT BILLS MODAL -->
-    <div id="patientBillsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h3 id="patientBillsTitle">Bills History</h3><button type="button" onclick="closePatientBillsModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
-            <table>
-                <thead><tr><th>Invoice No</th><th>Date</th><th>Centre</th><th>Total</th><th>Paid</th><th>Balance</th><th style="width: 200px;">Actions</th></tr></thead>
-                <tbody id="patientBillsTableBody"></tbody>
-            </table>
-            <button type="button" class="btn-act btn-act-del" style="margin-top: 14px;" onclick="closePatientBillsModal()">Close</button>
-        </div>
-    </div>
-
-    <!-- EDIT BILL MODAL -->
+    <!-- EDIT BILL MODAL (With Live Test Search & Recalculations) -->
     <div id="editBillModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header"><h3>Edit Bill & Rate Details</h3><button type="button" onclick="closeEditBillModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
             <input type="hidden" id="editBillRowId">
-            <div class="form-group full-width" style="margin-bottom: 12px;"><label style="font-weight:bold;">Referring Doctor:</label><select id="editBillDocSelect" style="padding:8px; width:100%; border:1px solid #ccc; border-radius:4px;"></select></div>
+            <div class="form-group full-width" style="margin-bottom: 12px;">
+                <label style="font-weight:bold;">Referring Doctor:</label>
+                <select id="editBillDocSelect" style="padding:8px; width:100%; border:1px solid #ccc; border-radius:4px;"></select>
+            </div>
+
             <div style="background: #f8fafc; border: 1px solid var(--border); padding: 10px; border-radius: 4px; margin-bottom: 12px;">
                 <label style="font-size: 0.88rem; font-weight: bold; color: #1a365d;">Search & Add Investigation to this Bill:</label>
                 <div class="live-search-container" style="margin-top: 6px;">
@@ -411,17 +534,20 @@
                     <div id="editBillLiveSearchResultsBox" class="live-search-box"></div>
                 </div>
             </div>
+
             <label style="font-size: 0.9rem; font-weight: bold; color: #1a365d;">Bill Items & Charges:</label>
             <table style="margin-bottom: 10px;">
                 <thead><tr><th>Investigation / Service Name</th><th>Category</th><th style="width: 140px;">Rate (₹)</th><th style="width: 90px;">Action</th></tr></thead>
                 <tbody id="editBillItemsTableBody"></tbody>
             </table>
+
             <div class="rates-summary-panel" style="margin-bottom: 14px;">
-                <div>Gross Total: <span id="editDispGross">₹0.00</span></div>
-                <div>Concession: <span id="editDispDisc">- ₹0.00</span></div>
-                <div>Net Payable: <span id="editDispNet">₹0.00</span></div>
-                <div>Balance Due: <span id="editDispBal">₹0.00</span></div>
+                <div class="subtotal">Gross Total: <span id="editDispGross">₹0.00</span></div>
+                <div class="concession">Concession / Discount: <span id="editDispDisc">- ₹0.00</span></div>
+                <div class="payable">Net Payable: <span id="editDispNet">₹0.00</span></div>
+                <div class="balance">Balance Due: <span id="editDispBal">₹0.00</span></div>
             </div>
+
             <div class="form-grid">
                 <div class="form-group"><label>Concession (₹):</label><input type="number" id="editBillDisc" oninput="recalcEditBillTotals()"></div>
                 <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="editBillPaid" oninput="recalcEditBillTotals()"></div>
@@ -431,35 +557,73 @@
         </div>
     </div>
 
-    <!-- ADMIN SETTINGS MODAL -->
+    <!-- ADMIN SETTINGS & MULTI-CENTRE MODAL -->
     <div id="adminModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h3>⚙️ Admin Settings & Multi-Centre Manager</h3><button type="button" onclick="closeAdminModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
+        <div class="modal-content" style="max-width: 850px;">
+            <div class="modal-header">
+                <h3>⚙️ Admin Settings & Multi-Centre Manager</h3>
+                <button type="button" onclick="closeAdminModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
+            
             <div id="adminAuthSection">
-                <div class="form-group"><label>Master Admin Password:</label><input type="password" id="adminPasswordInput" placeholder="Password (default: admin123)" onkeydown="if(event.key==='Enter') verifyAdmin()"></div>
+                <div class="form-group">
+                    <label>Enter Master Admin Password:</label>
+                    <input type="password" id="adminPasswordInput" placeholder="Password (default: admin123)" onkeydown="if(event.key==='Enter') verifyAdmin()">
+                </div>
                 <button type="button" class="btn-act btn-act-bills" style="margin-top: 10px; width: 100%; padding: 10px; justify-content: center;" onclick="verifyAdmin()">Login to Settings</button>
             </div>
+
             <div id="adminPanelSection" style="display: none;">
                 <div class="card" style="background: #fdf6ec; border: 1.5px solid #fed7aa; margin-bottom: 16px;">
                     <div class="card-title" style="color: #9a3412;">🔐 Change Master Admin Password</div>
                     <div class="form-grid">
-                        <div class="form-group"><label>Current Password:</label><input type="password" id="curAdminPass"></div>
-                        <div class="form-group"><label>New Password:</label><input type="password" id="newAdminPass"></div>
+                        <div class="form-group"><label>Current Master Password:</label><input type="password" id="curAdminPass"></div>
+                        <div class="form-group"><label>New Master Password:</label><input type="password" id="newAdminPass"></div>
                     </div>
                     <button type="button" class="btn-complete-reg" style="margin-top: 10px; background: #ea580c; max-width: 250px;" onclick="changeMasterAdminPassword()">Update Admin Password</button>
                 </div>
+
                 <div class="card">
                     <div class="card-title">Configured Clinic Centres</div>
-                    <table><thead><tr><th>Centre Name</th><th>Contact / Reg No</th><th>PIN</th><th style="width: 140px;">Actions</th></tr></thead><tbody id="adminCentresListBody"></tbody></table>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Centre Name</th>
+                                <th>Contact / Reg No</th>
+                                <th>PIN / Password</th>
+                                <th style="width: 140px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminCentresListBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <div class="card-title" id="centreFormTitle">Add New Branch Profile</div>
+                    <input type="hidden" id="cEditId">
+                    <div class="form-grid">
+                        <div class="form-group full-width"><label>Centre Name *:</label><input type="text" id="cNameInput" placeholder="e.g. RESQ HEART CLINIC (Kandivali West)"></div>
+                        <div class="form-group full-width"><label>Tagline / Sub-header:</label><input type="text" id="cTaglineInput" placeholder="e.g. Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging"></div>
+                        <div class="form-group full-width"><label>Address:</label><input type="text" id="cAddressInput" placeholder="Shop / Building / Area details"></div>
+                        <div class="form-group"><label>Phone Number:</label><input type="text" id="cPhoneInput" placeholder="+91 8433838285"></div>
+                        <div class="form-group"><label>Email Address:</label><input type="email" id="cEmailInput" placeholder="clinic@example.com"></div>
+                        <div class="form-group"><label>PCPNDT Reg No:</label><input type="text" id="cRegInput" value="RC197"></div>
+                        <div class="form-group"><label>Branch Login PIN / Password *:</label><input type="text" id="cPasswordInput" value="1234"></div>
+                    </div>
+                    <div style="margin-top: 14px; display: flex; gap: 8px;">
+                        <button type="button" class="btn-complete-reg" id="btnSaveCentre" onclick="saveCentre()">Save Centre Profile</button>
+                        <button type="button" class="btn-del" id="btnCancelCentreEdit" style="display: none;" onclick="cancelCentreEdit()">Cancel</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- INVOICE PRINT PAPER (No Cash/UPI Mode Shown) -->
+    <!-- INVOICE PRINT PAPER (CLEAN & NO PAYMENT MODE LABELS SHOWN) -->
     <div id="invoicePrintArea" class="print-paper">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
-            <h2 id="prtClinicName" style="font-size: 16pt;">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
+            <h2 id="prtClinicName" style="font-size: 16pt; margin-bottom: 2px;">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
+            <p id="prtClinicTagline" style="font-size: 9pt; font-style: italic;"></p>
             <p id="prtClinicAddress" style="font-size: 8.5pt;"></p>
             <p id="prtClinicContact" style="font-size: 8.5pt; font-weight: bold;"></p>
         </div>
@@ -492,18 +656,23 @@
         </div>
     </div>
 
-    <!-- EXACT 2-PAGE STATUTORY PCPNDT FORM F DOCUMENT -->
+    <!-- ================= EXACT 2-PAGE STATUTORY PCPNDT FORM F DOCUMENT ================= -->
     <div id="exactPcpndtDoc" class="print-paper">
         <!-- PAGE 1 -->
         <div class="doc-page">
-            <div style="text-align:center; font-size:8.5pt; font-weight:bold; border-bottom:1.5px solid #000; padding-bottom:2px; margin-bottom:4px;">
-                FORM FOR MAINTENANCE OF RECORD IN CASE OF PRENATAL DIAGNOSTIC TEST /PROCEDURE BY GENETIC CLINIC/ULTRASOUND CLINIC/IMAGING CENTRE
-            </div>
-            <div style="font-weight:bold; font-size:8.8pt; margin-top:3px; text-decoration:underline;">Section A :</div>
+            <div class="doc-header-title">FORM FOR MAINTENANCE OF RECORD IN CASE OF PRENATAL DIAGNOSTIC TEST /PROCEDURE BY GENETIC CLINIC/ULTRASOUND CLINIC/IMAGING CENTRE</div>
+            
+            <div class="doc-sec-heading">Section A :</div>
             <div class="doc-line-item"><div class="label">1. &nbsp; Name and Address of Clinic :</div><div class="val" id="docClinicName">RESQ HEART CLINIC AND IMAGING CENTRE Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West</div></div>
             <div class="doc-line-item"><div class="label">2. &nbsp; Reg No :</div><div class="val" id="docClinicReg">RC197</div></div>
-            <div class="doc-line-item"><div class="label">3. &nbsp; Patient's Name :</div><div class="val" style="display:flex; justify-content:space-between;"><span id="docPatName">PATIENT NAME</span><span style="margin-right:40px;">Age : <span id="docPatAge">0</span> yrs</span></div></div>
-            <div class="doc-line-item"><div class="label">4. &nbsp; No of Children :</div><div class="val">Male : <span id="docMaleKids">0</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Female : <span id="docFemaleKids">0</span></div></div>
+            <div class="doc-line-item">
+                <div class="label">3. &nbsp; Patient's Name :</div>
+                <div class="val" style="display:flex; justify-content:space-between;"><span id="docPatName">PATIENT NAME</span><span style="margin-right: 40px;">Age : <span id="docPatAge">0</span> yrs</span></div>
+            </div>
+            <div class="doc-line-item">
+                <div class="label">4. &nbsp; No of Children :</div>
+                <div class="val">Male : <span id="docMaleKids">0</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Female : <span id="docFemaleKids">0</span></div>
+            </div>
             <div class="doc-line-item"><div class="label">a. No of Sons with age of each living son</div><div class="val" id="docSonsDetail">0 Son(s)</div></div>
             <div class="doc-line-item"><div class="label">b. No of Daughters with age of each living Daughter</div><div class="val" id="docDaughtersDetail">0 Daughter(s)</div></div>
             <div class="doc-line-item"><div class="label">5. &nbsp; Husband's/Wife's/Father's/Mother's Name :</div><div class="val" id="docRelativeName">-</div></div>
@@ -511,91 +680,158 @@
             <div class="doc-line-item"><div class="label">7(a). Referred by :</div><div class="val" id="docRefDoc">Direct OPD</div></div>
             <div class="doc-line-item"><div class="label">7(b). Self Referral :</div><div class="val" id="docSelfRef">NO</div></div>
             <div class="doc-line-item"><div class="label">8. &nbsp; Last Menstrual Period/wks of Preg :</div><div class="val"><span id="docLmp">N/A</span> / <span id="docWeeks">N/A</span></div></div>
-            <div style="font-weight:bold; font-size:8.8pt; border-top:1px solid #000; padding-top:2px; margin-top:3px; text-decoration:underline;">Section B :</div>
+
+            <div class="doc-sec-heading" style="border-top: 1px solid #000; padding-top: 2px;">Section B :</div>
             <div class="doc-line-item"><div class="label">9. &nbsp; Name of the doctor performing the procedures:</div><div class="val" id="docDoctorName">Dr NIKUNJ KOTHIA</div></div>
             <div class="doc-line-item"><div class="label">10. Indication/s for diagnosis procedure:</div><div class="val" id="docActiveIndication" style="font-weight: bold;">Routine Antenatal Anomaly Evaluation</div></div>
+
             <div class="indications-grid">
-                <div class="indication-row"><span class="ind-num">i.</span><span>To diagnose intra-uterine and/or ectopic pregnancy and confirm viability.</span></div>
-                <div class="indication-row"><span class="ind-num">ii.</span><span>Estimation of gestational age (dating).</span></div>
-                <div class="indication-row"><span class="ind-num">iii.</span><span>Detection of number of foetuses and their chorionicity.</span></div>
-                <div class="indication-row"><span class="ind-num">iv.</span><span>Suspected pregnancy with IUCD in-situ or suspected pregnancy following contraceptive failure/MTP failure.</span></div>
-                <div class="indication-row"><span class="ind-num">v.</span><span>Vaginal bleeding / leaking.</span></div>
-                <div class="indication-row"><span class="ind-num">vi.</span><span>Follow-up of cases of abortion.</span></div>
-                <div class="indication-row"><span class="ind-num">vii.</span><span>Assessment of cervical canal and diameter of internal os.</span></div>
-                <div class="indication-row"><span class="ind-num">viii.</span><span>Discrepancy between uterine size and period of amenorrhoea.</span></div>
-                <div class="indication-row"><span class="ind-num">ix.</span><span>Any suspected adenexal or uterine pathology / abnormality.</span></div>
-                <div class="indication-row"><span class="ind-num">x.</span><span>Detection of chromosomal abnormalities, foetal structural defects and other abnormalities and their follow-up.</span></div>
-                <div class="indication-row"><span class="ind-num">xi.</span><span>To evaluate foetal presentation and position.</span></div>
-                <div class="indication-row"><span class="ind-num">xii.</span><span>Assessment of liquor amnii.</span></div>
-                <div class="indication-row"><span class="ind-num">xiii.</span><span>Preterm labour / preterm premature rupture of membranes.</span></div>
-                <div class="indication-row"><span class="ind-num">xiv.</span><span>Evaluation of placental position, thickness, grading and abnormalities.</span></div>
-                <div class="indication-row"><span class="ind-num">xv.</span><span>Evaluation of umbilical cord - presentation, insertion, nuchal encirclement, number of vessels and presence of true knot.</span></div>
-                <div class="indication-row"><span class="ind-num">xvi.</span><span>Evaluation of previous Caesarean Section scars.</span></div>
-                <div class="indication-row"><span class="ind-num">xvii.</span><span>Evaluation of foetal growth parameters, foetal weight and foetal well being.</span></div>
-                <div class="indication-row"><span class="ind-num">xviii.</span><span>Colour flow mapping and duplex Doppler studies.</span></div>
-                <div class="indication-row"><span class="ind-num">xix.</span><span>Ultrasound guided procedures such as medical termination of pregnancy, external cephalic version etc. and their follow-up.</span></div>
-                <div class="indication-row"><span class="ind-num">xx.</span><span>Adjunct to diagnostic and therapeutic invasive interventions such as chorionic villus sampling (CVS), amniocenteses, etc.</span></div>
-                <div class="indication-row"><span class="ind-num">xxi.</span><span>Observation of intra-partum events.</span></div>
-                <div class="indication-row"><span class="ind-num">xxii.</span><span>Medical/surgical conditions complicating pregnancy.</span></div>
-                <div class="indication-row"><span class="ind-num">xxiii.</span><span>Research/scientific studies in recognised institutions.</span></div>
+                <div class="indication-row"><span class="ind-num">i.</span><span class="ind-text">To diagnose intra-uterine and/or ectopic pregnancy and confirm viability.</span></div>
+                <div class="indication-row"><span class="ind-num">ii.</span><span class="ind-text">Estimation of gestational age (dating).</span></div>
+                <div class="indication-row"><span class="ind-num">iii.</span><span class="ind-text">Detection of number of foetuses and their chorionicity.</span></div>
+                <div class="indication-row"><span class="ind-num">iv.</span><span class="ind-text">Suspected pregnancy with IUCD in-situ or suspected pregnancy following contraceptive failure/MTP failure.</span></div>
+                <div class="indication-row"><span class="ind-num">v.</span><span class="ind-text">Vaginal bleeding / leaking.</span></div>
+                <div class="indication-row"><span class="ind-num">vi.</span><span class="ind-text">Follow-up of cases of abortion.</span></div>
+                <div class="indication-row"><span class="ind-num">vii.</span><span class="ind-text">Assessment of cervical canal and diameter of internal os.</span></div>
+                <div class="indication-row"><span class="ind-num">viii.</span><span class="ind-text">Discrepancy between uterine size and period of amenorrhoea.</span></div>
+                <div class="indication-row"><span class="ind-num">ix.</span><span class="ind-text">Any suspected adenexal or uterine pathology / abnormality.</span></div>
+                <div class="indication-row"><span class="ind-num">x.</span><span class="ind-text">Detection of chromosomal abnormalities, foetal structural defects and other abnormalities and their follow-up.</span></div>
+                <div class="indication-row"><span class="ind-num">xi.</span><span class="ind-text">To evaluate foetal presentation and position.</span></div>
+                <div class="indication-row"><span class="ind-num">xii.</span><span class="ind-text">Assessment of liquor amnii.</span></div>
+                <div class="indication-row"><span class="ind-num">xiii.</span><span class="ind-text">Preterm labour / preterm premature rupture of membranes.</span></div>
+                <div class="indication-row"><span class="ind-num">xiv.</span><span class="ind-text">Evaluation of placental position, thickness, grading and abnormalities (placenta praevia, retroplacental haemorrhage, abnormal adherance etc.).</span></div>
+                <div class="indication-row"><span class="ind-num">xv.</span><span class="ind-text">Evaluation of umbilical cord - presentation, insertion, nuchal encirclement, number of vessels and presence of true knot.</span></div>
+                <div class="indication-row"><span class="ind-num">xvi.</span><span class="ind-text">Evaluation of previous Caesarean Section scars.</span></div>
+                <div class="indication-row"><span class="ind-num">xvii.</span><span class="ind-text">Evaluation of foetal growth parameters, foetal weight and foetal well being.</span></div>
+                <div class="indication-row"><span class="ind-num">xviii.</span><span class="ind-text">Colour flow mapping and duplex Doppler studies.</span></div>
+                <div class="indication-row"><span class="ind-num">xix.</span><span class="ind-text">Ultrasound guided procedures such as medical termination of pregnancy, external cephalic version etc. and their follow-up.</span></div>
+                <div class="indication-row"><span class="ind-num">xx.</span><span class="ind-text">Adjunct to diagnostic and therapeutic invasive interventions such as chorionic villus sampling (CVS), amniocenteses, foetal blood samples, foetal skin biopsy, aminioinfusion, intrauterine infusion, placement of shunts etc.</span></div>
+                <div class="indication-row"><span class="ind-num">xxi.</span><span class="ind-text">Observation of intra-partum events.</span></div>
+                <div class="indication-row"><span class="ind-num">xxii.</span><span class="ind-text">Medical/surgical conditions complicating pregnancy.</span></div>
+                <div class="indication-row"><span class="ind-num">xxiii.</span><span class="ind-text">Research/scientific studies in recognised institutions.</span></div>
             </div>
+
             <div class="doc-line-item"><div class="label">11 i. Procedures carried out (Non-Invasive) :</div><div class="val">Ultrasonography</div></div>
+            <div class="doc-line-item"><div class="label">11 ii. Any other (specify):</div><div class="val">-</div></div>
             <div class="doc-line-item"><div class="label">12. Date on which declaration of preg woman /person obtai</div><div class="val" id="docDeclDate">DD/MM/YYYY</div></div>
             <div class="doc-line-item"><div class="label">13. Date(s) on which procedures carried out:</div><div class="val" id="docProcDate">DD/MM/YYYY</div></div>
             <div class="doc-line-item"><div class="label">14. Result of non invasive proc carried out:</div><div class="val" id="docProcResult" style="font-weight:normal;">Single live intrauterine gestation with regular cardiac activity.</div></div>
-            <div class="doc-line-item"><div class="label">15. Result conveyed on:</div><div class="val" id="docConveyDate">DD/MM/YYYY</div></div>
+            <div class="doc-line-item"><div class="label">15. The result of Pre Natal Diagnostic procedure conveyed</div><div class="val" style="display:flex; justify-content:space-between;"><span>-</span><span>on: <strong id="docConveyDate">DD/MM/YYYY</strong></span></div></div>
             <div class="doc-line-item"><div class="label">16. Any indication for MTP as per abnormality detected:</div><div class="val">NONE</div></div>
-            <div class="doc-sign-box">
+
+            <div class="doc-sign-box" style="margin-top: 4px;">
                 <div>Date - <span id="docSignDate">DD/MM/YYYY</span><br>Place - Kandivali West</div>
-                <div style="text-align: right;"><strong id="docSignDocName">Dr NIKUNJ KOTHIA</strong> &nbsp; <span id="docSignDocReg">2009/09/3218</span><br><span style="font-size: 6.8pt;">Name/Sign/Reg No of Radiologist performing diagnostic procedures</span></div>
+                <div style="text-align: right;">
+                    <strong id="docSignDocName">Dr NIKUNJ KOTHIA</strong> &nbsp; <span id="docSignDocReg">2009/09/3218</span><br>
+                    <span style="font-size: 6.8pt;">Name/Sign/Reg No of Gynaecologist/Radiologist/Reg Med Practitioner performing diagnostic procedures</span>
+                </div>
             </div>
-            <div style="font-weight:bold; font-size:8pt; border-top:1px solid #000; padding-top:2px; margin-top:3px;">Section C : Invasive Procedures &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <u>NOT APPLICABLE</u></div>
+
+            <div class="doc-sec-heading" style="border-top: 1px solid #000; padding-top: 2px; margin-top: 3px;">
+                Section C : To be filled for performing invasive Procedures / Tests only &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <u>NOT APPLICABLE</u>
+            </div>
             <div class="sec-c-grid">
-                <div class="sec-c-row"><div class="sec-c-lbl">17. Name of doctor performing invasive procedure :</div><div class="sec-c-val">Not Applicable</div></div>
-                <div class="sec-c-row"><div class="sec-c-lbl">18. History of genetic/medical disease in family :</div><div class="sec-c-val">Not Applicable</div></div>
-                <div class="sec-c-row"><div class="sec-c-lbl">19. Indication for Diagnostic procedure :</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">17. Name of the doctor performing the procedure</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">18. History of genetic/medical disease in the family (specify) :</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row" style="margin-left: 12px;"><div class="sec-c-lbl">Basis of diagnosis : (a) Clinical :</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row" style="margin-left: 12px;"><div class="sec-c-lbl">(b) Bio-Chemical :</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row" style="margin-left: 12px;"><div class="sec-c-lbl">(c) Cytogenetic :</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row" style="margin-left: 12px;"><div class="sec-c-lbl">(d) Other(eg Radiological, USG etc specify) :</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">19. Indication for the Diagnostic procedure :</div><div class="sec-c-val"></div></div>
+                <div class="sec-c-row" style="margin-left: 12px;"><div class="sec-c-lbl">A. Previous Child/Children with : (i) Chromosomal Disorders:</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row" style="margin-left: 12px;"><div class="sec-c-lbl">(ii) Metabolic Disorders:</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row" style="margin-left: 12px;"><div class="sec-c-lbl">(iii) Congenital Anomaly:</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row" style="margin-left: 12px;"><div class="sec-c-lbl">(iv) Mental Retardation:</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row" style="margin-left: 12px;"><div class="sec-c-lbl">(v) Haemoglobinopathy:</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row" style="margin-left: 12px;"><div class="sec-c-lbl">(vi) Sex Linked Disorders:</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row" style="margin-left: 12px;"><div class="sec-c-lbl">(vii) Single gene Disorder:</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row" style="margin-left: 12px;"><div class="sec-c-lbl">(viii) Any other (specify):</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">B. Advanced Maternal Age (35 yrs) :</div><div class="sec-c-val">No</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">C. Mother/Father/Sibling has Genetic Disease(specify) :</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">D. Other(specify) :</div><div class="sec-c-val">-</div></div>
             </div>
         </div>
 
         <!-- PAGE 2 -->
         <div class="doc-page">
-            <div class="doc-line-item"><div class="label" style="min-width:320px;">20. Date on which consent obtained in Form G :</div><div class="val">Not Applicable</div></div>
-            <div class="doc-line-item"><div class="label" style="min-width:320px;">21. Invasive procedures carried out :</div><div class="val">Not Applicable</div></div>
-            <div class="doc-line-item"><div class="label" style="min-width:320px;">22. Complication of invasive Procedure :</div><div class="val">Not Applicable</div></div>
-            <div class="doc-line-item"><div class="label" style="min-width:320px;">23. Laboratory Tests Recommended :</div><div class="val">Not Applicable</div></div>
-            <div class="doc-line-item"><div class="label" style="min-width:320px;">24. Result of procedure / tests carried out :</div><div class="val">-</div></div>
-            <div class="doc-line-item"><div class="label" style="min-width:320px;">27. Any indication for MTP :</div><div class="val">NONE</div></div>
-            <div class="doc-sign-box" style="margin-top: 6px;">
-                <div>Date - <br>Place - Kandivali West</div>
-                <div style="text-align: right;"><span style="font-size: 6.8pt;">Name/Sign/Reg No of Radiologist</span></div>
+            <div class="doc-line-item"><div class="label" style="min-width: 320px;">20. &nbsp; Date on which consent of the pregnant woman / person was obtained in Form G</div><div class="val">-</div></div>
+            <div class="doc-line-item"><div class="label" style="min-width: 320px;">21. &nbsp; Invasive procedures carried out :</div><div class="val"></div></div>
+            <div class="sec-c-grid" style="margin-left: 20px;">
+                <div class="sec-c-row"><div class="sec-c-lbl">(i) Amniocentesis</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">(ii) Chorionic Villi Aspiration</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">(iii) Foetal Biopsy</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">(iv) Cordocentesis :</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">(v) Any other (specify) :</div><div class="sec-c-val">Not Applicable</div></div>
             </div>
-            <div style="font-weight:bold; font-size:8.2pt; border-top:1.5px solid #000; padding-top:3px; margin-top:8px; text-align:center;">Section D : Declaration</div>
-            <div style="text-align: center; font-weight: bold; font-size: 8.2pt; margin-bottom: 5px;">DECLARATION OF THE PERSON UNDERGOING PRENATAL DIAGNOSTIC TEST / PROCEDURE</div>
+            <div class="doc-line-item" style="margin-top: 2px;"><div class="label" style="min-width: 320px;">22. &nbsp; Any Complication of invasive Procedure - please specify :</div><div class="val">Not Applicable</div></div>
+            <div class="doc-line-item"><div class="label" style="min-width: 320px;">23. &nbsp; Laboratory Tests Recommended :</div><div class="val"></div></div>
+            <div class="sec-c-grid" style="margin-left: 20px;">
+                <div class="sec-c-row"><div class="sec-c-lbl">(i) Chromosomal Studies:</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">(ii) Biochemical Studies:</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">(iii) Molecular Studies:</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">(iv) Preimplantation gender diagnosis:</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">(v) Any other (specify) :</div><div class="sec-c-val">Not Applicable</div></div>
+            </div>
+            <div class="doc-line-item" style="margin-top: 2px;"><div class="label" style="min-width: 320px;">24. &nbsp; Result of the procedure / tests carried out :</div><div class="val">-</div></div>
+            <div class="doc-line-item"><div class="label" style="min-width: 320px;">25. &nbsp; Date(s) on which procedures carried out :</div><div class="val">-</div></div>
+            <div class="doc-line-item"><div class="label" style="min-width: 320px;">26. &nbsp; The result of Pre Natal Diagnostic procedure conveyed to:</div><div class="val">on:</div></div>
+            <div class="doc-line-item"><div class="label" style="min-width: 320px;">27. &nbsp; Any indication for MTP as per abnormality detected:</div><div class="val">NONE</div></div>
+
+            <div class="doc-sign-box" style="margin-top: 4px;">
+                <div>Date - <br>Place - Kandivali West</div>
+                <div style="text-align: right;">
+                    <span style="font-size: 6.8pt;">Name/Sign/Reg No of Gynaecologist/Radiologist/Reg Med Practitioner performing diagnostic procedures</span>
+                </div>
+            </div>
+
+            <div class="doc-sec-heading" style="border-top: 1.5px solid #000; padding-top: 3px; margin-top: 6px;">Section D : Declaration</div>
+            <div style="text-align: center; font-weight: bold; font-size: 8.2pt; margin-top: 3px; margin-bottom: 5px;">
+                DECLARATION OF THE PERSON UNDERGOING PRENATAL DIAGNOSTIC TEST / PROCEDURE
+            </div>
+            
             <div style="font-size: 7.8pt; line-height: 1.35; margin-bottom: 15px;">
                 <p style="margin-bottom: 3px;">I declare that by undergoing ultrasonography /image scanning etc. I do not want to know the sex of my foetus.</p>
                 <p style="margin-bottom: 3px;">असे घोषित करते की अल्ट्रा सोनोग्राफी / प्रतिमा स्कॅनिंग करून मी माझ्या गर्भाचे लिंग जाणून घेऊ इच्छित नाही.</p>
                 <p>मैं घोषणा कर रही हूँ की अल्ट्रा-सोनोग्राफी / प्रतिमा स्कैनिंग करके मैं मेरे गर्भ के लिंग की जांच करना नहीं चाहती.</p>
             </div>
-            <div style="text-align: right; font-size: 7.5pt; font-weight: bold; margin-bottom: 12px;">Signature / Thumb Impression of person undergoing the procedure</div>
+
+            <div style="text-align: right; font-size: 7.5pt; font-weight: bold; margin-bottom: 12px;">
+                Signature / Thumb Impression of person undergoing the Prenatal Diagnostic Test / procedure
+            </div>
+
             <div style="border-top: 0.8px dashed #000; padding-top: 4px; font-size: 7.2pt; line-height: 1.25; margin-bottom: 8px;">
                 <strong>In case of Thumb Impression</strong><br>
-                <div style="display:flex; justify-content:space-between; margin-top:2px;"><div>Identified by (Name) : _______________________</div><div>Age : ___ &nbsp; Sex : ___</div></div>
-                <div style="margin-top:2px;">Relation : __________________ &nbsp;&nbsp;&nbsp;&nbsp; Address & Contact : _________________________________</div>
+                <div style="display:flex; justify-content:space-between; margin-top: 2px;">
+                    <div>Identified by (Name) : ________________________________</div>
+                    <div>Age : ______ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Sex : ______</div>
+                </div>
+                <div style="margin-top: 2px;">Relation (if any) : ________________________ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Address & Contact number : ____________________________________</div>
+                <div style="display:flex; justify-content:space-between; margin-top: 2px;">
+                    <div>Signature of a person attesting thumb impression</div>
+                    <div>Date : ______________</div>
+                </div>
             </div>
+
             <div style="border-top: 1px solid #000; padding-top: 4px; margin-top: 6px;">
-                <div style="text-align: center; font-weight: bold; font-size: 8.2pt; margin-bottom: 4px;">DECLARATION OF THE DOCTOR CONDUCTING PRENATAL DIAGNOSTIC TEST / PROCEDURE</div>
+                <div style="text-align: center; font-weight: bold; font-size: 8.2pt; margin-bottom: 4px;">
+                    DECLARATION OF THE DOCTOR / PERSON CONDUCTING PRENATAL DIAGNOSTIC TEST / PROCEDURE
+                </div>
                 <p style="font-size: 7.6pt; line-height: 1.3; margin-bottom: 18px;">
                     I, <strong id="docDeclDoctor">Dr NIKUNJ KOTHIA</strong> <span id="docDeclDocReg">2009/09/3218</span> declare that by conducting ultrasonography/image scanning I have neither detected nor disclosed the sex of her foetus to anybody in any manner.
                 </p>
-                <div style="text-align: right; font-size: 7.6pt;"><strong>Dr NIKUNJ KOTHIA 2009/09/3218</strong><br><span style="font-size:6.8pt;">Consultant Radiologist</span></div>
+                <div style="text-align: right; font-size: 7.6pt;">
+                    <strong>Dr NIKUNJ KOTHIA 2009/09/3218</strong><br>
+                    <span style="font-size: 6.8pt;">Name, Registration number with seal of the Gynaecologist / Radiologist / Reg Medical Practitioner conducting Diagnostic procedure</span>
+                </div>
             </div>
-            <div style="border-top: 1px solid #000; padding-top: 4px; margin-top: 8px; font-size: 7.4pt;">
+
+            <div style="border-top: 1px solid #000; padding-top: 4px; margin-top: 8px; font-size: 7.4pt; line-height: 1.3;">
                 I declare that I have received a copy of the declaration from <strong id="docAckClinic">RESQ HEART CLINIC AND IMAGING CENTRE Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL. Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.</strong>
             </div>
         </div>
     </div>
 
-    <!-- CLIENT SCRIPT -->
+    <!-- SCRIPT -->
     <script>
         let testsList = [], doctorsList = [], centresList = [], selectedBillTests = [];
         let activeCentre = null, currentSelectedTemplate = null, currentSelectedVisit = null, dropdownPatientsList = [];
@@ -668,6 +904,7 @@
             isSuperAdmin = json.isMaster;
             const selectedObj = centresList.find(c => String(c.id) === String(json.centreId || centreId));
             if (selectedObj) setActiveCentreObject(selectedObj);
+
             document.getElementById('appLockScreen').style.display = 'none';
             refreshAllCentreData();
         }
@@ -682,25 +919,42 @@
 
         async function switchCentre(targetCentreId) {
             if (!targetCentreId) return;
+            if (activeCentre && String(activeCentre.id) === String(targetCentreId)) return;
+
             const targetObj = centresList.find(c => String(c.id) === String(targetCentreId));
             const targetName = targetObj ? targetObj.centre_name : 'Selected Centre';
+
             if (isSuperAdmin) {
                 setActiveCentreObject(targetObj);
                 refreshAllCentreData();
                 return;
             }
-            const enteredPass = prompt(`🔒 Enter PIN for "${targetName}":`, '1234');
-            if (!enteredPass) return;
-            const res = await fetch('/api/auth/verify-centre', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ centreId: targetCentreId, password: enteredPass })
-            });
-            const json = await res.json();
-            if (json.success) {
-                setActiveCentreObject(targetObj);
-                refreshAllCentreData();
-            } else { alert('Access Denied'); }
+
+            const enteredPass = prompt(`🔒 Enter branch PIN/Password for "${targetName}" (default: 1234):`, '1234');
+            if (!enteredPass) {
+                if (activeCentre) document.getElementById('activeCentreSelector').value = String(activeCentre.id);
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/auth/verify-centre', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ centreId: targetCentreId, password: enteredPass })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    setActiveCentreObject(targetObj);
+                    refreshAllCentreData();
+                    alert(`Switched workspace to: ${targetName}`);
+                } else {
+                    alert('Access Denied: ' + (json.error || 'Incorrect password for this branch.'));
+                    if (activeCentre) document.getElementById('activeCentreSelector').value = String(activeCentre.id);
+                }
+            } catch (e) {
+                alert('Error switching centre.');
+                if (activeCentre) document.getElementById('activeCentreSelector').value = String(activeCentre.id);
+            }
         }
 
         function openTab(tabId, btn) {
@@ -716,39 +970,49 @@
             if (tabId === 'tab-patients') loadPatientsDirectory();
         }
 
+        /* ADMIN MODAL LOGIC */
         function openAdminModal() {
             document.getElementById('adminModal').style.display = 'flex';
             document.getElementById('adminAuthSection').style.display = 'block';
             document.getElementById('adminPanelSection').style.display = 'none';
             document.getElementById('adminPasswordInput').value = '';
         }
+
         function closeAdminModal() { document.getElementById('adminModal').style.display = 'none'; }
 
         async function verifyAdmin() {
             const password = document.getElementById('adminPasswordInput').value.trim();
-            const res = await fetch('/api/auth/verify', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ password }) 
-            });
-            const json = await res.json();
-            if (json.success) {
-                document.getElementById('adminAuthSection').style.display = 'none';
-                document.getElementById('adminPanelSection').style.display = 'block';
-                renderAdminCentres();
-            } else { alert('Incorrect Admin Password'); }
+            if (!password) return alert('Please enter Master Admin Password.');
+
+            try {
+                const res = await fetch('/api/auth/verify', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ password }) 
+                });
+                const json = await res.json();
+                if (json.success) {
+                    document.getElementById('adminAuthSection').style.display = 'none';
+                    document.getElementById('adminPanelSection').style.display = 'block';
+                    renderAdminCentres();
+                } else { 
+                    alert('Incorrect Master Admin Password (default: admin123).'); 
+                }
+            } catch (err) { alert('Connection error verifying password.'); }
         }
 
         async function changeMasterAdminPassword() {
             const currentPassword = document.getElementById('curAdminPass').value.trim();
             const newPassword = document.getElementById('newAdminPass').value.trim();
+            if (!currentPassword || !newPassword) return alert('Enter both current and new passwords.');
+
             const res = await apiFetch('/api/auth/change-admin-password', {
                 method: 'POST',
                 body: JSON.stringify({ currentPassword, newPassword })
             });
             const json = await res.json();
             if (json.success) {
-                alert('Password updated!');
+                alert('Master Admin Password updated successfully!');
                 document.getElementById('curAdminPass').value = '';
                 document.getElementById('newAdminPass').value = '';
             } else { alert('Error: ' + json.error); }
@@ -758,15 +1022,88 @@
             const tbody = document.getElementById('adminCentresListBody');
             tbody.innerHTML = '';
             centresList.forEach(c => {
-                tbody.innerHTML += `<tr><td><strong>${escapeHtml(c.centre_name)}</strong></td><td>${c.phone || '-'} | Reg: ${c.reg_no || 'RC197'}</td><td><code>${c.centre_password || '1234'}</code></td><td><button type="button" class="btn-act btn-act-del" onclick="deleteCentre('${c.id}')">✕ Delete</button></td></tr>`;
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${escapeHtml(c.centre_name)}</strong><br><small style="color:#64748b;">${escapeHtml(c.address || '')}</small></td>
+                        <td>${c.phone || '-'} | Reg: ${c.reg_no || 'RC197'}</td>
+                        <td><code style="background:#f1f5f9; padding:2px 6px; border-radius:3px; font-weight:bold;">${c.centre_password || '1234'}</code></td>
+                        <td>
+                            <button type="button" class="btn-act btn-act-edit" onclick="startEditCentre('${c.id}')">✏️ Edit</button>
+                            <button type="button" class="btn-act btn-act-del" onclick="deleteCentre('${c.id}')">✕ Delete</button>
+                        </td>
+                    </tr>
+                `;
             });
         }
 
+        function startEditCentre(id) {
+            const c = centresList.find(x => String(x.id) === String(id));
+            if (!c) return;
+
+            document.getElementById('cEditId').value = String(c.id);
+            document.getElementById('cNameInput').value = c.centre_name || '';
+            document.getElementById('cTaglineInput').value = c.tagline || '';
+            document.getElementById('cAddressInput').value = c.address || '';
+            document.getElementById('cPhoneInput').value = c.phone || '';
+            document.getElementById('cEmailInput').value = c.email || '';
+            document.getElementById('cRegInput').value = c.reg_no || 'RC197';
+            document.getElementById('cPasswordInput').value = c.centre_password || '1234';
+
+            document.getElementById('centreFormTitle').textContent = 'Edit Centre Profile & Password';
+            document.getElementById('btnSaveCentre').textContent = 'Update Centre Profile';
+            document.getElementById('btnCancelCentreEdit').style.display = 'inline-block';
+        }
+
+        function cancelCentreEdit() {
+            document.getElementById('cEditId').value = '';
+            document.getElementById('cNameInput').value = '';
+            document.getElementById('cTaglineInput').value = '';
+            document.getElementById('cAddressInput').value = '';
+            document.getElementById('cPhoneInput').value = '';
+            document.getElementById('cEmailInput').value = '';
+            document.getElementById('cRegInput').value = 'RC197';
+            document.getElementById('cPasswordInput').value = '1234';
+
+            document.getElementById('centreFormTitle').textContent = 'Add New Branch Profile';
+            document.getElementById('btnSaveCentre').textContent = 'Save Centre Profile';
+            document.getElementById('btnCancelCentreEdit').style.display = 'none';
+        }
+
+        async function saveCentre() {
+            const editId = document.getElementById('cEditId').value.trim();
+            const payload = {
+                centre_name: document.getElementById('cNameInput').value.trim(),
+                tagline: document.getElementById('cTaglineInput').value.trim(),
+                address: document.getElementById('cAddressInput').value.trim(),
+                phone: document.getElementById('cPhoneInput').value.trim(),
+                email: document.getElementById('cEmailInput').value.trim(),
+                reg_no: document.getElementById('cRegInput').value.trim() || 'RC197',
+                centre_password: document.getElementById('cPasswordInput').value.trim() || '1234'
+            };
+
+            if (!payload.centre_name) return alert('Centre name is required.');
+            const url = editId ? `/api/centres/${editId}` : '/api/centres';
+            const method = editId ? 'PUT' : 'POST';
+
+            const res = await apiFetch(url, { method, body: JSON.stringify(payload) });
+            const json = await res.json();
+            if (json.success) {
+                alert(editId ? 'Centre profile & PIN updated!' : 'New centre profile added!');
+                cancelCentreEdit();
+                await loadCentres();
+                renderAdminCentres();
+            } else { alert('Error saving centre: ' + json.error); }
+        }
+
         async function deleteCentre(id) {
-            if (!confirm('Delete centre?')) return;
-            await apiFetch(`/api/centres/${id}`, { method: 'DELETE' });
-            await loadCentres();
-            renderAdminCentres();
+            if (!confirm('Are you sure you want to delete this clinic centre profile?')) return;
+            const res = await apiFetch(`/api/centres/${id}`, { method: 'DELETE' });
+            const json = await res.json();
+            if (json.success) {
+                alert('Centre deleted.');
+                await loadCentres();
+                renderAdminCentres();
+            } else { alert('Error: ' + json.error); }
         }
 
         function togglePCPNDT(show) { document.getElementById('pcpndtFields').style.display = show ? 'block' : 'none'; }
@@ -778,23 +1115,32 @@
 
         async function lookupPatient() {
             const q = document.getElementById('lookupSearch').value.trim();
-            if (!q) return alert('Enter name or phone to search.');
-            const res = await apiFetch(`/api/patients?search=${encodeURIComponent(q)}`);
-            const json = await res.json();
-            if (json.success && json.data.length > 0) {
-                const p = json.data[0];
-                document.getElementById('existingPatientId').value = String(p.id);
-                document.getElementById('patientCode').value = p.patient_code || '';
-                document.getElementById('patientFullName').value = p.full_name || '';
-                document.getElementById('patientAge').value = p.age || '';
-                document.getElementById('patientGender').value = p.gender || 'Female';
-                document.getElementById('patientMobile').value = p.phone || '';
-                document.getElementById('patientEmail').value = p.email || '';
-                document.getElementById('patientAddress').value = p.address || '';
-                const banner = document.getElementById('loadedPatientBanner');
-                document.getElementById('loadedPatientTitle').textContent = `[${p.patient_code || 'ID'}] ${p.full_name} (${p.phone || ''})`;
-                banner.style.display = 'flex';
-            } else { alert('No patient found in this branch.'); }
+            if (!q) return alert('Enter name, phone, or ID to search.');
+            try {
+                const res = await apiFetch(`/api/patients?search=${encodeURIComponent(q)}`);
+                const json = await res.json();
+                if (json.success && json.data.length > 0) {
+                    const p = json.data[0];
+                    document.getElementById('existingPatientId').value = String(p.id);
+                    document.getElementById('patientCode').value = p.patient_code || '';
+                    document.getElementById('patientFullName').value = p.full_name || '';
+                    document.getElementById('patientAge').value = p.age || '';
+                    document.getElementById('patientGender').value = p.gender || 'Female';
+                    document.getElementById('patientMobile').value = p.phone || '';
+                    document.getElementById('patientEmail').value = p.email || '';
+                    document.getElementById('patientAddress').value = p.address || '';
+
+                    const banner = document.getElementById('loadedPatientBanner');
+                    const title = document.getElementById('loadedPatientTitle');
+                    if (banner && title) {
+                        title.textContent = `[${p.patient_code || 'ID'}] ${p.full_name} (${p.phone || 'No Mobile'})`;
+                        banner.style.display = 'flex';
+                    }
+                    alert(`Loaded patient: ${p.full_name}`);
+                } else {
+                    alert('No existing patient record found in this branch.');
+                }
+            } catch (e) { alert('Error looking up patient.'); }
         }
 
         function clearPatientRegistrationForm() {
@@ -810,54 +1156,19 @@
 
         async function deleteLoadedPatientRecord() {
             const id = document.getElementById('existingPatientId').value;
-            if (!id || !confirm('Permanently delete this patient and all bills/records?')) return;
+            if (!id) return alert('No patient currently loaded.');
+            if (!confirm('Are you sure you want to permanently delete this patient and all their medical bills/history?')) return;
+
             const res = await apiFetch(`/api/patients/${id}`, { method: 'DELETE' });
             const json = await res.json();
             if (json.success) {
-                alert('Deleted successfully.');
+                alert(json.message);
                 clearPatientRegistrationForm();
-                refreshAllCentreData();
+                loadPatientsDirectory();
+                loadReports();
             } else { alert('Error: ' + json.error); }
         }
 
-        /* SEARCH & AUTO-ADD DOCTOR IN REGISTRATION */
-        function onFilterDoctorSelect(query) {
-            const q = (query || '').toLowerCase().trim();
-            const sel = document.getElementById('referringDoctorSelect');
-            sel.innerHTML = '<option value="">Select Doctor (or Direct OPD)</option>';
-            const matches = doctorsList.filter(d => d.doctor_name.toLowerCase().includes(q) || (d.hospital_clinic_name || '').toLowerCase().includes(q));
-            matches.forEach(d => {
-                sel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
-            });
-            if (matches.length === 1 && q.length > 2) {
-                sel.value = String(matches[0].id);
-                calculateFinancialTotals();
-            }
-        }
-
-        function onDoctorDropdownChanged(val) {
-            const doc = doctorsList.find(d => String(d.id) === String(val));
-            if (doc) document.getElementById('docSearchQuickInput').value = doc.doctor_name;
-            calculateFinancialTotals();
-        }
-
-        async function quickAddNewDoctor() {
-            const name = document.getElementById('docSearchQuickInput').value.trim();
-            if (!name) return alert('Enter doctor name to add.');
-            const res = await apiFetch('/api/doctors', {
-                method: 'POST',
-                body: JSON.stringify({ doctorName: name, hospitalClinicName: '', commissionType: 'percentage', commissionValue: 30 })
-            });
-            const json = await res.json();
-            if (json.success) {
-                await loadDoctors();
-                document.getElementById('referringDoctorSelect').value = String(json.data.id);
-                alert(`Doctor "${name}" added and selected!`);
-                calculateFinancialTotals();
-            }
-        }
-
-        /* INVESTIGATIONS & DOCTOR CUT (30% of 1500 = 450) */
         function onLiveTestSearchInput(query) {
             const box = document.getElementById('liveSearchResultsBox');
             const q = (query || '').toLowerCase().trim();
@@ -867,19 +1178,9 @@
             matches.forEach(t => {
                 const item = document.createElement('div');
                 item.className = 'live-search-item';
-                item.innerHTML = `<div><strong>${escapeHtml(t.test_name)}</strong> <span style="font-size:0.75rem; color:#64748b;">${t.category}</span></div><div style="font-weight:bold; color:#1e3a8a;">₹${t.price}</div>`;
+                item.innerHTML = `<div><strong>${escapeHtml(t.test_name)}</strong> <span class="badge-cat">${t.category}</span></div><div style="font-weight:bold; color:#1e3a8a;">₹${t.price}</div>`;
                 item.onclick = () => {
-                    const price = parseFloat(t.price) || 0;
-                    let cut = 0;
-                    const testName = (t.test_name || '').toLowerCase();
-                    const cat = (t.category || '').toLowerCase();
-                    if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || cat === 'imaging' || cat === 'obstetrics' || t.cut_type === 'percentage') {
-                        const pct = parseFloat(t.test_cut) > 0 ? parseFloat(t.test_cut) : 30;
-                        cut = (price * pct) / 100; // 30% of 1500 = 450
-                    } else {
-                        cut = parseFloat(t.test_cut) || 0;
-                    }
-                    selectedBillTests.push({ ...t, calculated_cut: cut });
+                    selectedBillTests.push({ ...t });
                     renderSelectedTests();
                     document.getElementById('liveTestInput').value = '';
                     box.style.display = 'none';
@@ -893,30 +1194,18 @@
             const tbody = document.querySelector('#billItemsTable tbody');
             tbody.innerHTML = '';
             if (!selectedBillTests.length) {
-                tbody.innerHTML = `<tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected.</td></tr>`;
+                tbody.innerHTML = `<tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected yet.</td></tr>`;
             } else {
                 selectedBillTests.forEach((t, idx) => {
                     tbody.innerHTML += `
                         <tr>
                             <td><strong>${escapeHtml(t.test_name)}</strong></td>
-                            <td>${t.category}</td>
-                            <td><input type="number" value="${t.price}" oninput="updateTestPrice(${idx}, this.value)" style="width:110px; padding:4px; font-weight:bold;"></td>
+                            <td><span class="badge-cat">${t.category}</span></td>
+                            <td><input type="number" value="${t.price}" oninput="selectedBillTests[${idx}].price = parseFloat(this.value)||0; calculateFinancialTotals();" style="width:110px; padding:4px; font-weight:bold;"></td>
                             <td><button type="button" class="btn-act btn-act-del" onclick="selectedBillTests.splice(${idx},1);renderSelectedTests();">✕ Remove</button></td>
                         </tr>
                     `;
                 });
-            }
-            calculateFinancialTotals();
-        }
-
-        function updateTestPrice(idx, newPrice) {
-            const p = parseFloat(newPrice) || 0;
-            selectedBillTests[idx].price = p;
-            // Recalculate 30% cut on updated price
-            const testName = (selectedBillTests[idx].test_name || '').toLowerCase();
-            if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || selectedBillTests[idx].cut_type === 'percentage') {
-                const pct = parseFloat(selectedBillTests[idx].test_cut) > 0 ? parseFloat(selectedBillTests[idx].test_cut) : 30;
-                selectedBillTests[idx].calculated_cut = (p * pct) / 100;
             }
             calculateFinancialTotals();
         }
@@ -927,12 +1216,6 @@
             const net = Math.max(0, gross - discount);
             const paid = parseFloat(document.getElementById('inputPaid').value) || 0;
             const bal = Math.max(0, net - paid);
-
-            // Raw Cuts Sum
-            const rawCutSum = selectedBillTests.reduce((acc, t) => acc + (parseFloat(t.calculated_cut) || 0), 0);
-            // Subtract discount from final cut
-            const netCut = Math.max(0, rawCutSum - discount);
-            document.getElementById('manualDocCut').value = netCut.toFixed(2);
 
             document.getElementById('dispGross').textContent = `₹${gross.toFixed(2)}`;
             document.getElementById('dispDiscount').textContent = `- ₹${discount.toFixed(2)}`;
@@ -979,10 +1262,11 @@
             const res = await apiFetch('/api/register-visit', { method: 'POST', body: formData });
             const json = await res.json();
             if (json.success) {
-                alert(`Saved! Invoice: ${json.data.invoiceNumber}`);
+                alert(`Patient Saved! Invoice: ${json.data.invoiceNumber}`);
+                const vId = json.data.visitId;
                 if (printInv) {
-                    printSingleInvoice(json.data.visitId);
-                    if (isPcpndt) printPCPNDTForm(json.data.visitId);
+                    printSingleInvoice(vId);
+                    if (isPcpndt) printPCPNDTForm(vId);
                 }
                 selectedBillTests = [];
                 renderSelectedTests();
@@ -1025,49 +1309,69 @@
         }
 
         async function printPCPNDTForm(visitId) {
-            const res = await apiFetch(`/api/invoice/${visitId}`);
-            const json = await res.json();
-            if (!json.success || !json.data.pcpndtForm) return alert('No PCPNDT Form F record for this visit.');
+            try {
+                const res = await apiFetch(`/api/invoice/${visitId}`);
+                const json = await res.json();
+                if (!json.success || !json.data.pcpndtForm) return alert('No statutory PCPNDT Form F record for this visit.');
 
-            const v = json.data.visitDetails;
-            const f = json.data.pcpndtForm;
-            const formattedDate = new Date(f.created_at || v.created_at || Date.now()).toLocaleDateString('en-GB');
+                const v = json.data.visitDetails;
+                const f = json.data.pcpndtForm;
+                const formattedDate = new Date(f.created_at || v.created_at || Date.now()).toLocaleDateString('en-GB');
 
-            document.getElementById('docClinicName').textContent = `${v.centre_name} ${v.centre_address || ''}`;
-            document.getElementById('docClinicReg').textContent = f.clinic_reg_no || v.centre_reg_no || 'RC197';
-            document.getElementById('docPatName').textContent = v.full_name;
-            document.getElementById('docPatAge').textContent = v.age || '0';
-            document.getElementById('docMaleKids').textContent = f.no_of_sons || '0';
-            document.getElementById('docFemaleKids').textContent = f.no_of_daughters || '0';
-            document.getElementById('docSonsDetail').textContent = `${f.no_of_sons || 0} Son(s) - Age: ${f.sons_age || 'None'}`;
-            document.getElementById('docDaughtersDetail').textContent = `${f.no_of_daughters || 0} Daughter(s) - Age: ${f.daughters_age || 'None'}`;
-            document.getElementById('docRelativeName').textContent = f.relative_name || '-';
-            document.getElementById('docPatAddress').textContent = `${v.address || 'Kandivali West, Mumbai'} ${v.phone ? 'Tel: ' + v.phone : ''}`;
-            document.getElementById('docRefDoc').textContent = v.doctor_name && !v.doctor_name.toLowerCase().includes('self') ? v.doctor_name : 'Direct OPD';
-            document.getElementById('docLmp').textContent = f.lmp_date || 'N/A';
-            document.getElementById('docWeeks').textContent = f.weeks_of_preg || 'N/A';
-            document.getElementById('docDoctorName').textContent = f.doctor_name || 'Dr NIKUNJ KOTHIA';
-            document.getElementById('docDeclDate').textContent = formattedDate;
-            document.getElementById('docProcDate').textContent = formattedDate;
-            document.getElementById('docProcResult').textContent = f.scan_result || 'Single live intrauterine gestation with regular cardiac activity.';
-            document.getElementById('docConveyDate').textContent = formattedDate;
-            document.getElementById('docSignDate').textContent = formattedDate;
-            document.getElementById('docSignDocName').textContent = f.doctor_name || 'Dr NIKUNJ KOTHIA';
-            document.getElementById('docSignDocReg').textContent = f.doctor_reg_no || '2009/09/3218';
-            document.getElementById('docDeclDoctor').textContent = f.doctor_name || 'Dr NIKUNJ KOTHIA';
-            document.getElementById('docDeclDocReg').textContent = f.doctor_reg_no || '2009/09/3218';
-            document.getElementById('docAckClinic').textContent = `${v.centre_name} ${v.centre_address || ''}`;
+                document.getElementById('docClinicName').textContent = `${v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE'} ${v.centre_address || 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West'}`;
+                document.getElementById('docClinicReg').textContent = f.clinic_reg_no || v.centre_reg_no || 'RC197';
+                document.getElementById('docPatName').textContent = v.full_name || 'PATIENT NAME';
+                document.getElementById('docPatAge').textContent = v.age || '0';
+                document.getElementById('docMaleKids').textContent = f.no_of_sons || '0';
+                document.getElementById('docFemaleKids').textContent = f.no_of_daughters || '0';
+                document.getElementById('docSonsDetail').textContent = `${f.no_of_sons || 0} Son(s) - Age: ${f.sons_age || 'None'}`;
+                document.getElementById('docDaughtersDetail').textContent = `${f.no_of_daughters || 0} Daughter(s) - Age: ${f.daughters_age || 'None'}`;
+                document.getElementById('docRelativeName').textContent = f.relative_name || '-';
+                document.getElementById('docPatAddress').textContent = `${v.address || 'Kandivali West, Mumbai'} ${v.phone ? 'Tel: ' + v.phone : ''}`;
 
-            const printEl = document.getElementById('exactPcpndtDoc');
-            printEl.classList.add('print-active');
-            window.print();
-            printEl.classList.remove('print-active');
+                if (v.doctor_name && !v.doctor_name.toLowerCase().includes('self') && !v.doctor_name.toLowerCase().includes('direct')) {
+                    document.getElementById('docRefDoc').textContent = v.doctor_name;
+                    document.getElementById('docSelfRef').textContent = 'NO';
+                } else {
+                    document.getElementById('docRefDoc').textContent = 'Self / Direct OPD';
+                    document.getElementById('docSelfRef').textContent = 'YES';
+                }
+
+                document.getElementById('docLmp').textContent = f.lmp_date || 'N/A';
+                document.getElementById('docWeeks').textContent = f.weeks_of_preg || 'N/A';
+
+                const docName = f.doctor_name || 'Dr NIKUNJ KOTHIA';
+                const docReg = f.doctor_reg_no || '2009/09/3218';
+
+                document.getElementById('docDoctorName').textContent = docName;
+                document.getElementById('docActiveIndication').textContent = f.indications || 'Routine Antenatal Anomaly Evaluation';
+                document.getElementById('docDeclDate').textContent = formattedDate;
+                document.getElementById('docProcDate').textContent = formattedDate;
+                document.getElementById('docProcResult').textContent = f.scan_result || 'Single live intrauterine gestation with regular cardiac activity.';
+                document.getElementById('docConveyDate').textContent = formattedDate;
+                document.getElementById('docSignDate').textContent = formattedDate;
+
+                document.getElementById('docSignDocName').textContent = docName;
+                document.getElementById('docSignDocReg').textContent = docReg;
+
+                document.getElementById('docDeclDoctor').textContent = docName;
+                document.getElementById('docDeclDocReg').textContent = docReg;
+                document.getElementById('docAckClinic').textContent = `${v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE'} ${v.centre_address || 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL. Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.'}`;
+
+                const printEl = document.getElementById('exactPcpndtDoc');
+                printEl.classList.add('print-active');
+                window.print();
+                printEl.classList.remove('print-active');
+            } catch (e) { 
+                alert('Error preparing statutory Form F for printing.'); 
+            }
         }
 
         function shareWhatsAppInvoice(phone, patName, invNo, net, bal, centreName) {
-            if (!phone) return alert('Mobile number missing.');
-            const num = phone.replace(/[^0-9]/g, '').length === 10 ? `91${phone.replace(/[^0-9]/g, '')}` : phone.replace(/[^0-9]/g, '');
-            const msg = `Dear ${patName},\nThank you for visiting ${centreName || 'RESQ Diagnostics'}.\n\nInvoice No: ${invNo}\nNet: ₹${net}\nBalance: ₹${bal}`;
+            if (!phone) return alert('Patient mobile number is missing.');
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            const num = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+            const msg = `Dear ${patName},\nThank you for visiting ${centreName || 'RESQ Diagnostics'}.\n\nInvoice No: ${invNo}\nNet Bill: ₹${net}\nBalance: ₹${bal}`;
             window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
@@ -1087,14 +1391,14 @@
                         <td>${new Date(v.created_at).toLocaleDateString('en-GB')}</td>
                         <td>${escapeHtml(v.centre_name || '')}</td>
                         <td><strong>${escapeHtml(v.full_name)}</strong></td>
-                        <td>${v.categories}</td>
+                        <td><span class="badge-cat">${v.categories}</span></td>
                         <td>₹${parseFloat(v.total_amount).toFixed(2)}</td>
                         <td>₹${parseFloat(v.paid_amount).toFixed(2)}</td>
                         <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
-                        <td>${v.payment_status === 'Paid' ? '<span style="color:#2e7d32;font-weight:bold;">Paid</span>' : '<span style="color:#c62828;font-weight:bold;">Pending</span>'}</td>
+                        <td>${v.payment_status === 'Paid' ? '<span class="badge-paid">Paid</span>' : '<span class="badge-pending">Pending</span>'}</td>
                         <td>
                             <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${v.visit_id}')">🖨️ Bill</button>
-                            <button type="button" class="btn-act btn-act-wa" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}')">📱 WA</button>
+                            <button type="button" class="btn-act btn-act-wa" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}')">📱 WhatsApp</button>
                             ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.visit_id}')">📝 Form F</button>` : ''}
                             <button type="button" class="btn-act btn-act-edit" onclick="openEditBillModal('${v.visit_id}')">✏️ Edit Bill</button>
                             <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.visit_id}')">✕ Delete</button>
@@ -1135,7 +1439,7 @@
             matches.forEach(t => {
                 const item = document.createElement('div');
                 item.className = 'live-search-item';
-                item.innerHTML = `<div><strong>${escapeHtml(t.test_name)}</strong></div><div>₹${t.price}</div>`;
+                item.innerHTML = `<div><strong>${escapeHtml(t.test_name)}</strong> <span class="badge-cat">${t.category}</span></div><div style="font-weight:bold; color:#1e3a8a;">₹${t.price}</div>`;
                 item.onclick = () => {
                     activeEditingBillTests.push({ id: t.id, test_name: t.test_name, category: t.category, price: parseFloat(t.price) || 0, cut_type: t.cut_type, test_cut: t.test_cut });
                     renderEditBillItems();
@@ -1154,7 +1458,7 @@
                 tbody.innerHTML += `
                     <tr>
                         <td><strong>${escapeHtml(t.test_name)}</strong></td>
-                        <td>${t.category}</td>
+                        <td><span class="badge-cat">${t.category}</span></td>
                         <td><input type="number" value="${t.price}" oninput="activeEditingBillTests[${idx}].price = parseFloat(this.value)||0; recalcEditBillTotals();" style="width:110px; padding:4px;"></td>
                         <td><button type="button" class="btn-act btn-act-del" onclick="activeEditingBillTests.splice(${idx},1); renderEditBillItems();">✕ Remove</button></td>
                     </tr>
@@ -1180,22 +1484,25 @@
 
         async function submitFullEditBill() {
             const visitId = document.getElementById('editBillRowId').value;
-            const res = await apiFetch(`/api/visits/${visitId}`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    referringDoctorId: document.getElementById('editBillDocSelect').value,
-                    tests: activeEditingBillTests,
-                    concession: parseFloat(document.getElementById('editBillDisc').value) || 0,
-                    paidAmount: parseFloat(document.getElementById('editBillPaid').value) || 0,
-                    paymentMode: document.getElementById('editBillPaymentMode').value
-                })
-            });
+            const disc = parseFloat(document.getElementById('editBillDisc').value) || 0;
+            const paid = parseFloat(document.getElementById('editBillPaid').value) || 0;
+
+            const payload = {
+                referringDoctorId: document.getElementById('editBillDocSelect').value,
+                tests: activeEditingBillTests,
+                concession: disc,
+                paidAmount: paid,
+                paymentMode: document.getElementById('editBillPaymentMode').value
+            };
+
+            const res = await apiFetch(`/api/visits/${visitId}`, { method: 'PUT', body: JSON.stringify(payload) });
             const json = await res.json();
             if (json.success) {
-                alert('Bill updated!');
+                alert('Bill updated successfully!');
                 closeEditBillModal();
                 loadReports();
-            } else { alert('Error: ' + json.error); }
+                loadPatientsDirectory();
+            } else { alert('Error updating bill: ' + json.error); }
         }
 
         async function deleteBill(visitId) {
@@ -1206,32 +1513,34 @@
         }
 
         async function loadPcpndtRegister() {
-            const res = await apiFetch('/api/pcpndt');
-            const json = await res.json();
-            const records = json.data || [];
-            const tbody = document.getElementById('pcpndtRegisterTableBody');
-            tbody.innerHTML = '';
-            records.forEach(f => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${new Date(f.form_date || f.created_at).toLocaleDateString('en-GB')}</td>
-                        <td><strong>${f.invoice_number || '-'}</strong></td>
-                        <td><strong>${escapeHtml(f.patient_name)}</strong> (${f.patient_age || '-'} Yrs)</td>
-                        <td>${escapeHtml(f.relative_name || '-')}</td>
-                        <td>${f.lmp_date || '-'} (${f.weeks_of_preg || '-'})</td>
-                        <td>${f.no_of_sons || 0}M / ${f.no_of_daughters || 0}F</td>
-                        <td>${escapeHtml(f.doctor_name)}</td>
-                        <td>
-                            <button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${f.visit_id}')">🖨️ Form F</button>
-                            <button type="button" class="btn-act btn-act-del" onclick="deleteStandalonePcpndtForm('${f.id}')">✕ Delete</button>
-                        </td>
-                    </tr>
-                `;
-            });
+            try {
+                const res = await apiFetch('/api/pcpndt');
+                const json = await res.json();
+                const records = json.data || [];
+                const tbody = document.getElementById('pcpndtRegisterTableBody');
+                tbody.innerHTML = '';
+                records.forEach(f => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${new Date(f.form_date || f.created_at).toLocaleDateString('en-GB')}</td>
+                            <td><strong>${f.invoice_number || '-'}</strong></td>
+                            <td><strong>${escapeHtml(f.patient_name)}</strong> (${f.patient_age || '-'} Yrs)</td>
+                            <td>${escapeHtml(f.relative_name || '-')}</td>
+                            <td>${f.lmp_date || '-'} (${f.weeks_of_preg || '-'})</td>
+                            <td>${f.no_of_sons || 0}M / ${f.no_of_daughters || 0}F</td>
+                            <td>${escapeHtml(f.doctor_name)}</td>
+                            <td>
+                                <button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${f.visit_id}')">🖨️ Form F</button>
+                                <button type="button" class="btn-act btn-act-del" onclick="deleteStandalonePcpndtForm('${f.id}')">✕ Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) {}
         }
 
         async function deleteStandalonePcpndtForm(id) {
-            if (!confirm('Delete statutory record?')) return;
+            if (!confirm('Delete this statutory PCPNDT record?')) return;
             await apiFetch(`/api/pcpndt/${id}`, { method: 'DELETE' });
             loadPcpndtRegister();
         }
@@ -1261,48 +1570,22 @@
             });
         }
 
-        /* FIXED: FULL PATIENT BILLS HISTORY RENDERING IN MODAL */
-        async function openPatientBillsModal(patientId, name) {
-            document.getElementById('patientBillsTitle').textContent = `Bills History: ${name}`;
-            const res = await apiFetch(`/api/patients/${patientId}/visits`);
-            const json = await res.json();
-            const visits = json.data || [];
-            const tbody = document.getElementById('patientBillsTableBody');
-            tbody.innerHTML = '';
-            if (!visits.length) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:12px; color:#888;">No bills found for this patient.</td></tr>';
-            } else {
-                visits.forEach(v => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><strong>${v.invoice_number}</strong></td>
-                            <td>${new Date(v.created_at).toLocaleDateString('en-GB')}</td>
-                            <td>${escapeHtml(v.centre_name || 'Active Centre')}</td>
-                            <td>₹${parseFloat(v.total_amount).toFixed(2)}</td>
-                            <td>₹${parseFloat(v.paid_amount).toFixed(2)}</td>
-                            <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
-                            <td>
-                                <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${v.id}')">🖨️ Bill</button>
-                                ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.id}')">📝 Form F</button>` : ''}
-                                <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.id}')">✕ Delete</button>
-                            </td>
-                        </tr>
-                    `;
-                });
-            }
-            document.getElementById('patientBillsModal').style.display = 'flex';
-        }
-
-        function closePatientBillsModal() { document.getElementById('patientBillsModal').style.display = 'none'; }
-
         async function deletePatientRecord(patientId) {
-            if (!confirm('Permanently delete this patient and all bills/records?')) return;
+            if (!confirm('Are you sure you want to permanently delete this patient and all their medical bills/history?')) return;
             const res = await apiFetch(`/api/patients/${patientId}`, { method: 'DELETE' });
             const json = await res.json();
             if (json.success) {
-                alert('Patient record deleted.');
+                alert(json.message);
                 loadPatientsDirectory();
+                loadImagingVisitsDropdown();
+                loadReports();
             } else { alert('Error: ' + json.error); }
+        }
+
+        async function openPatientBillsModal(patientId, name) {
+            const res = await apiFetch(`/api/patients/${patientId}/visits`);
+            const json = await res.json();
+            alert(`Viewing bills for ${name}. Total bills found: ${(json.data || []).length}`);
         }
 
         async function loadImagingVisitsDropdown() {
@@ -1336,7 +1619,7 @@
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'template-item-btn';
-                btn.innerHTML = `<strong>${escapeHtml(tmpl.title)}</strong><span style="font-size:0.75rem; color:#64748b;">${tmpl.category}</span>`;
+                btn.innerHTML = `<strong>${escapeHtml(tmpl.title)}</strong><span class="tmpl-cat">${tmpl.category}</span>`;
                 btn.onclick = () => {
                     currentSelectedTemplate = tmpl;
                     document.getElementById('liveReportTitle').value = tmpl.title;
@@ -1347,9 +1630,9 @@
             });
         }
 
-        /* SYSTEMATIC PATIENT DETAILS HEADER IN WORD .DOC */
+        // Systematic clinical details formatting in Microsoft Word .doc
         async function openReportInExternalWord() {
-            if (!currentSelectedVisit) return alert('Select patient first.');
+            if (!currentSelectedVisit) return alert('Please select a registered patient from the dropdown first.');
             const title = document.getElementById('liveReportTitle').value || 'DIAGNOSTIC REPORT';
             const text = document.getElementById('liveReportFindings').value || '';
             const impression = document.getElementById('liveReportImpression').value || '• NO SIGNIFICANT ABNORMALITY DETECTED.';
@@ -1364,20 +1647,30 @@
             const phone = currentSelectedVisit.phone || '-';
             const studyDate = new Date(currentSelectedVisit.created_at || Date.now()).toLocaleDateString('en-GB');
 
+            const centreName = activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
+            const centreTagline = activeCentre?.tagline || 'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging';
+            const centreAddress = activeCentre?.address || 'Kandivali West, Mumbai';
+            const centrePhone = activeCentre?.phone || '+91 8433838285';
+            const centreReg = activeCentre?.reg_no || 'RC197';
+
+            const topMargin = isPreprinted ? '45mm' : '15mm';
+
             const wordHTML = `
                 <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
                 <head>
                     <meta charset="utf-8">
                     <title>${title}</title>
                     <style>
-                        @page Section1 { size: 210mm 297mm; margin: ${isPreprinted ? '45mm' : '15mm'} 15mm 15mm 15mm; }
+                        @page Section1 { size: 210mm 297mm; margin: ${topMargin} 15mm 15mm 15mm; }
                         div.Section1 { page: Section1; }
                         body { font-family: 'Arial', sans-serif; font-size: 10pt; line-height: 1.35; color: #000; }
-                        .clinic-title { font-size: 15pt; font-weight: bold; color: #19486a; margin: 0; text-align: center; }
-                        .clinic-sub { font-size: 9pt; font-style: italic; margin: 2px 0; color: #333; text-align: center; }
+                        .header-banner { text-align: center; border-bottom: 2px solid #19486a; padding-bottom: 6px; margin-bottom: 12px; }
+                        .clinic-title { font-size: 15pt; font-weight: bold; color: #19486a; margin: 0; }
+                        .clinic-sub { font-size: 9pt; font-style: italic; margin: 2px 0; color: #333; }
+                        .clinic-meta { font-size: 8.5pt; margin: 2px 0; color: #444; }
                         .patient-box-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 9.5pt; border: 1.5px solid #000; }
                         .patient-box-table td { padding: 5px 8px; border: 1px solid #000; vertical-align: middle; }
-                        .report-heading { text-align: center; font-size: 11pt; font-weight: bold; color: #1a4b75; text-decoration: underline; margin: 12px 0 14px 0; text-transform: uppercase; }
+                        .report-heading { text-align: center; font-size: 11pt; font-weight: bold; color: #1a4b75; text-decoration: underline; margin: 12px 0 14px 0; text-transform: uppercase; letter-spacing: 0.3px; }
                         .report-body-text { font-family: 'Arial', sans-serif; font-size: 9.8pt; line-height: 1.45; white-space: pre-wrap; margin-bottom: 18px; min-height: 380px; }
                         .impression-block { border-top: 1.5px solid #000; padding-top: 6px; margin-top: 14px; font-size: 10pt; }
                         .sign-block { margin-top: 35px; width: 100%; border: none; }
@@ -1386,10 +1679,11 @@
                 <body>
                     <div class="Section1">
                         ${!isPreprinted ? `
-                            <div style="text-align: center; border-bottom: 2px solid #19486a; padding-bottom: 6px; margin-bottom: 12px;">
-                                <div class="clinic-title">${activeCentre.centre_name}</div>
-                                <div class="clinic-sub">${activeCentre.tagline || ''}</div>
-                                <div style="font-size: 8.5pt;">${activeCentre.address || ''}</div>
+                            <div class="header-banner">
+                                <div class="clinic-title">${centreName}</div>
+                                <div class="clinic-sub">${centreTagline}</div>
+                                <div class="clinic-meta">${centreAddress}</div>
+                                <div class="clinic-meta">Tel: ${centrePhone} | PCPNDT Reg: ${centreReg}</div>
                             </div>
                         ` : ''}
 
@@ -1415,7 +1709,7 @@
                             <tr>
                                 <td style="font-weight: bold;">CONTACT NO</td>
                                 <td>${phone}</td>
-                                <td style="font-weight: bold;">STUDY TYPE</td>
+                                <td style="font-weight: bold;">MODALITY</td>
                                 <td>${title}</td>
                             </tr>
                         </table>
@@ -1430,7 +1724,7 @@
 
                         <table class="sign-block">
                             <tr>
-                                <td style="font-size: 8.5pt; font-style: italic;">Electronically verified diagnostic imaging report.</td>
+                                <td style="font-size: 8.5pt; font-style: italic; vertical-align: bottom;">Electronically verified diagnostic report.</td>
                                 <td style="text-align: right; font-size: 9.5pt;">
                                     <strong>DR. NIKUNJ KOTHIA</strong><br>
                                     <span>Consultant Radiologist / Sonologist</span><br>
@@ -1482,7 +1776,7 @@
                 const cutDisplay = t.cut_type === 'percentage' ? `${t.test_cut}%` : `₹${parseFloat(t.test_cut).toFixed(2)}`;
                 tbody.innerHTML += `
                     <tr>
-                        <td><strong>${escapeHtml(t.test_name)}</strong><br><small>${t.category}</small></td>
+                        <td><strong>${escapeHtml(t.test_name)}</strong><br><small class="badge-cat">${t.category}</small></td>
                         <td>₹${parseFloat(t.price).toFixed(2)}</td>
                         <td>${cutDisplay}</td>
                         <td>
@@ -1501,8 +1795,8 @@
             document.getElementById('testNameInput').value = t.test_name;
             document.getElementById('testCatInput').value = t.category || 'Pathology';
             document.getElementById('testPriceInput').value = t.price || 0;
-            document.getElementById('testCutTypeInput').value = t.cut_type || 'percentage';
-            document.getElementById('testCutInput').value = t.test_cut || 30;
+            document.getElementById('testCutTypeInput').value = t.cut_type || 'fixed';
+            document.getElementById('testCutInput').value = t.test_cut || 0;
             document.getElementById('testFormTitle').textContent = 'Edit Test / Investigation';
             document.getElementById('btnSaveTest').textContent = 'Update Test';
             document.getElementById('btnCancelTestEdit').style.display = 'inline-block';
@@ -1512,7 +1806,7 @@
             document.getElementById('editTestId').value = '';
             document.getElementById('testNameInput').value = '';
             document.getElementById('testPriceInput').value = '0';
-            document.getElementById('testCutInput').value = '30';
+            document.getElementById('testCutInput').value = '0';
             document.getElementById('testFormTitle').textContent = 'Add / Edit Tests & Cuts';
             document.getElementById('btnSaveTest').textContent = 'Save Test';
             document.getElementById('btnCancelTestEdit').style.display = 'none';
@@ -1527,25 +1821,25 @@
                 cutType: document.getElementById('testCutTypeInput').value,
                 testCut: parseFloat(document.getElementById('testCutInput').value) || 0
             };
-            if (!payload.testName) return alert('Test name required.');
+            if (!payload.testName) return alert('Test name is required');
             const url = editId ? `/api/tests/${editId}` : '/api/tests';
             const method = editId ? 'PUT' : 'POST';
             const res = await apiFetch(url, { method, body: JSON.stringify(payload) });
             const json = await res.json();
             if (json.success) {
-                alert('Test saved!');
+                alert('Test saved successfully!');
                 cancelTestEdit();
                 loadTests();
             } else { alert('Error: ' + json.error); }
         }
 
         async function deleteTest(id) {
-            if (!confirm('Delete test?')) return;
+            if (!confirm('Permanently delete this test?')) return;
             await apiFetch(`/api/tests/${id}`, { method: 'DELETE' });
             loadTests();
         }
 
-        /* MASTER CRUD: DOCTORS (With Live Search & Edit) */
+        /* MASTER CRUD: DOCTORS (With Live Search, Quick Filter & Edit) */
         async function loadDoctors() {
             const res = await apiFetch('/api/doctors');
             const json = await res.json();
@@ -1572,12 +1866,22 @@
             }
         }
 
+        // Quick Doctor Filter on Registration Page
+        function onFilterDoctorSelect(query) {
+            const q = (query || '').toLowerCase().trim();
+            const filtered = doctorsList.filter(d => (d.doctor_name && d.doctor_name.toLowerCase().includes(q)) || (d.hospital_clinic_name && d.hospital_clinic_name.toLowerCase().includes(q)));
+            populateReferringDoctorDropdown(filtered);
+            if (filtered.length === 1) {
+                document.getElementById('referringDoctorSelect').value = String(filtered[0].id);
+            }
+        }
+
         function filterDoctorsList() {
             const q = (document.getElementById('doctorSearchInput')?.value || '').toLowerCase().trim();
             const tbody = document.getElementById('doctorsTableBody');
             if (!tbody) return;
             tbody.innerHTML = '';
-            const filtered = doctorsList.filter(d => d.doctor_name.toLowerCase().includes(q) || (d.hospital_clinic_name || '').toLowerCase().includes(q));
+            const filtered = doctorsList.filter(d => (d.doctor_name && d.doctor_name.toLowerCase().includes(q)) || (d.hospital_clinic_name && d.hospital_clinic_name.toLowerCase().includes(q)));
             filtered.forEach(d => {
                 const cutDisplay = d.commission_type === 'percentage' ? `${d.commission_value}%` : `₹${parseFloat(d.commission_value).toFixed(2)}`;
                 tbody.innerHTML += `
@@ -1601,7 +1905,7 @@
             document.getElementById('docNameInput').value = d.doctor_name;
             document.getElementById('docHospInput').value = d.hospital_clinic_name || '';
             document.getElementById('docCommType').value = d.commission_type || 'percentage';
-            document.getElementById('docCutInput').value = d.commission_value || 30;
+            document.getElementById('docCutInput').value = d.commission_value || 0;
             document.getElementById('docFormTitle').textContent = 'Edit Doctor';
             document.getElementById('btnSaveDoc').textContent = 'Update Doctor';
             document.getElementById('btnCancelDocEdit').style.display = 'inline-block';
@@ -1611,7 +1915,7 @@
             document.getElementById('editDocId').value = '';
             document.getElementById('docNameInput').value = '';
             document.getElementById('docHospInput').value = '';
-            document.getElementById('docCutInput').value = '30';
+            document.getElementById('docCutInput').value = '0';
             document.getElementById('docFormTitle').textContent = 'Add / Edit Referring Doctors';
             document.getElementById('btnSaveDoc').textContent = 'Save Doctor';
             document.getElementById('btnCancelDocEdit').style.display = 'none';
@@ -1625,60 +1929,95 @@
                 commissionType: document.getElementById('docCommType').value,
                 commissionValue: parseFloat(document.getElementById('docCutInput').value) || 0
             };
-            if (!payload.doctorName) return alert('Doctor name required.');
+            if (!payload.doctorName) return alert('Doctor name is required');
             const url = editId ? `/api/doctors/${editId}` : '/api/doctors';
             const method = editId ? 'PUT' : 'POST';
             const res = await apiFetch(url, { method, body: JSON.stringify(payload) });
             const json = await res.json();
             if (json.success) {
-                alert('Doctor saved!');
+                alert('Doctor saved successfully!');
                 cancelDocEdit();
                 loadDoctors();
             } else { alert('Error: ' + json.error); }
         }
 
         async function deleteDoctor(id) {
-            if (!confirm('Delete doctor?')) return;
+            if (!confirm('Permanently delete this doctor?')) return;
             await apiFetch(`/api/doctors/${id}`, { method: 'DELETE' });
             loadDoctors();
         }
 
+        /* DOCTOR BUSINESS REPORT */
         async function loadBusiness() {
-            const docId = document.getElementById('busDocSelect')?.value || '';
-            const start = document.getElementById('busStartDate')?.value || '';
-            const end = document.getElementById('busEndDate')?.value || '';
-            const month = document.getElementById('busMonth')?.value || '';
-            const pat = document.getElementById('busPatientName')?.value?.trim() || '';
+            try {
+                const docId = document.getElementById('busDocSelect')?.value || '';
+                const start = document.getElementById('busStartDate')?.value || '';
+                const end = document.getElementById('busEndDate')?.value || '';
+                const month = document.getElementById('busMonth')?.value || '';
+                const pat = document.getElementById('busPatientName')?.value?.trim() || '';
 
-            let url = `/api/reports/doctor-detailed?1=1`;
-            if (docId) url += `&doctorId=${docId}`;
-            if (start) url += `&startDate=${start}`;
-            if (end) url += `&endDate=${end}`;
-            if (month) url += `&month=${month}`;
-            if (pat) url += `&patientName=${encodeURIComponent(pat)}`;
+                let url = `/api/reports/doctor-detailed?1=1`;
+                if (docId) url += `&doctorId=${docId}`;
+                if (start) url += `&startDate=${start}`;
+                if (end) url += `&endDate=${end}`;
+                if (month) url += `&month=${month}`;
+                if (pat) url += `&patientName=${encodeURIComponent(pat)}`;
 
-            const res = await apiFetch(url);
-            const json = await res.json();
-            const data = json.data || [];
-            let totalBiz = 0, totalCut = 0;
-            const tbody = document.getElementById('businessTableBody');
-            tbody.innerHTML = '';
-            data.forEach(b => {
-                totalBiz += parseFloat(b.total_amount || 0);
-                totalCut += parseFloat(b.doctor_commission || 0);
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${new Date(b.created_at).toLocaleDateString('en-GB')}</td>
-                        <td><strong>${escapeHtml(b.doctor_name)}</strong><br><small>${escapeHtml(b.hospital_clinic_name || '')}</small></td>
-                        <td>${escapeHtml(b.full_name)}</td>
-                        <td>${b.invoice_number}</td>
-                        <td>₹${parseFloat(b.total_amount).toFixed(2)}</td>
-                        <td style="color:#7c3aed; font-weight:bold;">₹${parseFloat(b.doctor_commission).toFixed(2)}</td>
-                        <td><button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${b.visit_id}')">🖨️ Bill</button></td>
-                    </tr>
+                const res = await apiFetch(url);
+                const json = await res.json();
+                const data = json.data || [];
+                let totalBiz = 0, totalCut = 0;
+                const tbody = document.getElementById('businessTableBody');
+                tbody.innerHTML = '';
+                data.forEach(b => {
+                    totalBiz += parseFloat(b.total_amount || 0);
+                    totalCut += parseFloat(b.doctor_commission || 0);
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${new Date(b.created_at).toLocaleDateString('en-GB')}</td>
+                            <td><strong>${escapeHtml(b.doctor_name)}</strong><br><small>${escapeHtml(b.hospital_clinic_name || '')}</small></td>
+                            <td>${escapeHtml(b.full_name)}</td>
+                            <td>${b.invoice_number}</td>
+                            <td>₹${parseFloat(b.total_amount).toFixed(2)}</td>
+                            <td style="color:#6d28d9; font-weight:bold;">₹${parseFloat(b.doctor_commission).toFixed(2)}</td>
+                            <td><button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${b.visit_id}')">🖨️ Bill</button></td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('busSummaryBanner').innerHTML = `
+                    <span>Gross Business: <strong style="color:#1e3a8a;">₹${totalBiz.toFixed(2)}</strong></span> | 
+                    <span>Total Doctor Cuts: <strong style="color:#7c3aed;">₹${totalCut.toFixed(2)}</strong></span> | 
+                    <span>Referrals: <strong>${data.length}</strong></span>
                 `;
-            });
-            document.getElementById('busSummaryBanner').innerHTML = `Gross Business: <strong>₹${totalBiz.toFixed(2)}</strong> | Total Cuts: <strong style="color:#7c3aed;">₹${totalCut.toFixed(2)}</strong> | Total Visits: <strong>${data.length}</strong>`;
+            } catch (e) {
+                console.error("Error loading doctor cuts:", e);
+            }
+        }
+
+        function resetBusinessFilters() {
+            document.getElementById('busDocSelect').value = '';
+            document.getElementById('busStartDate').value = '';
+            document.getElementById('busEndDate').value = '';
+            document.getElementById('busMonth').value = '';
+            document.getElementById('busPatientName').value = '';
+            loadBusiness();
+        }
+
+        async function triggerCloudSync() {
+            const btn = document.querySelector('.btn-sync-cloud');
+            const orig = btn.innerHTML;
+            btn.innerHTML = '⏳ Syncing...';
+            btn.disabled = true;
+            try {
+                const res = await apiFetch('/api/sync/cloud', { method: 'POST' });
+                const json = await res.json();
+                alert(json.success ? '✅ ' + json.message : '❌ ' + json.error);
+            } catch (err) {
+                alert('Network error during sync.');
+            } finally {
+                btn.innerHTML = orig;
+                btn.disabled = false;
+            }
         }
 
         async function loadDailyAudit() {
@@ -1704,21 +2043,6 @@
                     </tr>
                 `;
             });
-        }
-
-        async function triggerCloudSync() {
-            const btn = document.querySelector('.btn-sync-cloud');
-            btn.innerHTML = '⏳ Syncing...';
-            btn.disabled = true;
-            try {
-                const res = await apiFetch('/api/sync/cloud', { method: 'POST' });
-                const json = await res.json();
-                alert(json.success ? '✅ ' + json.message : '❌ ' + json.error);
-            } catch (err) { alert('Network error syncing.'); }
-            finally {
-                btn.innerHTML = '☁️ Sync Cloud';
-                btn.disabled = false;
-            }
         }
     </script>
 </body>
