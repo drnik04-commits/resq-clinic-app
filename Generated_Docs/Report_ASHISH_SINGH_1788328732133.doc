@@ -1,0 +1,88 @@
+﻿
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+          <meta charset="utf-8">
+          <title>USG Abdomen & Pelvis (Male)</title>
+          <style>
+              @page Section1 { size: 210mm 297mm; margin: 15mm 15mm 15mm 15mm; }
+              div.Section1 { page: Section1; }
+              body { font-family: 'Arial', sans-serif; font-size: 10pt; line-height: 1.35; color: #000; }
+              .header-banner { text-align: center; border-bottom: 2px solid #19486a; padding-bottom: 6px; margin-bottom: 12px; }
+              .clinic-title { font-size: 15pt; font-weight: bold; color: #19486a; margin: 0; }
+              .clinic-sub { font-size: 9pt; font-style: italic; margin: 2px 0; color: #333; }
+              .clinic-meta { font-size: 8.5pt; margin: 2px 0; color: #444; }
+              .patient-box-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9.5pt; border: 1.5px solid #000; }
+              .patient-box-table td { padding: 4px 8px; border: 1px solid #000; vertical-align: middle; }
+              .report-heading { text-align: center; font-size: 11pt; font-weight: bold; color: #1a4b75; text-decoration: underline; margin: 10px 0 12px 0; text-transform: uppercase; letter-spacing: 0.3px; }
+              .report-body-text { font-family: 'Arial', sans-serif; font-size: 9.8pt; line-height: 1.4; white-space: pre-wrap; margin-bottom: 16px; min-height: 380px; }
+              .impression-block { border-top: 1.5px solid #000; padding-top: 6px; margin-top: 12px; font-size: 10pt; }
+              .sign-block { margin-top: 35px; width: 100%; border: none; }
+          </style>
+      </head>
+      <body>
+          <div class="Section1">
+              
+                  <div class="header-banner">
+                      <div class="clinic-title">VIKAS IMAGING CENTRE</div>
+                      <div class="clinic-sub"></div>
+                      <div class="clinic-meta">SHOP NO.2, NIRAV APT, OPP. KARNATAKA BANK, 90 FEET ROAD, THAKUR COMPLEX, KANDIVALI EAST, MUMBAI -400101</div>
+                      <div class="clinic-meta">Tel: 9082320642/8097900500 | PCPNDT Reg: RC134</div>
+                  </div>
+              
+
+              <table class="patient-box-table">
+                  <tr>
+                      <td style="width: 18%; font-weight: bold;">NAME</td>
+                      <td style="width: 42%; font-weight: bold;">ASHISH SINGH</td>
+                      <td style="width: 15%; font-weight: bold;">DATE</td>
+                      <td style="width: 25%;">02/09/2026</td>
+                  </tr>
+                  <tr>
+                      <td style="font-weight: bold;">REF. BY DR.</td>
+                      <td>RAGHAVENDRA YADAV</td>
+                      <td style="font-weight: bold;">AGE</td>
+                      <td>39 Yrs</td>
+                  </tr>
+                  <tr>
+                      <td style="font-weight: bold;">INVOICE NO</td>
+                      <td>INV-20260902-5738</td>
+                      <td style="font-weight: bold;">SEX</td>
+                      <td>MALE</td>
+                  </tr>
+              </table>
+
+              <div class="report-heading">USG Abdomen & Pelvis (Male)</div>
+              <div class="report-body-text">STUDY: ULTRASONOGRAPHY OF WHOLE ABDOMEN & PELVIS (MALE)
+
+FINDINGS:
+- LIVER: Normal in size (13.8 cm) and shape. Echotexture is homogeneous. No focal parenchymal lesion, cyst, or IHBRD noted.
+- GALL BLADDER: Well-distended with clear lumen. Normal wall thickness (2.3 mm). No calculus or mass lesion.
+- COMMON BILE DUCT (CBD): Normal in caliber (3.6 mm).
+- PANCREAS: Normal in size, contour, and echogenicity. MPD is not dilated.
+- SPLEEN: Normal in size (9.8 cm) with uniform parenchymal echotexture.
+- KIDNEYS:
+  * Right Kidney: Measures 10.4 cm. Normal cortical thickness and echogenicity. No calculus or hydronephrosis.
+  * Left Kidney: Measures 10.6 cm. Normal cortical thickness and echogenicity. No calculus or hydronephrosis.
+- URINARY BLADDER: Well-distended with smooth mucosal margins. Lumen clear.
+- PROSTATE: Normal in size, measuring 3.6 x 3.2 x 3.0 cm (Approx weight: 18 grams). Homogeneous parenchymal echotexture. Capsular margin is intact. Post-void residual (PVR) urine volume is insignificant.
+- PERITONEAL CAVITY: No ascites or retroperitoneal lymphadenopathy.</div>
+
+              <div class="impression-block">
+                  <strong><u>IMPRESSION :-</u></strong><br>
+                  <div style="font-weight: bold; margin-top: 4px; white-space: pre-wrap;">NO SIGNIFICANT SONOLOGICAL ABNORMALITY DETECTED IN ABDOMEN AND PELVIS.</div>
+              </div>
+
+              <table class="sign-block">
+                  <tr>
+                      <td style="font-size: 8.5pt; font-style: italic; vertical-align: bottom;">Electronically verified diagnostic imaging report.</td>
+                      <td style="text-align: right; font-size: 9.5pt;">
+                          <strong>DR. NIKUNJ KOTHIA</strong><br>
+                          <span>Consultant Radiologist / Sonologist</span><br>
+                          <span style="font-size: 8.5pt; color: #444;">Reg. No: 2009/09/3218</span>
+                      </td>
+                  </tr>
+              </table>
+          </div>
+      </body>
+      </html>
+    

@@ -1,0 +1,101 @@
+﻿
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+          <meta charset="utf-8">
+          <title>ULTRASONOGRAPHY ABD AND PEL FEMALENK</title>
+          <style>
+              @page Section1 { size: 210mm 297mm; margin: 15mm 15mm 15mm 15mm; }
+              div.Section1 { page: Section1; }
+              body { font-family: 'Arial', sans-serif; font-size: 10pt; line-height: 1.35; color: #000; }
+              .header-banner { text-align: center; border-bottom: 2px solid #19486a; padding-bottom: 6px; margin-bottom: 12px; }
+              .clinic-title { font-size: 15pt; font-weight: bold; color: #19486a; margin: 0; }
+              .clinic-sub { font-size: 9pt; font-style: italic; margin: 2px 0; color: #333; }
+              .clinic-meta { font-size: 8.5pt; margin: 2px 0; color: #444; }
+              .patient-box-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9.5pt; border: 1.5px solid #000; }
+              .patient-box-table td { padding: 4px 8px; border: 1px solid #000; vertical-align: middle; }
+              .report-heading { text-align: center; font-size: 11pt; font-weight: bold; color: #1a4b75; text-decoration: underline; margin: 10px 0 12px 0; text-transform: uppercase; letter-spacing: 0.3px; }
+              .report-body-text { font-family: 'Arial', sans-serif; font-size: 9.8pt; line-height: 1.4; white-space: pre-wrap; margin-bottom: 16px; min-height: 380px; }
+              .impression-block { border-top: 1.5px solid #000; padding-top: 6px; margin-top: 12px; font-size: 10pt; }
+              .sign-block { margin-top: 35px; width: 100%; border: none; }
+          </style>
+      </head>
+      <body>
+          <div class="Section1">
+              
+                  <div class="header-banner">
+                      <div class="clinic-title">VIKAS IMAGING CENTRE</div>
+                      <div class="clinic-sub"></div>
+                      <div class="clinic-meta">SHOP NO.2, NIRAV APT, OPP. KARNATAKA BANK, 90 FEET ROAD, THAKUR COMPLEX, KANDIVALI EAST, MUMBAI -400101</div>
+                      <div class="clinic-meta">Tel: 9082320642/8097900500 | PCPNDT Reg: RC134</div>
+                  </div>
+              
+
+              <table class="patient-box-table">
+                  <tr>
+                      <td style="width: 18%; font-weight: bold;">NAME</td>
+                      <td style="width: 42%; font-weight: bold;">ASHISH SINGH</td>
+                      <td style="width: 15%; font-weight: bold;">DATE</td>
+                      <td style="width: 25%;">02/09/2026</td>
+                  </tr>
+                  <tr>
+                      <td style="font-weight: bold;">REF. BY DR.</td>
+                      <td>RAGHAVENDRA YADAV</td>
+                      <td style="font-weight: bold;">AGE</td>
+                      <td>39 Yrs</td>
+                  </tr>
+                  <tr>
+                      <td style="font-weight: bold;">INVOICE NO</td>
+                      <td>INV-20260902-5738</td>
+                      <td style="font-weight: bold;">SEX</td>
+                      <td>MALE</td>
+                  </tr>
+              </table>
+
+              <div class="report-heading">ULTRASONOGRAPHY ABD AND PEL FEMALENK</div>
+              <div class="report-body-text">SONOGRAPHY –  ABDOMEN & PELVIS
+ 
+LIVER :-  Liver appears normal in size, shape & echogenicity. No focal lesions are noted.  Intrahepatic portal & biliary radicals appear normal. Portal vein is normal (<PV> mm).
+
+GALL BLADDER :-  Gall Bladder is distended & appears normal.  No calculus or mass lesion is noted.  Wall thickness appears normal.
+CBD is normal in course & calibre (<CBD> mm).
+
+SPLEEN :-  Spleen appears normal in size (<SPLEEN> cm), shape & echotexture. No focal lesions are noted.  Splenic vein appears normal.
+
+PANCREAS :- Pancreas appears normal in size, shape & echogenicity.
+
+KIDNEYS:-   Both kidneys appear normal in size & shape. No mass lesion is noted.  Parenchymal echogenicity & corticomedullary ratio is normal. Parenchymal thickness appears normal.                                           
+Right kidney measures  <RT_K>  cm. Left kidney measures <LT_K> cm.
+No calculus or hydronephrosis is noted.
+
+URINARY BLADDER :- Urinary Bladder is distended.  No mass lesion or calculus is noted.  Bladder wall thickness appears normal. 
+Prevoid vol ~ <PREVOID> cc, Post void vol ~ <POSTVOID> cc. No significant post void residue.
+
+UTERUS: - Uterus is <VERTED>verted, normal in size, shape & echotexture. It measures <UTERUS> cm. No fibroids are noted. Endometrial canal is in midline & measures <ET> mm.
+
+OVARIES: - Both ovaries are normal in size & shape
+Right ovary measures <RO> cm , Left ovary measures <LO> cm.
+	No obvious  lymphadenopathy / ascites noted.
+	No mass lesion or collection is noted in both iliac fossa. 
+	Visualised large bowel loops are filled with excessive gases.
+
+</div>
+
+              <div class="impression-block">
+                  <strong><u>IMPRESSION :-</u></strong><br>
+                  <div style="font-weight: bold; margin-top: 4px; white-space: pre-wrap;">NO SIGNIFICANT ABNORMALITY DETECTED.</div>
+              </div>
+
+              <table class="sign-block">
+                  <tr>
+                      <td style="font-size: 8.5pt; font-style: italic; vertical-align: bottom;">Electronically verified diagnostic imaging report.</td>
+                      <td style="text-align: right; font-size: 9.5pt;">
+                          <strong>DR. NIKUNJ KOTHIA</strong><br>
+                          <span>Consultant Radiologist / Sonologist</span><br>
+                          <span style="font-size: 8.5pt; color: #444;">Reg. No: 2009/09/3218</span>
+                      </td>
+                  </tr>
+              </table>
+          </div>
+      </body>
+      </html>
+    
