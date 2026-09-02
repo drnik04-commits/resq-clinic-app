@@ -128,7 +128,7 @@
 
     <div class="main-container">
 
-        <!-- TAB 1: BILLING & REGISTRATION -->
+        <!-- TAB 1: BILLING & REGISTRATION (Doctor Cut Column Omitted) -->
         <div id="tab-billing" class="tab-content active">
             <div class="card">
                 <div class="card-title">
@@ -210,7 +210,6 @@
                         <div>Concession / Discount: <span id="dispDiscount">- ₹0.00</span></div>
                         <div>Net Payable Amount: <span id="dispNet" style="color:#00897b;">₹0.00</span></div>
                         <div>Balance Due: <span id="dispBalance" style="color:#d84315;">₹0.00</span></div>
-                        <div style="margin-top: 4px; color:#7c3aed; font-size:0.9rem;">Calculated Doctor Cut: <input type="number" id="manualDocCut" style="width:110px; padding:3px 6px; font-weight:bold; color:#7c3aed; border:1.5px solid #c4b5fd; border-radius:4px;" value="0"></div>
                     </div>
                 </div>
 
@@ -358,16 +357,36 @@
             </div>
         </div>
 
-        <!-- TAB 7: COLLECTIONS & REPORTS -->
+        <!-- TAB 7: COLLECTIONS & REPORTS (Bifurcation Displayed in Collections Only) -->
         <div id="tab-reports" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Collections & Departmental Invoices Summary</span></div>
-                <div id="repSummaryBanner" style="background:#e3f2fd; border:1px solid #90caf9; padding:12px 16px; border-radius:4px; font-weight:bold; margin-bottom:14px;">Loading Summary...</div>
-                <table><thead><tr><th>Date</th><th>Centre</th><th>Patient Name</th><th>Services</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th style="width: 290px;">Actions</th></tr></thead><tbody id="reportsTableBody"></tbody></table>
+
+                <!-- Cash vs. Online Collection Bifurcation Section -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #e8f5e9; border: 1.5px solid #81c784; padding: 12px 16px; border-radius: 6px;">
+                        <div style="font-size: 0.8rem; font-weight: bold; color: #2e7d32;">💵 CASH COLLECTED</div>
+                        <div id="repCashTotal" style="font-size: 1.35rem; font-weight: 800; color: #1b5e20;">₹0.00</div>
+                    </div>
+                    <div style="background: #e0f2fe; border: 1.5px solid #7dd3fc; padding: 12px 16px; border-radius: 6px;">
+                        <div style="font-size: 0.8rem; font-weight: bold; color: #0284c7;">💳 ONLINE / UPI COLLECTED</div>
+                        <div id="repOnlineTotal" style="font-size: 1.35rem; font-weight: 800; color: #0369a1;">₹0.00</div>
+                    </div>
+                    <div style="background: #f1f5f9; border: 1.5px solid #cbd5e1; padding: 12px 16px; border-radius: 6px;">
+                        <div style="font-size: 0.8rem; font-weight: bold; color: #475569;">💰 TOTAL COLLECTED</div>
+                        <div id="repGrandTotal" style="font-size: 1.35rem; font-weight: 800; color: #0f172a;">₹0.00</div>
+                    </div>
+                    <div style="background: #fff1f2; border: 1.5px solid #fecdd3; padding: 12px 16px; border-radius: 6px;">
+                        <div style="font-size: 0.8rem; font-weight: bold; color: #e11d48;">⏳ PENDING BALANCE</div>
+                        <div id="repPendingTotal" style="font-size: 1.35rem; font-weight: 800; color: #9f1239;">₹0.00</div>
+                    </div>
+                </div>
+
+                <table><thead><tr><th>Date</th><th>Centre</th><th>Patient Name</th><th>Services</th><th>Payment Mode</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th style="width: 290px;">Actions</th></tr></thead><tbody id="reportsTableBody"></tbody></table>
             </div>
         </div>
 
-        <!-- TAB 8: DOCTOR BUSINESS -->
+        <!-- TAB 8: DOCTOR BUSINESS (With Inline Doctor Cut Editing) -->
         <div id="tab-business" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Doctor Business & Referral Commissions</span></div>
@@ -380,13 +399,13 @@
                     <button type="button" class="btn-search" onclick="loadBusiness()">🔍 Filter</button>
                 </div>
                 <div id="busSummaryBanner" style="background:#ede7f6; border:1px solid #d1c4e9; padding:10px 14px; border-radius:4px; font-weight:bold; margin-bottom:12px;">Loading Summary...</div>
-                <table><thead><tr><th>Date</th><th>Doctor Name</th><th>Patient</th><th>Invoice No</th><th>Business (₹)</th><th>Doctor Cut (₹)</th><th>Action</th></tr></thead><tbody id="businessTableBody"></tbody></table>
+                <table><thead><tr><th>Date</th><th>Doctor Name</th><th>Patient</th><th>Invoice No</th><th>Business (₹)</th><th>Doctor Cut (₹)</th><th style="width: 170px;">Action</th></tr></thead><tbody id="businessTableBody"></tbody></table>
             </div>
         </div>
 
     </div>
 
-    <!-- PATIENT BILLS MODAL -->
+    <!-- PATIENT BILLS HISTORY MODAL (Fully Populated List) -->
     <div id="patientBillsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3 id="patientBillsTitle">Bills History</h3><button type="button" onclick="closePatientBillsModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
@@ -857,7 +876,7 @@
             }
         }
 
-        /* INVESTIGATIONS & DOCTOR CUT (30% of 1500 = 450) */
+        /* INVESTIGATIONS & PROPER 30% CUT CALCULATION */
         function onLiveTestSearchInput(query) {
             const box = document.getElementById('liveSearchResultsBox');
             const q = (query || '').toLowerCase().trim();
@@ -912,7 +931,6 @@
         function updateTestPrice(idx, newPrice) {
             const p = parseFloat(newPrice) || 0;
             selectedBillTests[idx].price = p;
-            // Recalculate 30% cut on updated price
             const testName = (selectedBillTests[idx].test_name || '').toLowerCase();
             if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || selectedBillTests[idx].cut_type === 'percentage') {
                 const pct = parseFloat(selectedBillTests[idx].test_cut) > 0 ? parseFloat(selectedBillTests[idx].test_cut) : 30;
@@ -927,12 +945,6 @@
             const net = Math.max(0, gross - discount);
             const paid = parseFloat(document.getElementById('inputPaid').value) || 0;
             const bal = Math.max(0, net - paid);
-
-            // Raw Cuts Sum
-            const rawCutSum = selectedBillTests.reduce((acc, t) => acc + (parseFloat(t.calculated_cut) || 0), 0);
-            // Subtract discount from final cut
-            const netCut = Math.max(0, rawCutSum - discount);
-            document.getElementById('manualDocCut').value = netCut.toFixed(2);
 
             document.getElementById('dispGross').textContent = `₹${gross.toFixed(2)}`;
             document.getElementById('dispDiscount').textContent = `- ₹${discount.toFixed(2)}`;
@@ -1071,23 +1083,46 @@
             window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
+        /* COLLECTIONS & REPORTS: CASH VS ONLINE BIFURCATION */
         async function loadReports() {
             const res = await apiFetch('/api/reports/collection');
             const json = await res.json();
             const data = json.data || [];
-            const sum = json.summary || { totalCollection: 0, totalPending: 0, recordCount: 0 };
-            document.getElementById('repSummaryBanner').textContent = `Total Collected: ₹${sum.totalCollection.toFixed(2)} | Pending: ₹${sum.totalPending.toFixed(2)} | Invoices: ${sum.recordCount}`;
+
+            let cashTotal = 0, onlineTotal = 0, grandTotal = 0, pendingTotal = 0;
+            data.forEach(v => {
+                const paid = parseFloat(v.paid_amount || 0);
+                const bal = parseFloat(v.balance_amount || 0);
+                grandTotal += paid;
+                pendingTotal += bal;
+                const mode = (v.payment_mode || '').toLowerCase();
+                if (mode === 'cash') {
+                    cashTotal += paid;
+                } else {
+                    onlineTotal += paid;
+                }
+            });
+
+            document.getElementById('repCashTotal').textContent = `₹${cashTotal.toFixed(2)}`;
+            document.getElementById('repOnlineTotal').textContent = `₹${onlineTotal.toFixed(2)}`;
+            document.getElementById('repGrandTotal').textContent = `₹${grandTotal.toFixed(2)}`;
+            document.getElementById('repPendingTotal').textContent = `₹${pendingTotal.toFixed(2)}`;
 
             const tbody = document.getElementById('reportsTableBody');
             tbody.innerHTML = '';
             data.forEach(v => {
                 const net = (parseFloat(v.total_amount) - parseFloat(v.concession || 0)).toFixed(2);
+                const modeBadge = (v.payment_mode || 'Cash').toLowerCase() === 'cash' 
+                    ? '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:3px; font-weight:bold; font-size:0.75rem;">💵 Cash</span>'
+                    : '<span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:3px; font-weight:bold; font-size:0.75rem;">💳 Online / UPI</span>';
+
                 tbody.innerHTML += `
                     <tr>
                         <td>${new Date(v.created_at).toLocaleDateString('en-GB')}</td>
                         <td>${escapeHtml(v.centre_name || '')}</td>
                         <td><strong>${escapeHtml(v.full_name)}</strong></td>
                         <td>${v.categories}</td>
+                        <td>${modeBadge}</td>
                         <td>₹${parseFloat(v.total_amount).toFixed(2)}</td>
                         <td>₹${parseFloat(v.paid_amount).toFixed(2)}</td>
                         <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
@@ -1261,7 +1296,7 @@
             });
         }
 
-        /* FIXED: FULL PATIENT BILLS HISTORY RENDERING IN MODAL */
+        /* PATIENT BILLS HISTORY MODAL (FIXED - RENDERS ALL VISITS) */
         async function openPatientBillsModal(patientId, name) {
             document.getElementById('patientBillsTitle').textContent = `Bills History: ${name}`;
             const res = await apiFetch(`/api/patients/${patientId}/visits`);
@@ -1270,7 +1305,7 @@
             const tbody = document.getElementById('patientBillsTableBody');
             tbody.innerHTML = '';
             if (!visits.length) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:12px; color:#888;">No bills found for this patient.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:12px; color:#888;">No historical bills found for this patient.</td></tr>';
             } else {
                 visits.forEach(v => {
                     tbody.innerHTML += `
@@ -1643,6 +1678,7 @@
             loadDoctors();
         }
 
+        /* DOCTOR BUSINESS & INLINE CUT EDITING */
         async function loadBusiness() {
             const docId = document.getElementById('busDocSelect')?.value || '';
             const start = document.getElementById('busStartDate')?.value || '';
@@ -1674,11 +1710,32 @@
                         <td>${b.invoice_number}</td>
                         <td>₹${parseFloat(b.total_amount).toFixed(2)}</td>
                         <td style="color:#7c3aed; font-weight:bold;">₹${parseFloat(b.doctor_commission).toFixed(2)}</td>
-                        <td><button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${b.visit_id}')">🖨️ Bill</button></td>
+                        <td>
+                            <button type="button" class="btn-act btn-act-edit" onclick="editSingleDoctorCut('${b.visit_id}', '${escapeHtml(b.doctor_name)}', '${b.doctor_commission}')">✏️ Edit Cut</button>
+                            <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${b.visit_id}')">🖨️ Bill</button>
+                        </td>
                     </tr>
                 `;
             });
             document.getElementById('busSummaryBanner').innerHTML = `Gross Business: <strong>₹${totalBiz.toFixed(2)}</strong> | Total Cuts: <strong style="color:#7c3aed;">₹${totalCut.toFixed(2)}</strong> | Total Visits: <strong>${data.length}</strong>`;
+        }
+
+        async function editSingleDoctorCut(visitId, docName, currentCut) {
+            const entered = prompt(`Enter adjusted cut amount (₹) for ${docName}:`, currentCut || '0');
+            if (entered === null || entered.trim() === '') return;
+            const newCut = parseFloat(entered) || 0;
+
+            const res = await apiFetch(`/api/visits/${visitId}/cut`, {
+                method: 'PUT',
+                body: JSON.stringify({ doctor_commission: newCut })
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert('Doctor cut updated successfully!');
+                loadBusiness();
+            } else {
+                alert('Error updating cut: ' + json.error);
+            }
         }
 
         async function loadDailyAudit() {
