@@ -128,7 +128,7 @@
 
     <div class="main-container">
 
-        <!-- TAB 1: BILLING & REGISTRATION (Doctor Cut completely excluded) -->
+        <!-- TAB 1: BILLING & REGISTRATION (Doctor Cut Excluded from Patient Intake) -->
         <div id="tab-billing" class="tab-content active">
             <div class="card">
                 <div class="card-title">
@@ -356,11 +356,48 @@
             </div>
         </div>
 
-        <!-- TAB 7: COLLECTIONS & REPORTS (Cash vs Online Bifurcation Displayed Exclusively Here) -->
+        <!-- TAB 7: COLLECTIONS & REPORTS (With Date, Month, Category & Name Filters Restored) -->
         <div id="tab-reports" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Collections & Departmental Invoices Summary</span></div>
 
+                <!-- Restored Multi-Parameter Search & Filter Bar -->
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; background: #f8fafc; padding: 12px; border: 1px solid var(--border); border-radius: 6px;">
+                    <div>
+                        <label style="font-size:0.8rem; font-weight:bold; color:#475569;">Start Date:</label><br>
+                        <input type="date" id="repStartDate" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem; font-weight:bold; color:#475569;">End Date:</label><br>
+                        <input type="date" id="repEndDate" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem; font-weight:bold; color:#475569;">OR Month:</label><br>
+                        <input type="month" id="repMonth" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem; font-weight:bold; color:#475569;">Modality / Dept:</label><br>
+                        <select id="repCategory" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
+                            <option value="">All Categories</option>
+                            <option value="Pathology">Pathology</option>
+                            <option value="Imaging">Imaging</option>
+                            <option value="Cardiology">Cardiology</option>
+                            <option value="Obstetrics">Obstetrics</option>
+                            <option value="Consulting">Consulting</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem; font-weight:bold; color:#475569;">Search Patient / Inv:</label><br>
+                        <input type="text" id="repPatientSearch" placeholder="Name, Mobile, or Invoice..." style="padding:6px; border:1px solid #ccc; border-radius:4px;">
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="btn-search" onclick="loadReports()">🔍 Filter</button>
+                        <button type="button" class="btn-act btn-act-edit" onclick="resetReportsFilters()">🔄 Show All</button>
+                        <button type="button" class="btn-act btn-act-bill-prt" onclick="window.print()">🖨️ Print Summary</button>
+                    </div>
+                </div>
+
+                <!-- Cash vs. Online Collection Bifurcation Section -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
                     <div style="background: #e8f5e9; border: 1.5px solid #81c784; padding: 12px 16px; border-radius: 6px;">
                         <div style="font-size: 0.8rem; font-weight: bold; color: #2e7d32;">💵 CASH COLLECTED</div>
@@ -384,7 +421,7 @@
             </div>
         </div>
 
-        <!-- TAB 8: DOCTOR BUSINESS (Full Edit Cut Functionality) -->
+        <!-- TAB 8: DOCTOR BUSINESS (With Inline Doctor Cut Editing) -->
         <div id="tab-business" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Doctor Business & Referral Commissions</span></div>
@@ -403,7 +440,7 @@
 
     </div>
 
-    <!-- PATIENT BILLS MODAL (Restored view of all patient bills) -->
+    <!-- PATIENT BILLS HISTORY MODAL -->
     <div id="patientBillsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3 id="patientBillsTitle">Bills History</h3><button type="button" onclick="closePatientBillsModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
@@ -847,7 +884,6 @@
                 sel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
             });
 
-            // Automatically select if exact match or single filter match
             if (matches.length === 1 && q.length >= 2) {
                 sel.value = String(matches[0].id);
                 calculateFinancialTotals();
@@ -876,7 +912,6 @@
             }
         }
 
-        /* INVESTIGATIONS & DOCTOR CUT (30% of 1500 = 450) */
         function onLiveTestSearchInput(query) {
             const box = document.getElementById('liveSearchResultsBox');
             const q = (query || '').toLowerCase().trim();
@@ -894,7 +929,7 @@
                     const cat = (t.category || '').toLowerCase();
                     if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || cat === 'imaging' || cat === 'obstetrics' || t.cut_type === 'percentage') {
                         const pct = parseFloat(t.test_cut) > 0 ? parseFloat(t.test_cut) : 30;
-                        cut = (price * pct) / 100; // 30% of 1500 = 450
+                        cut = (price * pct) / 100;
                     } else {
                         cut = parseFloat(t.test_cut) || 0;
                     }
@@ -1083,9 +1118,22 @@
             window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
-        /* COLLECTIONS & REPORTS: CASH VS ONLINE BIFURCATION */
+        /* RESTORED SEARCH & FILTER HANDLERS IN COLLECTIONS & REPORTS */
         async function loadReports() {
-            const res = await apiFetch('/api/reports/collection');
+            const startDate = document.getElementById('repStartDate')?.value || '';
+            const endDate = document.getElementById('repEndDate')?.value || '';
+            const month = document.getElementById('repMonth')?.value || '';
+            const category = document.getElementById('repCategory')?.value || '';
+            const patientName = document.getElementById('repPatientSearch')?.value?.trim() || '';
+
+            let url = `/api/reports/collection?1=1`;
+            if (startDate) url += `&startDate=${startDate}`;
+            if (endDate) url += `&endDate=${endDate}`;
+            if (month) url += `&month=${month}`;
+            if (category) url += `&category=${encodeURIComponent(category)}`;
+            if (patientName) url += `&patientName=${encodeURIComponent(patientName)}`;
+
+            const res = await apiFetch(url);
             const json = await res.json();
             const data = json.data || [];
 
@@ -1137,6 +1185,15 @@
                     </tr>
                 `;
             });
+        }
+
+        function resetReportsFilters() {
+            if (document.getElementById('repStartDate')) document.getElementById('repStartDate').value = '';
+            if (document.getElementById('repEndDate')) document.getElementById('repEndDate').value = '';
+            if (document.getElementById('repMonth')) document.getElementById('repMonth').value = '';
+            if (document.getElementById('repCategory')) document.getElementById('repCategory').value = '';
+            if (document.getElementById('repPatientSearch')) document.getElementById('repPatientSearch').value = '';
+            loadReports();
         }
 
         async function openEditBillModal(visitId) {
@@ -1296,7 +1353,6 @@
             });
         }
 
-        /* PATIENT BILLS HISTORY MODAL (Renders complete list of patient bills) */
         async function openPatientBillsModal(patientId, name) {
             document.getElementById('patientBillsTitle').textContent = `Bills History: ${name}`;
             const res = await apiFetch(`/api/patients/${patientId}/visits`);
@@ -1499,7 +1555,6 @@
             }
         }
 
-        /* MASTER CRUD: TESTS (Search & Edit) */
         async function loadTests() {
             const res = await apiFetch('/api/tests');
             const json = await res.json();
@@ -1579,7 +1634,6 @@
             loadTests();
         }
 
-        /* MASTER CRUD: DOCTORS (Search & Edit) */
         async function loadDoctors() {
             const res = await apiFetch('/api/doctors');
             const json = await res.json();
@@ -1677,7 +1731,6 @@
             loadDoctors();
         }
 
-        /* DOCTOR BUSINESS & INLINE CUT EDITING */
         async function loadBusiness() {
             const docId = document.getElementById('busDocSelect')?.value || '';
             const start = document.getElementById('busStartDate')?.value || '';
@@ -1777,8 +1830,9 @@
                 const res = await apiFetch('/api/sync/cloud', { method: 'POST' });
                 const json = await res.json();
                 alert(json.success ? '✅ ' + json.message : '❌ ' + json.error);
-            } catch (err) { alert('Network error syncing.'); }
-            finally {
+            } catch (err) { 
+                alert('Sync failed: ' + err.message); 
+            } finally {
                 btn.innerHTML = '☁️ Sync Cloud';
                 btn.disabled = false;
             }

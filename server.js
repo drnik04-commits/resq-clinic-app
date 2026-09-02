@@ -77,7 +77,10 @@ const rawCloudUrl = process.env.CLOUD_DATABASE_URL || '';
 const cleanCloudUrl = sanitizePostgresUrl(rawCloudUrl);
 const cloudPool = new Pool({
   connectionString: cleanCloudUrl,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 25000,
+  idleTimeoutMillis: 30000,
+  max: 10
 });
 
 const FALLBACK_CENTRES = [
@@ -114,11 +117,9 @@ function getTenantCentreId(req) {
   return headerId || queryId || bodyId || null;
 }
 
-// Guaranteed globally unique barcode
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// Calculate doctor commission: USG is 30% percentage basis (e.g. 1500 * 0.30 = 450), X-Ray is fixed amount basis
 function calculateCommission(testArray, validDoctorId, docInfo = null, concession = 0) {
   let rawCommission = 0;
   for (const t of testArray) {
@@ -341,21 +342,6 @@ async function initDB() {
       );
     `);
 
-    // Clean up any historical local barcode collisions
-    try {
-      await pool.query(`
-        WITH dupes AS (
-          SELECT id, ROW_NUMBER() OVER (PARTITION BY barcode ORDER BY id) as rn
-          FROM patient_investigations
-          WHERE barcode IS NOT NULL
-        )
-        UPDATE patient_investigations pi
-        SET barcode = 'BC-' || EXTRACT(EPOCH FROM NOW())::BIGINT || '-' || FLOOR(100000 + RANDOM() * 900000)::TEXT || '-' || SUBSTRING(pi.id::text, 1, 4)
-        FROM dupes
-        WHERE pi.id = dupes.id AND dupes.rn > 1;
-      `);
-    } catch (e) {}
-
     for (const t of defaultTests) {
       const check = await pool.query('SELECT id FROM test_master WHERE test_name = $1', [t.testName]);
       if (check.rows.length === 0) {
@@ -451,72 +437,6 @@ app.get('/api/centres', async (req, res) => {
   res.status(200).json({ success: true, data: FALLBACK_CENTRES });
 });
 
-app.post('/api/centres', async (req, res) => {
-  try {
-    const { centre_name, tagline, address, phone, reg_no, email, centre_password } = req.body;
-    if (!centre_name || !centre_name.trim()) return res.status(400).json({ success: false, error: 'Centre name is required.' });
-
-    if (isDbConnected) {
-      const result = await pool.query(
-        `INSERT INTO clinic_centres (centre_name, tagline, address, phone, reg_no, email, centre_password) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [centre_name.trim(), tagline || '', address || '', phone || '', reg_no || 'RC197', email || '', centre_password || '1234']
-      );
-      return res.status(201).json({ success: true, data: result.rows[0] });
-    }
-
-    const newCentre = {
-      id: 'c_' + Date.now(),
-      centre_name: centre_name.trim(),
-      tagline: tagline || '',
-      address: address || '',
-      phone: phone || '',
-      reg_no: reg_no || 'RC197',
-      email: email || '',
-      centre_password: centre_password || '1234'
-    };
-    FALLBACK_CENTRES.push(newCentre);
-    res.status(201).json({ success: true, data: newCentre });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-app.put('/api/centres/:id', async (req, res) => {
-  try {
-    const validId = getCleanId(req.params.id);
-    const { centre_name, tagline, address, phone, reg_no, email, centre_password } = req.body;
-    if (!validId || !centre_name?.trim()) return res.status(400).json({ success: false, error: 'Valid Centre ID and Name required.' });
-
-    if (isDbConnected) {
-      const result = await pool.query(
-        `UPDATE clinic_centres 
-         SET centre_name = $1, tagline = $2, address = $3, phone = $4, reg_no = $5, email = $6, centre_password = $7
-         WHERE id::text = $8::text RETURNING *`,
-        [centre_name.trim(), tagline || '', address || '', phone || '', reg_no || 'RC197', email || '', centre_password || '1234', validId]
-      );
-      if (result.rows.length > 0) return res.status(200).json({ success: true, data: result.rows[0] });
-    }
-
-    const idx = FALLBACK_CENTRES.findIndex(c => String(c.id) === String(validId));
-    if (idx !== -1) {
-      FALLBACK_CENTRES[idx] = { ...FALLBACK_CENTRES[idx], centre_name: centre_name.trim(), tagline, address, phone, reg_no, email, centre_password: centre_password || '1234' };
-      return res.status(200).json({ success: true, data: FALLBACK_CENTRES[idx] });
-    }
-    res.status(404).json({ success: false, error: 'Centre not found' });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-app.delete('/api/centres/:id', async (req, res) => {
-  try {
-    const validId = getCleanId(req.params.id);
-    if (!validId) return res.status(400).json({ success: false, error: 'Invalid Centre ID' });
-    if (isDbConnected) await pool.query('DELETE FROM clinic_centres WHERE id::text = $1::text', [validId]);
-    const idx = FALLBACK_CENTRES.findIndex(c => String(c.id) === String(validId));
-    if (idx !== -1) FALLBACK_CENTRES.splice(idx, 1);
-    res.status(200).json({ success: true, message: 'Centre deleted' });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-// Patients Directory - Strict branch isolation
 app.get('/api/patients', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -549,33 +469,6 @@ app.get('/api/patients', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-app.post('/api/patients', async (req, res) => {
-  try {
-    const centreId = getTenantCentreId(req);
-    const { patientCode, fullName, age, gender, phone, email, address } = req.body;
-    if (!fullName || !fullName.trim()) return res.status(400).json({ success: false, error: 'Full name required' });
-    const finalPatCode = patientCode?.trim() || `PAT-${Date.now().toString().slice(-6)}`;
-    const result = await pool.query(
-      `INSERT INTO patients (centre_id, patient_code, full_name, age, gender, phone, email, address)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [centreId, finalPatCode, fullName.trim(), age ? parseInt(age, 10) : null, gender || 'Female', phone || '', email || '', address || '']
-    );
-    res.status(201).json({ success: true, data: result.rows[0] });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-app.put('/api/patients/:id', async (req, res) => {
-  try {
-    const validId = getCleanId(req.params.id);
-    const { fullName, age, gender, phone, email, address, patientCode } = req.body;
-    const result = await pool.query(
-      `UPDATE patients SET full_name = $1, age = $2, gender = $3, phone = $4, email = $5, address = $6, patient_code = $7 WHERE id::text = $8::text RETURNING *`,
-      [fullName, age ? parseInt(age, 10) : null, gender, phone, email, address, patientCode, validId]
-    );
-    res.status(200).json({ success: true, data: result.rows[0] });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
 app.delete('/api/patients/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -590,11 +483,8 @@ app.delete('/api/patients/:id', async (req, res) => {
     const delRes = await client.query('DELETE FROM patients WHERE id::text = $1::text RETURNING id', [validId]);
     await client.query('COMMIT');
 
-    if (delRes.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Patient record not found.' });
-    }
-
-    res.status(200).json({ success: true, message: 'Patient record and all related visits/bills deleted permanently.' });
+    if (delRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Patient not found.' });
+    res.status(200).json({ success: true, message: 'Patient and all records deleted permanently.' });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ success: false, error: err.message });
@@ -649,7 +539,6 @@ app.get('/api/imaging/patients-dropdown', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Update single doctor cut
 app.put('/api/visits/:id/cut', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -661,18 +550,13 @@ app.put('/api/visits/:id/cut', async (req, res) => {
       [parseFloat(doctor_commission) || 0, validId]
     );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ success: false, error: 'Visit record not found' });
-    }
-
+    if (result.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit record not found' });
     res.status(200).json({ success: true, message: 'Doctor cut updated successfully', data: result.rows[0] });
   } catch (err) {
-    console.error('Error updating doctor cut:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Update Visit
 app.put('/api/visits/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -749,7 +633,6 @@ app.put('/api/visits/:id', async (req, res) => {
   }
 });
 
-// Register Visit
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -874,7 +757,6 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Master Tests
 app.get('/api/tests', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM test_master ORDER BY test_name ASC');
@@ -913,7 +795,6 @@ app.delete('/api/tests/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Master Doctors
 app.get('/api/doctors', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM referring_doctors ORDER BY doctor_name ASC');
@@ -984,7 +865,7 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Collections Report
+// Collections & Reports Filter Engine (Supports Date range, Month, Category, Patient Name)
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1021,7 +902,11 @@ app.get('/api/reports/collection', async (req, res) => {
     }
     if (patientName && patientName.trim()) {
       params.push(`%${patientName.trim()}%`);
-      query += ` AND p.full_name ILIKE $${params.length}`;
+      query += ` AND (p.full_name ILIKE $${params.length} OR p.phone ILIKE $${params.length} OR v.invoice_number ILIKE $${params.length})`;
+    }
+    if (category && category.trim()) {
+      params.push(`%${category.trim()}%`);
+      query += ` AND tm.category ILIKE $${params.length}`;
     }
     query += ` GROUP BY v.id, p.full_name, p.phone, c.centre_name ORDER BY v.created_at DESC LIMIT 500`;
 
@@ -1036,12 +921,11 @@ app.get('/api/reports/collection', async (req, res) => {
     res.status(200).json({
       success: true,
       data: result.rows,
-      summary: { totalCollection, totalPending, grossTotal, imagingTotal: grossTotal * 0.65, pathologyTotal: grossTotal * 0.25, consultingTotal: grossTotal * 0.10, recordCount: result.rows.length }
+      summary: { totalCollection, totalPending, grossTotal, recordCount: result.rows.length }
     });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Doctor Cuts Report
 app.get('/api/reports/doctor-detailed', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1086,7 +970,6 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Cross-Centre Executive Audit
 app.get('/api/reports/executive-daily', async (req, res) => {
   try {
     const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
@@ -1154,11 +1037,27 @@ app.get('/api/pcpndt', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Resilient Cloud Sync Engine (Guaranteed zero duplicate barcode crashes)
+// Robust Cloud Sync with Network Reconnect & Keep-Alive Protection
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
-  const localClient = await pool.connect();
-  const cloudClient = await cloudPool.connect();
+
+  let localClient, cloudClient;
+  try {
+    localClient = await pool.connect();
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Failed to access local database: ' + err.message });
+  }
+
+  try {
+    cloudClient = await cloudPool.connect();
+  } catch (err) {
+    localClient.release();
+    return res.status(503).json({
+      success: false,
+      error: 'Cannot connect to Cloud Database. Check internet connection or CLOUD_DATABASE_URL credentials: ' + err.message
+    });
+  }
+
   try {
     await cloudClient.query('BEGIN');
     await cloudClient.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
@@ -1176,7 +1075,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       CREATE TABLE IF NOT EXISTS imaging_reports (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, patient_id UUID, centre_id UUID, template_id UUID, template_name VARCHAR(255), report_text TEXT NOT NULL, impression TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
     `);
 
-    // Sync Auth & Centres
+    // 1. Auth & Centres
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
     if (auths.rows.length > 0) {
       await cloudClient.query(`INSERT INTO app_auth (id, role, password) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password`, [auths.rows[0].id, auths.rows[0].role, auths.rows[0].password]);
@@ -1191,7 +1090,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [c.id, c.centre_name, c.tagline, c.address, c.phone, c.reg_no, c.email, c.centre_password, c.created_at]);
     }
 
-    // Sync Doctors & Tests
+    // 2. Doctors & Tests
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
     for (const d of doctors.rows) {
       await cloudClient.query(`
@@ -1210,7 +1109,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [t.id, t.test_name, t.category, t.price, t.cut_type || 'fixed', t.test_cut]);
     }
 
-    // Upsert imaging_templates by template_name to prevent duplicate key error
+    // 3. Templates (Upsert by template_name to prevent duplicate key error)
     const templateIdMap = {};
     const templates = await localClient.query('SELECT * FROM imaging_templates');
     for (const t of templates.rows) {
@@ -1231,7 +1130,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       }
     }
 
-    // Sync Patients and track all valid cloud patient IDs
+    // 4. Patients
     const validCloudPatientIds = new Set();
     const patients = await localClient.query('SELECT * FROM patients');
     for (const p of patients.rows) {
@@ -1243,7 +1142,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       validCloudPatientIds.add(String(p.id));
     }
 
-    // Pre-validate visits to guarantee visits_patient_id_fkey is NEVER violated
+    // 5. Visits
     const validCloudVisitIds = new Set();
     const visits = await localClient.query('SELECT * FROM visits');
     for (const v of visits.rows) {
@@ -1271,7 +1170,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       validCloudVisitIds.add(String(v.id));
     }
 
-    // Resolve patient_investigations barcodes to eliminate duplicate key errors
+    // 6. Investigations
     const investigations = await localClient.query('SELECT * FROM patient_investigations');
     for (const pi of investigations.rows) {
       if (!validCloudVisitIds.has(String(pi.visit_id))) continue;
@@ -1297,17 +1196,12 @@ app.post('/api/sync/cloud', async (req, res) => {
         await cloudClient.query(`
           INSERT INTO patient_investigations (id, visit_id, test_id, barcode, status, price, cut_type, test_cut)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          ON CONFLICT (id) DO UPDATE SET 
-            barcode = EXCLUDED.barcode,
-            price = EXCLUDED.price, 
-            status = EXCLUDED.status, 
-            cut_type = EXCLUDED.cut_type, 
-            test_cut = EXCLUDED.test_cut;
+          ON CONFLICT (id) DO UPDATE SET barcode = EXCLUDED.barcode, price = EXCLUDED.price, status = EXCLUDED.status, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut;
         `, [pi.id, pi.visit_id, pi.test_id, safeBarcode, pi.status, pi.price, pi.cut_type || 'fixed', pi.test_cut]);
       }
     }
 
-    // Sync Form F & Imaging Reports
+    // 7. Form F & Reports
     const forms = await localClient.query('SELECT * FROM pcpndt_forms');
     for (const f of forms.rows) {
       if (!validCloudVisitIds.has(String(f.visit_id))) continue;
@@ -1332,11 +1226,11 @@ app.post('/api/sync/cloud', async (req, res) => {
     await cloudClient.query('COMMIT');
     res.status(200).json({ success: true, message: 'Cloud Sync Successful!' });
   } catch (err) {
-    await cloudClient.query('ROLLBACK');
+    try { await cloudClient.query('ROLLBACK'); } catch (rb) {}
     res.status(500).json({ success: false, error: 'Cloud Sync Failed: ' + err.message });
   } finally {
-    localClient.release();
-    cloudClient.release();
+    if (localClient) localClient.release();
+    if (cloudClient) cloudClient.release();
   }
 });
 
