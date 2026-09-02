@@ -85,7 +85,7 @@
         table th, table td { border: 1px solid var(--border); padding: 8px 10px; font-size: 0.88rem; text-align: left; }
         table th { background-color: #f1f5f9; color: #1a365d; }
 
-        /* Descriptive Text Action Buttons */
+        /* Action Buttons with text labels */
         .btn-act { border: none; padding: 5px 9px; border-radius: 4px; cursor: pointer; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; margin-right: 3px; text-decoration: none; }
         .btn-act-edit { background-color: #f59e0b; color: white; }
         .btn-act-bills { background-color: #1976d2; color: white; }
@@ -473,7 +473,7 @@
             </div>
         </div>
 
-        <!-- TAB 8: DOCTOR BUSINESS (Full Filter Bar Restored) -->
+        <!-- TAB 8: DOCTOR BUSINESS (Fully Restored Filter Bar) -->
         <div id="tab-business" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Doctor Business & Referral Commissions</span></div>
@@ -496,7 +496,7 @@
 
     </div>
 
-    <!-- EDIT BILL MODAL (With Live Test Search & Rates Recalculation) -->
+    <!-- EDIT BILL MODAL (With Live Test Search & Recalculations) -->
     <div id="editBillModal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header"><h3>Edit Bill & Rate Details</h3><button type="button" onclick="closeEditBillModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
@@ -536,7 +536,69 @@
         </div>
     </div>
 
-    <!-- INVOICE PRINT PAPER (CLEAN & NO PAYMENT MODE SHOWN) -->
+    <!-- RESTORED ADMIN SETTINGS & MULTI-CENTRE MODAL -->
+    <div id="adminModal" class="modal">
+        <div class="modal-content" style="max-width: 850px;">
+            <div class="modal-header">
+                <h3>⚙️ Admin Settings & Multi-Centre Manager</h3>
+                <button type="button" onclick="closeAdminModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
+            
+            <div id="adminAuthSection">
+                <div class="form-group">
+                    <label>Enter Master Admin Password:</label>
+                    <input type="password" id="adminPasswordInput" placeholder="Password (default: admin123)" onkeydown="if(event.key==='Enter') verifyAdmin()">
+                </div>
+                <button type="button" class="btn-act btn-act-bills" style="margin-top: 10px; width: 100%; padding: 10px; justify-content: center;" onclick="verifyAdmin()">Login to Settings</button>
+            </div>
+
+            <div id="adminPanelSection" style="display: none;">
+                <div class="card" style="background: #fdf6ec; border: 1.5px solid #fed7aa; margin-bottom: 16px;">
+                    <div class="card-title" style="color: #9a3412;">🔐 Change Master Admin Password</div>
+                    <div class="form-grid">
+                        <div class="form-group"><label>Current Master Password:</label><input type="password" id="curAdminPass"></div>
+                        <div class="form-group"><label>New Master Password:</label><input type="password" id="newAdminPass"></div>
+                    </div>
+                    <button type="button" class="btn-complete-reg" style="margin-top: 10px; background: #ea580c; max-width: 250px;" onclick="changeMasterAdminPassword()">Update Admin Password</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Configured Clinic Centres</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Centre Name</th>
+                                <th>Contact / Reg No</th>
+                                <th>PIN / Password</th>
+                                <th style="width: 140px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminCentresListBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <div class="card-title" id="centreFormTitle">Add New Branch Profile</div>
+                    <input type="hidden" id="cEditId">
+                    <div class="form-grid">
+                        <div class="form-group full-width"><label>Centre Name *:</label><input type="text" id="cNameInput" placeholder="e.g. RESQ HEART CLINIC (Kandivali West)"></div>
+                        <div class="form-group full-width"><label>Tagline / Sub-header:</label><input type="text" id="cTaglineInput" placeholder="e.g. Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging"></div>
+                        <div class="form-group full-width"><label>Address:</label><input type="text" id="cAddressInput" placeholder="Shop / Building / Area details"></div>
+                        <div class="form-group"><label>Phone Number:</label><input type="text" id="cPhoneInput" placeholder="+91 8433838285"></div>
+                        <div class="form-group"><label>Email Address:</label><input type="email" id="cEmailInput" placeholder="clinic@example.com"></div>
+                        <div class="form-group"><label>PCPNDT Reg No:</label><input type="text" id="cRegInput" value="RC197"></div>
+                        <div class="form-group"><label>Branch Login PIN / Password *:</label><input type="text" id="cPasswordInput" value="1234"></div>
+                    </div>
+                    <div style="margin-top: 14px; display: flex; gap: 8px;">
+                        <button type="button" class="btn-complete-reg" id="btnSaveCentre" onclick="saveCentre()">Save Centre Profile</button>
+                        <button type="button" class="btn-del" id="btnCancelCentreEdit" style="display: none;" onclick="cancelCentreEdit()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- INVOICE PRINT PAPER (NO PAYMENT MODE LABELS SHOWN) -->
     <div id="invoicePrintArea" class="print-paper">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
             <h2 id="prtClinicName" style="font-size: 16pt; margin-bottom: 2px;">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
@@ -776,7 +838,25 @@
                 const res = await fetch('/api/centres');
                 const json = await res.json();
                 centresList = json.data || [];
-                if (centresList.length > 0) setActiveCentreObject(centresList[0]);
+                const lockSel = document.getElementById('lockCentreSelect');
+                const sel = document.getElementById('activeCentreSelector');
+
+                if (centresList.length > 0) {
+                    lockSel.innerHTML = '';
+                    sel.innerHTML = '';
+                    centresList.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = String(c.id);
+                        opt.textContent = c.centre_name;
+                        lockSel.appendChild(opt);
+
+                        const opt2 = document.createElement('option');
+                        opt2.value = String(c.id);
+                        opt2.textContent = c.centre_name;
+                        sel.appendChild(opt2);
+                    });
+                    setActiveCentreObject(centresList[0]);
+                }
             } catch (e) {}
         }
 
@@ -784,6 +864,10 @@
             activeCentre = centreObj;
             document.getElementById('topCentreTitle').textContent = activeCentre.centre_name;
             document.getElementById('topCentreTagline').textContent = activeCentre.tagline || '';
+            const regInput = document.getElementById('pcpndtClinicReg');
+            if (regInput) regInput.value = activeCentre.reg_no || 'RC197';
+            const sel = document.getElementById('activeCentreSelector');
+            if (sel) sel.value = String(activeCentre.id);
         }
 
         async function unlockApp() {
@@ -797,6 +881,9 @@
             const json = await res.json();
             if (!json.success) return alert(json.error || 'Access Denied');
             isSuperAdmin = json.isMaster;
+            const selectedObj = centresList.find(c => String(c.id) === String(json.centreId || centreId));
+            if (selectedObj) setActiveCentreObject(selectedObj);
+
             document.getElementById('appLockScreen').style.display = 'none';
             refreshAllCentreData();
         }
@@ -806,6 +893,47 @@
             loadReports();
             loadImagingVisitsDropdown();
             loadPcpndtRegister();
+            loadBusiness();
+        }
+
+        async function switchCentre(targetCentreId) {
+            if (!targetCentreId) return;
+            if (activeCentre && String(activeCentre.id) === String(targetCentreId)) return;
+
+            const targetObj = centresList.find(c => String(c.id) === String(targetCentreId));
+            const targetName = targetObj ? targetObj.centre_name : 'Selected Centre';
+
+            if (isSuperAdmin) {
+                setActiveCentreObject(targetObj);
+                refreshAllCentreData();
+                return;
+            }
+
+            const enteredPass = prompt(`🔒 Enter branch PIN/Password for "${targetName}" (default: 1234):`, '1234');
+            if (!enteredPass) {
+                if (activeCentre) document.getElementById('activeCentreSelector').value = String(activeCentre.id);
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/auth/verify-centre', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ centreId: targetCentreId, password: enteredPass })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    setActiveCentreObject(targetObj);
+                    refreshAllCentreData();
+                    alert(`Switched workspace to: ${targetName}`);
+                } else {
+                    alert('Access Denied: ' + (json.error || 'Incorrect password for this branch.'));
+                    if (activeCentre) document.getElementById('activeCentreSelector').value = String(activeCentre.id);
+                }
+            } catch (e) {
+                alert('Error switching centre.');
+                if (activeCentre) document.getElementById('activeCentreSelector').value = String(activeCentre.id);
+            }
         }
 
         function openTab(tabId, btn) {
@@ -819,6 +947,142 @@
             if (tabId === 'tab-business') loadBusiness();
             if (tabId === 'tab-masters') { loadDoctors(); loadTests(); }
             if (tabId === 'tab-patients') loadPatientsDirectory();
+        }
+
+        /* ADMIN MODAL LOGIC */
+        function openAdminModal() {
+            document.getElementById('adminModal').style.display = 'flex';
+            document.getElementById('adminAuthSection').style.display = 'block';
+            document.getElementById('adminPanelSection').style.display = 'none';
+            document.getElementById('adminPasswordInput').value = '';
+        }
+
+        function closeAdminModal() { document.getElementById('adminModal').style.display = 'none'; }
+
+        async function verifyAdmin() {
+            const password = document.getElementById('adminPasswordInput').value.trim();
+            if (!password) return alert('Please enter Master Admin Password.');
+
+            try {
+                const res = await fetch('/api/auth/verify', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ password }) 
+                });
+                const json = await res.json();
+                if (json.success) {
+                    document.getElementById('adminAuthSection').style.display = 'none';
+                    document.getElementById('adminPanelSection').style.display = 'block';
+                    renderAdminCentres();
+                } else { 
+                    alert('Incorrect Master Admin Password (default: admin123).'); 
+                }
+            } catch (err) { alert('Connection error verifying password.'); }
+        }
+
+        async function changeMasterAdminPassword() {
+            const currentPassword = document.getElementById('curAdminPass').value.trim();
+            const newPassword = document.getElementById('newAdminPass').value.trim();
+            if (!currentPassword || !newPassword) return alert('Enter both current and new passwords.');
+
+            const res = await apiFetch('/api/auth/change-admin-password', {
+                method: 'POST',
+                body: JSON.stringify({ currentPassword, newPassword })
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert('Master Admin Password updated successfully!');
+                document.getElementById('curAdminPass').value = '';
+                document.getElementById('newAdminPass').value = '';
+            } else { alert('Error: ' + json.error); }
+        }
+
+        function renderAdminCentres() {
+            const tbody = document.getElementById('adminCentresListBody');
+            tbody.innerHTML = '';
+            centresList.forEach(c => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${escapeHtml(c.centre_name)}</strong><br><small style="color:#64748b;">${escapeHtml(c.address || '')}</small></td>
+                        <td>${c.phone || '-'} | Reg: ${c.reg_no || 'RC197'}</td>
+                        <td><code style="background:#f1f5f9; padding:2px 6px; border-radius:3px; font-weight:bold;">${c.centre_password || '1234'}</code></td>
+                        <td>
+                            <button type="button" class="btn-act btn-act-edit" onclick="startEditCentre('${c.id}')">✏️ Edit</button>
+                            <button type="button" class="btn-act btn-act-del" onclick="deleteCentre('${c.id}')">✕ Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function startEditCentre(id) {
+            const c = centresList.find(x => String(x.id) === String(id));
+            if (!c) return;
+
+            document.getElementById('cEditId').value = String(c.id);
+            document.getElementById('cNameInput').value = c.centre_name || '';
+            document.getElementById('cTaglineInput').value = c.tagline || '';
+            document.getElementById('cAddressInput').value = c.address || '';
+            document.getElementById('cPhoneInput').value = c.phone || '';
+            document.getElementById('cEmailInput').value = c.email || '';
+            document.getElementById('cRegInput').value = c.reg_no || 'RC197';
+            document.getElementById('cPasswordInput').value = c.centre_password || '1234';
+
+            document.getElementById('centreFormTitle').textContent = 'Edit Centre Profile & Password';
+            document.getElementById('btnSaveCentre').textContent = 'Update Centre Profile';
+            document.getElementById('btnCancelCentreEdit').style.display = 'inline-block';
+        }
+
+        function cancelCentreEdit() {
+            document.getElementById('cEditId').value = '';
+            document.getElementById('cNameInput').value = '';
+            document.getElementById('cTaglineInput').value = '';
+            document.getElementById('cAddressInput').value = '';
+            document.getElementById('cPhoneInput').value = '';
+            document.getElementById('cEmailInput').value = '';
+            document.getElementById('cRegInput').value = 'RC197';
+            document.getElementById('cPasswordInput').value = '1234';
+
+            document.getElementById('centreFormTitle').textContent = 'Add New Branch Profile';
+            document.getElementById('btnSaveCentre').textContent = 'Save Centre Profile';
+            document.getElementById('btnCancelCentreEdit').style.display = 'none';
+        }
+
+        async function saveCentre() {
+            const editId = document.getElementById('cEditId').value.trim();
+            const payload = {
+                centre_name: document.getElementById('cNameInput').value.trim(),
+                tagline: document.getElementById('cTaglineInput').value.trim(),
+                address: document.getElementById('cAddressInput').value.trim(),
+                phone: document.getElementById('cPhoneInput').value.trim(),
+                email: document.getElementById('cEmailInput').value.trim(),
+                reg_no: document.getElementById('cRegInput').value.trim() || 'RC197',
+                centre_password: document.getElementById('cPasswordInput').value.trim() || '1234'
+            };
+
+            if (!payload.centre_name) return alert('Centre name is required.');
+            const url = editId ? `/api/centres/${editId}` : '/api/centres';
+            const method = editId ? 'PUT' : 'POST';
+
+            const res = await apiFetch(url, { method, body: JSON.stringify(payload) });
+            const json = await res.json();
+            if (json.success) {
+                alert(editId ? 'Centre profile & PIN updated!' : 'New centre profile added!');
+                cancelCentreEdit();
+                await loadCentres();
+                renderAdminCentres();
+            } else { alert('Error saving centre: ' + json.error); }
+        }
+
+        async function deleteCentre(id) {
+            if (!confirm('Are you sure you want to delete this clinic centre profile?')) return;
+            const res = await apiFetch(`/api/centres/${id}`, { method: 'DELETE' });
+            const json = await res.json();
+            if (json.success) {
+                alert('Centre deleted.');
+                await loadCentres();
+                renderAdminCentres();
+            } else { alert('Error: ' + json.error); }
         }
 
         function togglePCPNDT(show) { document.getElementById('pcpndtFields').style.display = show ? 'block' : 'none'; }
@@ -845,7 +1109,6 @@
                     document.getElementById('patientEmail').value = p.email || '';
                     document.getElementById('patientAddress').value = p.address || '';
 
-                    // Display loaded patient banner with delete option
                     const banner = document.getElementById('loadedPatientBanner');
                     const title = document.getElementById('loadedPatientTitle');
                     if (banner && title) {
@@ -854,7 +1117,7 @@
                     }
                     alert(`Loaded patient: ${p.full_name}`);
                 } else {
-                    alert('No existing patient record found.');
+                    alert('No existing patient record found in this branch.');
                 }
             } catch (e) { alert('Error looking up patient.'); }
         }
@@ -882,9 +1145,7 @@
                 clearPatientRegistrationForm();
                 loadPatientsDirectory();
                 loadReports();
-            } else {
-                alert('Error: ' + json.error);
-            }
+            } else { alert('Error: ' + json.error); }
         }
 
         function onLiveTestSearchInput(query) {
@@ -1220,9 +1481,7 @@
                 closeEditBillModal();
                 loadReports();
                 loadPatientsDirectory();
-            } else {
-                alert('Error updating bill: ' + json.error);
-            }
+            } else { alert('Error updating bill: ' + json.error); }
         }
 
         async function deleteBill(visitId) {
@@ -1299,9 +1558,7 @@
                 loadPatientsDirectory();
                 loadImagingVisitsDropdown();
                 loadReports();
-            } else {
-                alert('Error: ' + json.error);
-            }
+            } else { alert('Error: ' + json.error); }
         }
 
         async function openPatientBillsModal(patientId, name) {
@@ -1441,25 +1698,19 @@
             const json = await res.json();
             doctorsList = json.data || [];
             const sel = document.getElementById('referringDoctorSelect');
-            const busSel = document.getElementById('busDocSelect');
-            if (sel) sel.innerHTML = '<option value="">Select Doctor (or Direct OPD)</option>';
-            if (busSel) busSel.innerHTML = '<option value="">All Doctors</option>';
-
+            sel.innerHTML = '<option value="">Select Doctor (or Direct OPD)</option>';
             const tbody = document.getElementById('doctorsTableBody');
-            if (tbody) tbody.innerHTML = '';
+            tbody.innerHTML = '';
             doctorsList.forEach(d => {
-                if (sel) sel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
-                if (busSel) busSel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
-                if (tbody) {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><strong>${escapeHtml(d.doctor_name)}</strong></td>
-                            <td>${escapeHtml(d.hospital_clinic_name || '')}</td>
-                            <td>${d.commission_type === 'percentage' ? d.commission_value + '%' : '₹' + d.commission_value}</td>
-                            <td><button type="button" class="btn-act btn-act-del" onclick="deleteDoctor('${d.id}')">✕ Delete</button></td>
-                        </tr>
-                    `;
-                }
+                sel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${escapeHtml(d.doctor_name)}</strong></td>
+                        <td>${escapeHtml(d.hospital_clinic_name || '')}</td>
+                        <td>${d.commission_type === 'percentage' ? d.commission_value + '%' : '₹' + d.commission_value}</td>
+                        <td><button type="button" class="btn-act btn-act-del" onclick="deleteDoctor('${d.id}')">✕ Delete</button></td>
+                    </tr>
+                `;
             });
         }
 
@@ -1551,6 +1802,31 @@
                 btn.innerHTML = orig;
                 btn.disabled = false;
             }
+        }
+
+        async function loadDailyAudit() {
+            const auditDate = document.getElementById('auditDateInput').value || new Date().toISOString().slice(0, 10);
+            document.getElementById('auditDateInput').value = auditDate;
+            const res = await apiFetch(`/api/reports/executive-daily?date=${auditDate}`);
+            const json = await res.json();
+            const tbody = document.getElementById('auditTableBody');
+            tbody.innerHTML = '';
+            (json.data || []).forEach(row => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${escapeHtml(row.centre_name)}</strong></td>
+                        <td>${row.total_patients}</td>
+                        <td>₹${parseFloat(row.gross_revenue).toFixed(2)}</td>
+                        <td>₹${parseFloat(row.total_discount).toFixed(2)}</td>
+                        <td style="color:#00897b; font-weight:bold;">₹${parseFloat(row.cash_collected).toFixed(2)}</td>
+                        <td style="color:#1e3a8a; font-weight:bold;">₹${parseFloat(row.upi_collected).toFixed(2)}</td>
+                        <td style="font-weight:bold;">₹${parseFloat(row.total_collected).toFixed(2)}</td>
+                        <td style="color:#d84315; font-weight:bold;">₹${parseFloat(row.pending_balance).toFixed(2)}</td>
+                        <td style="color:#7c3aed;">₹${parseFloat(row.total_cuts).toFixed(2)}</td>
+                        <td>${row.pcpndt_count} Forms / ${row.imaging_count} USG</td>
+                    </tr>
+                `;
+            });
         }
     </script>
 </body>
