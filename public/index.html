@@ -85,6 +85,7 @@
         table th, table td { border: 1px solid var(--border); padding: 8px 10px; font-size: 0.88rem; text-align: left; }
         table th { background-color: #f1f5f9; color: #1a365d; }
 
+        /* Descriptive Text Action Buttons */
         .btn-act { border: none; padding: 5px 9px; border-radius: 4px; cursor: pointer; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; margin-right: 3px; text-decoration: none; }
         .btn-act-edit { background-color: #f59e0b; color: white; }
         .btn-act-bills { background-color: #1976d2; color: white; }
@@ -235,6 +236,18 @@
                     <button type="button" class="btn-search" onclick="lookupPatient()">Search</button>
                 </div>
 
+                <!-- Patient Loaded Action Bar -->
+                <div id="loadedPatientBanner" style="display: none; background: #e0f2fe; border: 1.5px solid #0284c7; padding: 10px 14px; border-radius: 4px; margin-bottom: 12px; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-size: 0.85rem; color: #0369a1;">Patient Loaded:</span>
+                        <strong id="loadedPatientTitle" style="font-size: 0.95rem; color: #1e3a8a; margin-left: 6px;"></strong>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button type="button" class="btn-act btn-act-del" onclick="deleteLoadedPatientRecord()">🗑️ Delete Patient Record</button>
+                        <button type="button" class="btn-act btn-act-edit" style="background:#64748b;" onclick="clearPatientRegistrationForm()">🔄 Clear Form</button>
+                    </div>
+                </div>
+
                 <div class="form-grid">
                     <input type="hidden" id="existingPatientId">
                     <div class="form-group"><label>Patient ID / Unique Code:</label><input type="text" id="patientCode" placeholder="e.g. PAT-001 (Auto-generated if blank)"></div>
@@ -284,6 +297,7 @@
                 </div>
 
                 <div style="margin-top: 14px;">
+                    <!-- Registration Items Table (Doctor Cut column removed) -->
                     <table id="billItemsTable">
                         <thead><tr><th>Investigation</th><th>Category</th><th style="width: 140px;">Rate (₹)</th><th style="width: 80px;">Action</th></tr></thead>
                         <tbody><tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected yet. Type above to add.</td></tr></tbody>
@@ -382,10 +396,7 @@
             <div class="card">
                 <div class="card-title">
                     <span>Statutory PCPNDT Form F Compliance Register</span>
-                    <div style="display:flex; gap:8px;">
-                        <button type="button" class="btn-act btn-act-bill-prt" onclick="exportPcpndtCsv()">📥 Export to CSV</button>
-                        <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" class="btn-gov-portal">🏛️ Maha PCPNDT Portal</a>
-                    </div>
+                    <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" class="btn-gov-portal">🏛️ Maha PCPNDT Portal</a>
                 </div>
                 <table>
                     <thead>
@@ -462,10 +473,22 @@
             </div>
         </div>
 
-        <!-- TAB 8: DOCTOR BUSINESS -->
+        <!-- TAB 8: DOCTOR BUSINESS (Full Filter Bar Restored) -->
         <div id="tab-business" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Doctor Business & Referral Commissions</span></div>
+
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px;">
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">Select Doctor:</label><br><select id="busDocSelect" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"><option value="">All Doctors</option></select></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">Start Date:</label><br><input type="date" id="busStartDate" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">End Date:</label><br><input type="date" id="busEndDate" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">OR Month:</label><br><input type="month" id="busMonth" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: bold;">Patient Name:</label><br><input type="text" id="busPatientName" placeholder="Search Patient" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></div>
+                    <button type="button" class="btn-search" onclick="loadBusiness()">🔍 Filter</button>
+                    <button type="button" class="btn-act btn-act-edit" onclick="resetBusinessFilters()">Show All</button>
+                    <button type="button" class="btn-act btn-act-bill-prt" onclick="window.print()">🖨️ Print Report</button>
+                </div>
+
                 <div id="busSummaryBanner" style="background:#ede7f6; border:1px solid #d1c4e9; padding:10px 14px; border-radius:4px; font-weight:bold; margin-bottom:12px;">Loading Summary...</div>
                 <table><thead><tr><th>Date</th><th>Doctor Name</th><th>Patient</th><th>Invoice No</th><th>Business (₹)</th><th>Doctor Cut (₹)</th><th>Action</th></tr></thead><tbody id="businessTableBody"></tbody></table>
             </div>
@@ -473,7 +496,7 @@
 
     </div>
 
-    <!-- EDIT BILL MODAL -->
+    <!-- EDIT BILL MODAL (With Live Test Search & Rates Recalculation) -->
     <div id="editBillModal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header"><h3>Edit Bill & Rate Details</h3><button type="button" onclick="closeEditBillModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
@@ -482,14 +505,31 @@
                 <label style="font-weight:bold;">Referring Doctor:</label>
                 <select id="editBillDocSelect" style="padding:8px; width:100%; border:1px solid #ccc; border-radius:4px;"></select>
             </div>
+
+            <div style="background: #f8fafc; border: 1px solid var(--border); padding: 10px; border-radius: 4px; margin-bottom: 12px;">
+                <label style="font-size: 0.88rem; font-weight: bold; color: #1a365d;">Search & Add Investigation to this Bill:</label>
+                <div class="live-search-container" style="margin-top: 6px;">
+                    <input type="text" id="editBillLiveTestInput" placeholder="🔍 Start typing test name..." oninput="onEditBillLiveTestSearchInput(this.value)" autocomplete="off" style="width: 100%; padding: 8px 12px; border: 1px solid #90caf9; border-radius: 4px; outline: none;">
+                    <div id="editBillLiveSearchResultsBox" class="live-search-box"></div>
+                </div>
+            </div>
+
             <label style="font-size: 0.9rem; font-weight: bold; color: #1a365d;">Bill Items & Charges:</label>
             <table style="margin-bottom: 10px;">
-                <thead><tr><th>Investigation / Service Name</th><th>Category</th><th style="width: 140px;">Rate (₹)</th><th style="width: 80px;">Action</th></tr></thead>
+                <thead><tr><th>Investigation / Service Name</th><th>Category</th><th style="width: 140px;">Rate (₹)</th><th style="width: 90px;">Action</th></tr></thead>
                 <tbody id="editBillItemsTableBody"></tbody>
             </table>
+
+            <div class="rates-summary-panel" style="margin-bottom: 14px;">
+                <div class="subtotal">Gross Total: <span id="editDispGross">₹0.00</span></div>
+                <div class="concession">Concession / Discount: <span id="editDispDisc">- ₹0.00</span></div>
+                <div class="payable">Net Payable: <span id="editDispNet">₹0.00</span></div>
+                <div class="balance">Balance Due: <span id="editDispBal">₹0.00</span></div>
+            </div>
+
             <div class="form-grid">
-                <div class="form-group"><label>Concession (₹):</label><input type="number" id="editBillDisc"></div>
-                <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="editBillPaid"></div>
+                <div class="form-group"><label>Concession (₹):</label><input type="number" id="editBillDisc" oninput="recalcEditBillTotals()"></div>
+                <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="editBillPaid" oninput="recalcEditBillTotals()"></div>
                 <div class="form-group"><label>Payment Mode:</label><select id="editBillPaymentMode"><option value="Cash">Cash</option><option value="Online / UPI">Online / UPI</option><option value="Card">Card</option></select></div>
             </div>
             <button type="button" class="btn-complete-reg" style="margin-top: 14px; width: 100%; padding:12px;" onclick="submitFullEditBill()">Save & Update Bill</button>
@@ -804,11 +844,47 @@
                     document.getElementById('patientMobile').value = p.phone || '';
                     document.getElementById('patientEmail').value = p.email || '';
                     document.getElementById('patientAddress').value = p.address || '';
+
+                    // Display loaded patient banner with delete option
+                    const banner = document.getElementById('loadedPatientBanner');
+                    const title = document.getElementById('loadedPatientTitle');
+                    if (banner && title) {
+                        title.textContent = `[${p.patient_code || 'ID'}] ${p.full_name} (${p.phone || 'No Mobile'})`;
+                        banner.style.display = 'flex';
+                    }
                     alert(`Loaded patient: ${p.full_name}`);
                 } else {
                     alert('No existing patient record found.');
                 }
             } catch (e) { alert('Error looking up patient.'); }
+        }
+
+        function clearPatientRegistrationForm() {
+            document.getElementById('existingPatientId').value = '';
+            document.getElementById('patientCode').value = '';
+            document.getElementById('patientFullName').value = '';
+            document.getElementById('patientAge').value = '';
+            document.getElementById('patientMobile').value = '';
+            document.getElementById('patientEmail').value = '';
+            document.getElementById('patientAddress').value = '';
+            document.getElementById('loadedPatientBanner').style.display = 'none';
+        }
+
+        async function deleteLoadedPatientRecord() {
+            const id = document.getElementById('existingPatientId').value;
+            if (!id) return alert('No patient currently loaded.');
+            if (!confirm('Are you sure you want to permanently delete this patient and all their medical bills/history?')) return;
+
+            const res = await apiFetch(`/api/patients/${id}`, { method: 'DELETE' });
+            const json = await res.json();
+            if (json.success) {
+                alert(json.message);
+                clearPatientRegistrationForm();
+                loadPatientsDirectory();
+                loadReports();
+            } else {
+                alert('Error: ' + json.error);
+            }
         }
 
         function onLiveTestSearchInput(query) {
@@ -912,6 +988,7 @@
                 }
                 selectedBillTests = [];
                 renderSelectedTests();
+                clearPatientRegistrationForm();
                 refreshAllCentreData();
             } else { alert('Error: ' + json.error); }
         }
@@ -1041,7 +1118,7 @@
                             <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${v.visit_id}')">🖨️ Bill</button>
                             <button type="button" class="btn-act btn-act-wa" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}')">📱 WhatsApp</button>
                             ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.visit_id}')">📝 Form F</button>` : ''}
-                            <button type="button" class="btn-act btn-act-edit" onclick="openEditBillModal('${v.visit_id}')">✏️ Edit</button>
+                            <button type="button" class="btn-act btn-act-edit" onclick="openEditBillModal('${v.visit_id}')">✏️ Edit Bill</button>
                             <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.visit_id}')">✕ Delete</button>
                         </td>
                     </tr>
@@ -1054,7 +1131,7 @@
             const json = await res.json();
             if (!json.success) return;
             const v = json.data.visitDetails;
-            activeEditingBillTests = (json.data.investigations || []).map(i => ({ id: i.test_id, test_name: i.test_name, category: i.category, price: i.price, cut_type: i.cut_type, test_cut: i.test_cut }));
+            activeEditingBillTests = (json.data.investigations || []).map(i => ({ id: i.test_id, test_name: i.test_name, category: i.category, price: parseFloat(i.price) || 0, cut_type: i.cut_type, test_cut: i.test_cut }));
 
             document.getElementById('editBillRowId').value = String(v.id);
             document.getElementById('editBillDisc').value = v.concession || 0;
@@ -1067,6 +1144,32 @@
                 docSel.innerHTML += `<option value="${d.id}" ${String(d.id) === String(v.referring_doctor_id) ? 'selected' : ''}>${escapeHtml(d.doctor_name)}</option>`;
             });
 
+            renderEditBillItems();
+            document.getElementById('editBillModal').style.display = 'flex';
+        }
+
+        function onEditBillLiveTestSearchInput(query) {
+            const box = document.getElementById('editBillLiveSearchResultsBox');
+            const q = (query || '').toLowerCase().trim();
+            if (!q) { box.style.display = 'none'; return; }
+            const matches = testsList.filter(t => t.test_name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q));
+            box.innerHTML = '';
+            matches.forEach(t => {
+                const item = document.createElement('div');
+                item.className = 'live-search-item';
+                item.innerHTML = `<div><strong>${escapeHtml(t.test_name)}</strong> <span class="badge-cat">${t.category}</span></div><div style="font-weight:bold; color:#1e3a8a;">₹${t.price}</div>`;
+                item.onclick = () => {
+                    activeEditingBillTests.push({ id: t.id, test_name: t.test_name, category: t.category, price: parseFloat(t.price) || 0, cut_type: t.cut_type, test_cut: t.test_cut });
+                    renderEditBillItems();
+                    document.getElementById('editBillLiveTestInput').value = '';
+                    box.style.display = 'none';
+                };
+                box.appendChild(item);
+            });
+            box.style.display = matches.length > 0 ? 'block' : 'none';
+        }
+
+        function renderEditBillItems() {
             const tbody = document.getElementById('editBillItemsTableBody');
             tbody.innerHTML = '';
             activeEditingBillTests.forEach((t, idx) => {
@@ -1074,31 +1177,51 @@
                     <tr>
                         <td><strong>${escapeHtml(t.test_name)}</strong></td>
                         <td><span class="badge-cat">${t.category}</span></td>
-                        <td><input type="number" value="${t.price}" oninput="activeEditingBillTests[${idx}].price = parseFloat(this.value)||0;" style="width:110px; padding:4px;"></td>
-                        <td><button type="button" class="btn-act btn-act-del" onclick="activeEditingBillTests.splice(${idx},1); openEditBillModal('${visitId}');">✕ Remove</button></td>
+                        <td><input type="number" value="${t.price}" oninput="activeEditingBillTests[${idx}].price = parseFloat(this.value)||0; recalcEditBillTotals();" style="width:110px; padding:4px;"></td>
+                        <td><button type="button" class="btn-act btn-act-del" onclick="activeEditingBillTests.splice(${idx},1); renderEditBillItems();">✕ Remove</button></td>
                     </tr>
                 `;
             });
-            document.getElementById('editBillModal').style.display = 'flex';
+            recalcEditBillTotals();
+        }
+
+        function recalcEditBillTotals() {
+            const gross = activeEditingBillTests.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
+            const discount = parseFloat(document.getElementById('editBillDisc').value) || 0;
+            const net = Math.max(0, gross - discount);
+            const paid = parseFloat(document.getElementById('editBillPaid').value) || 0;
+            const bal = Math.max(0, net - paid);
+
+            document.getElementById('editDispGross').textContent = `₹${gross.toFixed(2)}`;
+            document.getElementById('editDispDisc').textContent = `- ₹${discount.toFixed(2)}`;
+            document.getElementById('editDispNet').textContent = `₹${net.toFixed(2)}`;
+            document.getElementById('editDispBal').textContent = `₹${bal.toFixed(2)}`;
         }
 
         function closeEditBillModal() { document.getElementById('editBillModal').style.display = 'none'; }
 
         async function submitFullEditBill() {
             const visitId = document.getElementById('editBillRowId').value;
+            const disc = parseFloat(document.getElementById('editBillDisc').value) || 0;
+            const paid = parseFloat(document.getElementById('editBillPaid').value) || 0;
+
             const payload = {
                 referringDoctorId: document.getElementById('editBillDocSelect').value,
-                tests: JSON.stringify(activeEditingBillTests),
-                concession: document.getElementById('editBillDisc').value || 0,
-                paidAmount: document.getElementById('editBillPaid').value || 0,
+                tests: activeEditingBillTests,
+                concession: disc,
+                paidAmount: paid,
                 paymentMode: document.getElementById('editBillPaymentMode').value
             };
+
             const res = await apiFetch(`/api/visits/${visitId}`, { method: 'PUT', body: JSON.stringify(payload) });
             const json = await res.json();
             if (json.success) {
-                alert('Bill updated.');
+                alert('Bill updated successfully!');
                 closeEditBillModal();
                 loadReports();
+                loadPatientsDirectory();
+            } else {
+                alert('Error updating bill: ' + json.error);
             }
         }
 
@@ -1106,6 +1229,7 @@
             if (!confirm('Permanently delete this invoice?')) return;
             await apiFetch(`/api/visits/${visitId}`, { method: 'DELETE' });
             loadReports();
+            loadPatientsDirectory();
         }
 
         async function loadPcpndtRegister() {
@@ -1135,10 +1259,6 @@
             } catch (e) {}
         }
 
-        function exportPcpndtCsv() {
-            window.location.href = `/api/pcpndt/export-csv`;
-        }
-
         async function deleteStandalonePcpndtForm(id) {
             if (!confirm('Delete this statutory PCPNDT record?')) return;
             await apiFetch(`/api/pcpndt/${id}`, { method: 'DELETE' });
@@ -1161,7 +1281,7 @@
                         <td>${p.phone || '-'}</td>
                         <td>₹${parseFloat(p.total_billed || 0).toFixed(2)} (Due: ₹${parseFloat(p.total_due || 0).toFixed(2)})</td>
                         <td>
-                            <button type="button" class="btn-act btn-act-bills" onclick="openPatientBillsModal('${p.id}', '${escapeHtml(p.full_name)}')">📂 Bills</button>
+                            <button type="button" class="btn-act btn-act-bills" onclick="openPatientBillsModal('${p.id}', '${escapeHtml(p.full_name)}')">📂 View Bills</button>
                             <button type="button" class="btn-act btn-act-bill-prt" onclick="document.getElementById('lookupSearch').value='${p.phone || p.full_name}'; lookupPatient(); openTab('tab-billing', document.querySelectorAll('.tab-btn')[0]);">➕ New Bill</button>
                             <button type="button" class="btn-act btn-act-del" onclick="deletePatientRecord('${p.id}')">✕ Delete Patient</button>
                         </td>
@@ -1232,6 +1352,7 @@
             });
         }
 
+        // Always save and download in Microsoft Word .doc format
         async function openReportInExternalWord() {
             if (!currentSelectedVisit) return alert('Select patient first.');
             const title = document.getElementById('liveReportTitle').value;
@@ -1244,13 +1365,14 @@
                 <head><meta charset="utf-8"><style>@page { margin: ${isPreprinted ? '45mm' : '15mm'} 15mm 15mm 15mm; } body { font-family: Arial; font-size: 10pt; }</style></head>
                 <body>
                     ${!isPreprinted ? `<h2>${activeCentre.centre_name}</h2><p>${activeCentre.address || ''}</p><hr>` : ''}
-                    <p><strong>Patient:</strong> ${currentSelectedVisit.full_name} | <strong>Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
+                    <p><strong>Patient:</strong> ${currentSelectedVisit.full_name} | <strong>Age/Sex:</strong> ${currentSelectedVisit.age || 'N/A'}/${currentSelectedVisit.gender || '-'} | <strong>Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
+                    <p><strong>Ref By:</strong> ${currentSelectedVisit.doctor_name || 'Self'} | <strong>Invoice:</strong> ${currentSelectedVisit.invoice_number}</p>
                     <hr>
                     <h3 style="text-align:center;">${title}</h3>
-                    <div style="white-space: pre-wrap;">${text}</div>
+                    <div style="white-space: pre-wrap; font-size: 9.8pt; line-height: 1.4;">${text}</div>
                     <br>
                     <strong><u>IMPRESSION :-</u></strong>
-                    <div style="font-weight: bold; white-space: pre-wrap;">${impression}</div>
+                    <div style="font-weight: bold; white-space: pre-wrap; margin-top: 4px;">${impression}</div>
                 </body></html>
             `;
             const blob = new Blob(['\ufeff', wordHTML], { type: 'application/msword;charset=utf-8' });
@@ -1319,19 +1441,25 @@
             const json = await res.json();
             doctorsList = json.data || [];
             const sel = document.getElementById('referringDoctorSelect');
-            sel.innerHTML = '<option value="">Select Doctor (or Direct OPD)</option>';
+            const busSel = document.getElementById('busDocSelect');
+            if (sel) sel.innerHTML = '<option value="">Select Doctor (or Direct OPD)</option>';
+            if (busSel) busSel.innerHTML = '<option value="">All Doctors</option>';
+
             const tbody = document.getElementById('doctorsTableBody');
-            tbody.innerHTML = '';
+            if (tbody) tbody.innerHTML = '';
             doctorsList.forEach(d => {
-                sel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
-                tbody.innerHTML += `
-                    <tr>
-                        <td><strong>${escapeHtml(d.doctor_name)}</strong></td>
-                        <td>${escapeHtml(d.hospital_clinic_name || '')}</td>
-                        <td>${d.commission_type === 'percentage' ? d.commission_value + '%' : '₹' + d.commission_value}</td>
-                        <td><button type="button" class="btn-act btn-act-del" onclick="deleteDoctor('${d.id}')">✕ Delete</button></td>
-                    </tr>
-                `;
+                if (sel) sel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
+                if (busSel) busSel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
+                if (tbody) {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${escapeHtml(d.doctor_name)}</strong></td>
+                            <td>${escapeHtml(d.hospital_clinic_name || '')}</td>
+                            <td>${d.commission_type === 'percentage' ? d.commission_value + '%' : '₹' + d.commission_value}</td>
+                            <td><button type="button" class="btn-act btn-act-del" onclick="deleteDoctor('${d.id}')">✕ Delete</button></td>
+                        </tr>
+                    `;
+                }
             });
         }
 
@@ -1353,10 +1481,76 @@
             loadDoctors();
         }
 
+        async function loadBusiness() {
+            try {
+                const docId = document.getElementById('busDocSelect')?.value || '';
+                const start = document.getElementById('busStartDate')?.value || '';
+                const end = document.getElementById('busEndDate')?.value || '';
+                const month = document.getElementById('busMonth')?.value || '';
+                const pat = document.getElementById('busPatientName')?.value?.trim() || '';
+
+                let url = `/api/reports/doctor-detailed?1=1`;
+                if (docId) url += `&doctorId=${docId}`;
+                if (start) url += `&startDate=${start}`;
+                if (end) url += `&endDate=${end}`;
+                if (month) url += `&month=${month}`;
+                if (pat) url += `&patientName=${encodeURIComponent(pat)}`;
+
+                const res = await apiFetch(url);
+                const json = await res.json();
+                const data = json.data || [];
+                let totalBiz = 0, totalCut = 0;
+                const tbody = document.getElementById('businessTableBody');
+                tbody.innerHTML = '';
+                data.forEach(b => {
+                    totalBiz += parseFloat(b.total_amount || 0);
+                    totalCut += parseFloat(b.doctor_commission || 0);
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${new Date(b.created_at).toLocaleDateString('en-GB')}</td>
+                            <td><strong>${escapeHtml(b.doctor_name)}</strong><br><small>${escapeHtml(b.hospital_clinic_name || '')}</small></td>
+                            <td>${escapeHtml(b.full_name)}</td>
+                            <td>${b.invoice_number}</td>
+                            <td>₹${parseFloat(b.total_amount).toFixed(2)}</td>
+                            <td style="color:#6d28d9; font-weight:bold;">₹${parseFloat(b.doctor_commission).toFixed(2)}</td>
+                            <td><button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${b.visit_id}')">🖨️ Bill</button></td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('busSummaryBanner').innerHTML = `
+                    <span>Gross Business: <strong style="color:#1e3a8a;">₹${totalBiz.toFixed(2)}</strong></span> | 
+                    <span>Total Doctor Cuts: <strong style="color:#7c3aed;">₹${totalCut.toFixed(2)}</strong></span> | 
+                    <span>Referrals: <strong>${data.length}</strong></span>
+                `;
+            } catch (e) {
+                console.error("Error loading doctor cuts:", e);
+            }
+        }
+
+        function resetBusinessFilters() {
+            document.getElementById('busDocSelect').value = '';
+            document.getElementById('busStartDate').value = '';
+            document.getElementById('busEndDate').value = '';
+            document.getElementById('busMonth').value = '';
+            document.getElementById('busPatientName').value = '';
+            loadBusiness();
+        }
+
         async function triggerCloudSync() {
-            const res = await apiFetch('/api/sync/cloud', { method: 'POST' });
-            const json = await res.json();
-            alert(json.success ? '✅ Cloud Sync Successful!' : '❌ ' + json.error);
+            const btn = document.querySelector('.btn-sync-cloud');
+            const orig = btn.innerHTML;
+            btn.innerHTML = '⏳ Syncing...';
+            btn.disabled = true;
+            try {
+                const res = await apiFetch('/api/sync/cloud', { method: 'POST' });
+                const json = await res.json();
+                alert(json.success ? '✅ ' + json.message : '❌ ' + json.error);
+            } catch (err) {
+                alert('Network error during sync.');
+            } finally {
+                btn.innerHTML = orig;
+                btn.disabled = false;
+            }
         }
     </script>
 </body>
