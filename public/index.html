@@ -85,7 +85,7 @@
         table th, table td { border: 1px solid var(--border); padding: 8px 10px; font-size: 0.88rem; text-align: left; }
         table th { background-color: #f1f5f9; color: #1a365d; }
 
-        /* Action Buttons with text labels */
+        /* Action Buttons with clear descriptive labels */
         .btn-act { border: none; padding: 5px 9px; border-radius: 4px; cursor: pointer; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; margin-right: 3px; text-decoration: none; }
         .btn-act-edit { background-color: #f59e0b; color: white; }
         .btn-act-bills { background-color: #1976d2; color: white; }
@@ -154,7 +154,6 @@
         }
 
         .print-paper { display: none; background: white; padding: 20px; border: 1px solid #333; color: #000; }
-        
         .doc-header-title { text-align: center; font-size: 8.5pt; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; border-bottom: 1.5px solid #000; padding-bottom: 2px; }
         .doc-sec-heading { font-weight: bold; font-size: 8.8pt; margin-top: 3px; margin-bottom: 2px; text-decoration: underline; }
         .doc-line-item { display: flex; margin-bottom: 1.5px; font-size: 7.7pt; }
@@ -264,7 +263,17 @@
                     <div class="form-group"><label>Mobile Number:</label><input type="text" id="patientMobile" placeholder="10 Digit Mobile"></div>
                     <div class="form-group"><label>Email ID:</label><input type="email" id="patientEmail" placeholder="patient@example.com"></div>
                     <div class="form-group full-width"><label>Address:</label><input type="text" id="patientAddress" placeholder="Address"></div>
-                    <div class="form-group full-width"><label>Referring Doctor:</label><select id="referringDoctorSelect"><option value="">Select Doctor (or Direct OPD)</option></select></div>
+                    
+                    <!-- Searchable Doctor Selection on Registration Page -->
+                    <div class="form-group full-width">
+                        <label>Referring Doctor:</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="docSearchQuickInput" placeholder="🔍 Type to filter doctor..." oninput="onFilterDoctorSelect(this.value)" style="flex: 1; padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.88rem;">
+                            <select id="referringDoctorSelect" style="flex: 1.5; padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem;">
+                                <option value="">Select Doctor (or Direct OPD)</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="pcpndt-panel" id="pcpndtContainer">
@@ -297,7 +306,7 @@
                 </div>
 
                 <div style="margin-top: 14px;">
-                    <!-- Registration Items Table (Doctor Cut column removed) -->
+                    <!-- Registration Items Table (Doctor Cut column omitted from billing page) -->
                     <table id="billItemsTable">
                         <thead><tr><th>Investigation</th><th>Category</th><th style="width: 140px;">Rate (₹)</th><th style="width: 80px;">Action</th></tr></thead>
                         <tbody><tr id="emptyTestRow"><td colspan="4" style="text-align: center; color: #888; padding: 14px;">No tests selected yet. Type above to add.</td></tr></tbody>
@@ -410,12 +419,13 @@
         <!-- TAB 5: DOCTORS & TESTS MASTERS -->
         <div id="tab-masters" class="tab-content">
             <div class="dashboard-grid">
+                <!-- Referring Doctors Section -->
                 <div>
                     <div class="card">
                         <div class="card-title" id="docFormTitle">Add / Edit Referring Doctors</div>
                         <input type="hidden" id="editDocId">
                         <div class="form-grid">
-                            <div class="form-group full-width"><label>Doctor Name *:</label><input type="text" id="docNameInput"></div>
+                            <div class="form-group full-width"><label>Doctor Name *:</label><input type="text" id="docNameInput" placeholder="Dr. Full Name"></div>
                             <div class="form-group full-width"><label>Hospital / Clinic Name:</label><input type="text" id="docHospInput"></div>
                             <div class="form-group"><label>Commission Type:</label><select id="docCommType"><option value="percentage">Percentage (%)</option><option value="fixed">Fixed Amount (₹)</option></select></div>
                             <div class="form-group"><label>Commission Value:</label><input type="number" id="docCutInput" value="0"></div>
@@ -426,17 +436,23 @@
                         </div>
                     </div>
                     <div class="card">
-                        <div class="card-title">Doctors List</div>
+                        <div class="card-title">
+                            <span>Doctors List</span>
+                        </div>
+                        <div class="search-row" style="margin-bottom: 8px;">
+                            <input type="text" id="doctorSearchInput" placeholder="🔍 Search doctor by name or hospital..." oninput="filterDoctorsList()">
+                        </div>
                         <table><thead><tr><th>Name</th><th>Hospital</th><th>Cut</th><th style="width: 140px;">Actions</th></tr></thead><tbody id="doctorsTableBody"></tbody></table>
                     </div>
                 </div>
 
+                <!-- Tests & Services Section -->
                 <div>
                     <div class="card">
                         <div class="card-title" id="testFormTitle">Add / Edit Tests & Cuts</div>
                         <input type="hidden" id="editTestId">
                         <div class="form-grid">
-                            <div class="form-group full-width"><label>Test Name *:</label><input type="text" id="testNameInput"></div>
+                            <div class="form-group full-width"><label>Test Name *:</label><input type="text" id="testNameInput" placeholder="Investigation Name"></div>
                             <div class="form-group full-width"><label>Category:</label><select id="testCatInput"><option value="Pathology">Pathology</option><option value="Imaging">Imaging</option><option value="Cardiology">Cardiology</option><option value="Obstetrics">Obstetrics</option><option value="Consulting">Consulting</option></select></div>
                             <div class="form-group"><label>Price (₹) *:</label><input type="number" id="testPriceInput" value="0"></div>
                             <div class="form-group"><label>Doctor Cut Type:</label><select id="testCutTypeInput"><option value="fixed">Fixed Amount (₹)</option><option value="percentage">Percentage (%)</option></select></div>
@@ -448,7 +464,12 @@
                         </div>
                     </div>
                     <div class="card">
-                        <div class="card-title">Existing Tests & Services</div>
+                        <div class="card-title">
+                            <span>Existing Tests & Services</span>
+                        </div>
+                        <div class="search-row" style="margin-bottom: 8px;">
+                            <input type="text" id="existingTestSearch" placeholder="🔍 Search test by name or category..." oninput="filterExistingTestsList()">
+                        </div>
                         <table><thead><tr><th>Test</th><th>Price</th><th>Cut</th><th style="width: 140px;">Actions</th></tr></thead><tbody id="testsTableBody"></tbody></table>
                     </div>
                 </div>
@@ -473,7 +494,7 @@
             </div>
         </div>
 
-        <!-- TAB 8: DOCTOR BUSINESS (Fully Restored Filter Bar) -->
+        <!-- TAB 8: DOCTOR BUSINESS (Full Filter Bar Restored) -->
         <div id="tab-business" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Doctor Business & Referral Commissions</span></div>
@@ -536,7 +557,7 @@
         </div>
     </div>
 
-    <!-- RESTORED ADMIN SETTINGS & MULTI-CENTRE MODAL -->
+    <!-- ADMIN SETTINGS & MULTI-CENTRE MODAL -->
     <div id="adminModal" class="modal">
         <div class="modal-content" style="max-width: 850px;">
             <div class="modal-header">
@@ -598,7 +619,7 @@
         </div>
     </div>
 
-    <!-- INVOICE PRINT PAPER (NO PAYMENT MODE LABELS SHOWN) -->
+    <!-- INVOICE PRINT PAPER (CLEAN & NO PAYMENT MODE LABELS SHOWN) -->
     <div id="invoicePrintArea" class="print-paper">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
             <h2 id="prtClinicName" style="font-size: 16pt; margin-bottom: 2px;">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
@@ -810,7 +831,7 @@
         </div>
     </div>
 
-    <!-- CLIENT SCRIPT -->
+    <!-- SCRIPT -->
     <script>
         let testsList = [], doctorsList = [], centresList = [], selectedBillTests = [];
         let activeCentre = null, currentSelectedTemplate = null, currentSelectedVisit = null, dropdownPatientsList = [];
@@ -1609,33 +1630,116 @@
             });
         }
 
-        // Always save and download in Microsoft Word .doc format
+        // Systematic clinical details formatting in Microsoft Word .doc
         async function openReportInExternalWord() {
-            if (!currentSelectedVisit) return alert('Select patient first.');
-            const title = document.getElementById('liveReportTitle').value;
-            const text = document.getElementById('liveReportFindings').value;
-            const impression = document.getElementById('liveReportImpression').value;
+            if (!currentSelectedVisit) return alert('Please select a registered patient from the dropdown first.');
+            const title = document.getElementById('liveReportTitle').value || 'DIAGNOSTIC REPORT';
+            const text = document.getElementById('liveReportFindings').value || '';
+            const impression = document.getElementById('liveReportImpression').value || '• NO SIGNIFICANT ABNORMALITY DETECTED.';
             const isPreprinted = document.getElementById('chkPreprintedLetterhead').checked;
 
+            const patientName = (currentSelectedVisit.full_name || 'Patient').toUpperCase();
+            const cleanAge = currentSelectedVisit.age ? `${currentSelectedVisit.age} Yrs` : 'N/A';
+            const cleanGender = (currentSelectedVisit.gender || '-').toUpperCase();
+            const refDoctor = currentSelectedVisit.doctor_name || 'Self / Direct OPD';
+            const invoiceNo = currentSelectedVisit.invoice_number || '-';
+            const patientCode = currentSelectedVisit.patient_code || '-';
+            const phone = currentSelectedVisit.phone || '-';
+            const studyDate = new Date(currentSelectedVisit.created_at || Date.now()).toLocaleDateString('en-GB');
+
+            const centreName = activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE';
+            const centreTagline = activeCentre?.tagline || 'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging';
+            const centreAddress = activeCentre?.address || 'Kandivali West, Mumbai';
+            const centrePhone = activeCentre?.phone || '+91 8433838285';
+            const centreReg = activeCentre?.reg_no || 'RC197';
+
+            const topMargin = isPreprinted ? '45mm' : '15mm';
+
             const wordHTML = `
-                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'>
-                <head><meta charset="utf-8"><style>@page { margin: ${isPreprinted ? '45mm' : '15mm'} 15mm 15mm 15mm; } body { font-family: Arial; font-size: 10pt; }</style></head>
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head>
+                    <meta charset="utf-8">
+                    <title>${title}</title>
+                    <style>
+                        @page Section1 { size: 210mm 297mm; margin: ${topMargin} 15mm 15mm 15mm; }
+                        div.Section1 { page: Section1; }
+                        body { font-family: 'Arial', sans-serif; font-size: 10pt; line-height: 1.35; color: #000; }
+                        .header-banner { text-align: center; border-bottom: 2px solid #19486a; padding-bottom: 6px; margin-bottom: 12px; }
+                        .clinic-title { font-size: 15pt; font-weight: bold; color: #19486a; margin: 0; }
+                        .clinic-sub { font-size: 9pt; font-style: italic; margin: 2px 0; color: #333; }
+                        .clinic-meta { font-size: 8.5pt; margin: 2px 0; color: #444; }
+                        .patient-box-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 9.5pt; border: 1.5px solid #000; }
+                        .patient-box-table td { padding: 5px 8px; border: 1px solid #000; vertical-align: middle; }
+                        .report-heading { text-align: center; font-size: 11pt; font-weight: bold; color: #1a4b75; text-decoration: underline; margin: 12px 0 14px 0; text-transform: uppercase; letter-spacing: 0.3px; }
+                        .report-body-text { font-family: 'Arial', sans-serif; font-size: 9.8pt; line-height: 1.45; white-space: pre-wrap; margin-bottom: 18px; min-height: 380px; }
+                        .impression-block { border-top: 1.5px solid #000; padding-top: 6px; margin-top: 14px; font-size: 10pt; }
+                        .sign-block { margin-top: 35px; width: 100%; border: none; }
+                    </style>
+                </head>
                 <body>
-                    ${!isPreprinted ? `<h2>${activeCentre.centre_name}</h2><p>${activeCentre.address || ''}</p><hr>` : ''}
-                    <p><strong>Patient:</strong> ${currentSelectedVisit.full_name} | <strong>Age/Sex:</strong> ${currentSelectedVisit.age || 'N/A'}/${currentSelectedVisit.gender || '-'} | <strong>Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
-                    <p><strong>Ref By:</strong> ${currentSelectedVisit.doctor_name || 'Self'} | <strong>Invoice:</strong> ${currentSelectedVisit.invoice_number}</p>
-                    <hr>
-                    <h3 style="text-align:center;">${title}</h3>
-                    <div style="white-space: pre-wrap; font-size: 9.8pt; line-height: 1.4;">${text}</div>
-                    <br>
-                    <strong><u>IMPRESSION :-</u></strong>
-                    <div style="font-weight: bold; white-space: pre-wrap; margin-top: 4px;">${impression}</div>
-                </body></html>
+                    <div class="Section1">
+                        ${!isPreprinted ? `
+                            <div class="header-banner">
+                                <div class="clinic-title">${centreName}</div>
+                                <div class="clinic-sub">${centreTagline}</div>
+                                <div class="clinic-meta">${centreAddress}</div>
+                                <div class="clinic-meta">Tel: ${centrePhone} | PCPNDT Reg: ${centreReg}</div>
+                            </div>
+                        ` : ''}
+
+                        <table class="patient-box-table">
+                            <tr>
+                                <td style="width: 18%; font-weight: bold;">PATIENT NAME</td>
+                                <td style="width: 42%; font-weight: bold;">${patientName}</td>
+                                <td style="width: 18%; font-weight: bold;">DATE</td>
+                                <td style="width: 22%;">${studyDate}</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">AGE / GENDER</td>
+                                <td>${cleanAge} / ${cleanGender}</td>
+                                <td style="font-weight: bold;">INVOICE NO</td>
+                                <td>${invoiceNo}</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">REF. BY DOCTOR</td>
+                                <td>${refDoctor}</td>
+                                <td style="font-weight: bold;">PATIENT ID</td>
+                                <td>${patientCode}</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">CONTACT NO</td>
+                                <td>${phone}</td>
+                                <td style="font-weight: bold;">MODALITY</td>
+                                <td>${title}</td>
+                            </tr>
+                        </table>
+
+                        <div class="report-heading">${title}</div>
+                        <div class="report-body-text">${text}</div>
+
+                        <div class="impression-block">
+                            <strong><u>IMPRESSION :-</u></strong><br>
+                            <div style="font-weight: bold; white-space: pre-wrap; margin-top: 4px;">${impression}</div>
+                        </div>
+
+                        <table class="sign-block">
+                            <tr>
+                                <td style="font-size: 8.5pt; font-style: italic; vertical-align: bottom;">Electronically verified diagnostic report.</td>
+                                <td style="text-align: right; font-size: 9.5pt;">
+                                    <strong>DR. NIKUNJ KOTHIA</strong><br>
+                                    <span>Consultant Radiologist / Sonologist</span><br>
+                                    <span style="font-size: 8.5pt; color: #444;">Reg. No: 2009/09/3218</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </body>
+                </html>
             `;
             const blob = new Blob(['\ufeff', wordHTML], { type: 'application/msword;charset=utf-8' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `Report_${currentSelectedVisit.full_name.replace(/\\s+/g, '_')}.doc`;
+            link.download = `Report_${currentSelectedVisit.full_name.replace(/\s+/g, '_')}_${Date.now()}.doc`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -1655,26 +1759,61 @@
             }
         }
 
+        /* MASTER CRUD: TESTS (With Live Search & Edit) */
         async function loadTests() {
             const res = await apiFetch('/api/tests');
             const json = await res.json();
             testsList = json.data || [];
+            filterExistingTestsList();
+        }
+
+        function filterExistingTestsList() {
+            const q = (document.getElementById('existingTestSearch')?.value || '').toLowerCase().trim();
             const tbody = document.getElementById('testsTableBody');
             tbody.innerHTML = '';
-            testsList.forEach(t => {
+            const filtered = testsList.filter(t => (t.test_name && t.test_name.toLowerCase().includes(q)) || (t.category && t.category.toLowerCase().includes(q)));
+            filtered.forEach(t => {
                 const cutDisplay = t.cut_type === 'percentage' ? `${t.test_cut}%` : `₹${parseFloat(t.test_cut).toFixed(2)}`;
                 tbody.innerHTML += `
                     <tr>
-                        <td><strong>${escapeHtml(t.test_name)}</strong></td>
+                        <td><strong>${escapeHtml(t.test_name)}</strong><br><small class="badge-cat">${t.category}</small></td>
                         <td>₹${parseFloat(t.price).toFixed(2)}</td>
                         <td>${cutDisplay}</td>
-                        <td><button type="button" class="btn-act btn-act-del" onclick="deleteTest('${t.id}')">✕ Delete</button></td>
+                        <td>
+                            <button type="button" class="btn-act btn-act-edit" onclick="startEditTest('${t.id}')">✏️ Edit</button>
+                            <button type="button" class="btn-act btn-act-del" onclick="deleteTest('${t.id}')">✕ Delete</button>
+                        </td>
                     </tr>
                 `;
             });
         }
 
+        function startEditTest(id) {
+            const t = testsList.find(x => String(x.id) === String(id));
+            if (!t) return;
+            document.getElementById('editTestId').value = String(t.id);
+            document.getElementById('testNameInput').value = t.test_name;
+            document.getElementById('testCatInput').value = t.category || 'Pathology';
+            document.getElementById('testPriceInput').value = t.price || 0;
+            document.getElementById('testCutTypeInput').value = t.cut_type || 'fixed';
+            document.getElementById('testCutInput').value = t.test_cut || 0;
+            document.getElementById('testFormTitle').textContent = 'Edit Test / Investigation';
+            document.getElementById('btnSaveTest').textContent = 'Update Test';
+            document.getElementById('btnCancelTestEdit').style.display = 'inline-block';
+        }
+
+        function cancelTestEdit() {
+            document.getElementById('editTestId').value = '';
+            document.getElementById('testNameInput').value = '';
+            document.getElementById('testPriceInput').value = '0';
+            document.getElementById('testCutInput').value = '0';
+            document.getElementById('testFormTitle').textContent = 'Add / Edit Tests & Cuts';
+            document.getElementById('btnSaveTest').textContent = 'Save Test';
+            document.getElementById('btnCancelTestEdit').style.display = 'none';
+        }
+
         async function saveTest() {
+            const editId = document.getElementById('editTestId').value;
             const payload = {
                 testName: document.getElementById('testNameInput').value.trim(),
                 category: document.getElementById('testCatInput').value,
@@ -1682,56 +1821,133 @@
                 cutType: document.getElementById('testCutTypeInput').value,
                 testCut: parseFloat(document.getElementById('testCutInput').value) || 0
             };
-            if (!payload.testName) return alert('Test name required');
-            await apiFetch('/api/tests', { method: 'POST', body: JSON.stringify(payload) });
-            loadTests();
+            if (!payload.testName) return alert('Test name is required');
+            const url = editId ? `/api/tests/${editId}` : '/api/tests';
+            const method = editId ? 'PUT' : 'POST';
+            const res = await apiFetch(url, { method, body: JSON.stringify(payload) });
+            const json = await res.json();
+            if (json.success) {
+                alert('Test saved successfully!');
+                cancelTestEdit();
+                loadTests();
+            } else { alert('Error: ' + json.error); }
         }
 
         async function deleteTest(id) {
-            if (!confirm('Delete test?')) return;
+            if (!confirm('Permanently delete this test?')) return;
             await apiFetch(`/api/tests/${id}`, { method: 'DELETE' });
             loadTests();
         }
 
+        /* MASTER CRUD: DOCTORS (With Live Search, Quick Filter & Edit) */
         async function loadDoctors() {
             const res = await apiFetch('/api/doctors');
             const json = await res.json();
             doctorsList = json.data || [];
+            populateReferringDoctorDropdown(doctorsList);
+            filterDoctorsList();
+        }
+
+        function populateReferringDoctorDropdown(list) {
             const sel = document.getElementById('referringDoctorSelect');
-            sel.innerHTML = '<option value="">Select Doctor (or Direct OPD)</option>';
+            const busSel = document.getElementById('busDocSelect');
+            if (sel) {
+                const currentVal = sel.value;
+                sel.innerHTML = '<option value="">Select Doctor (or Direct OPD)</option>';
+                list.forEach(d => {
+                    sel.innerHTML += `<option value="${d.id}" ${String(d.id) === String(currentVal) ? 'selected' : ''}>${escapeHtml(d.doctor_name)}</option>`;
+                });
+            }
+            if (busSel) {
+                busSel.innerHTML = '<option value="">All Doctors</option>';
+                doctorsList.forEach(d => {
+                    busSel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
+                });
+            }
+        }
+
+        // Quick Doctor Filter on Registration Page
+        function onFilterDoctorSelect(query) {
+            const q = (query || '').toLowerCase().trim();
+            const filtered = doctorsList.filter(d => (d.doctor_name && d.doctor_name.toLowerCase().includes(q)) || (d.hospital_clinic_name && d.hospital_clinic_name.toLowerCase().includes(q)));
+            populateReferringDoctorDropdown(filtered);
+            if (filtered.length === 1) {
+                document.getElementById('referringDoctorSelect').value = String(filtered[0].id);
+            }
+        }
+
+        function filterDoctorsList() {
+            const q = (document.getElementById('doctorSearchInput')?.value || '').toLowerCase().trim();
             const tbody = document.getElementById('doctorsTableBody');
+            if (!tbody) return;
             tbody.innerHTML = '';
-            doctorsList.forEach(d => {
-                sel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
+            const filtered = doctorsList.filter(d => (d.doctor_name && d.doctor_name.toLowerCase().includes(q)) || (d.hospital_clinic_name && d.hospital_clinic_name.toLowerCase().includes(q)));
+            filtered.forEach(d => {
+                const cutDisplay = d.commission_type === 'percentage' ? `${d.commission_value}%` : `₹${parseFloat(d.commission_value).toFixed(2)}`;
                 tbody.innerHTML += `
                     <tr>
                         <td><strong>${escapeHtml(d.doctor_name)}</strong></td>
-                        <td>${escapeHtml(d.hospital_clinic_name || '')}</td>
-                        <td>${d.commission_type === 'percentage' ? d.commission_value + '%' : '₹' + d.commission_value}</td>
-                        <td><button type="button" class="btn-act btn-act-del" onclick="deleteDoctor('${d.id}')">✕ Delete</button></td>
+                        <td>${escapeHtml(d.hospital_clinic_name || '-')}</td>
+                        <td>${cutDisplay}</td>
+                        <td>
+                            <button type="button" class="btn-act btn-act-edit" onclick="startEditDoctor('${d.id}')">✏️ Edit</button>
+                            <button type="button" class="btn-act btn-act-del" onclick="deleteDoctor('${d.id}')">✕ Delete</button>
+                        </td>
                     </tr>
                 `;
             });
         }
 
+        function startEditDoctor(id) {
+            const d = doctorsList.find(x => String(x.id) === String(id));
+            if (!d) return;
+            document.getElementById('editDocId').value = String(d.id);
+            document.getElementById('docNameInput').value = d.doctor_name;
+            document.getElementById('docHospInput').value = d.hospital_clinic_name || '';
+            document.getElementById('docCommType').value = d.commission_type || 'percentage';
+            document.getElementById('docCutInput').value = d.commission_value || 0;
+            document.getElementById('docFormTitle').textContent = 'Edit Doctor';
+            document.getElementById('btnSaveDoc').textContent = 'Update Doctor';
+            document.getElementById('btnCancelDocEdit').style.display = 'inline-block';
+        }
+
+        function cancelDocEdit() {
+            document.getElementById('editDocId').value = '';
+            document.getElementById('docNameInput').value = '';
+            document.getElementById('docHospInput').value = '';
+            document.getElementById('docCutInput').value = '0';
+            document.getElementById('docFormTitle').textContent = 'Add / Edit Referring Doctors';
+            document.getElementById('btnSaveDoc').textContent = 'Save Doctor';
+            document.getElementById('btnCancelDocEdit').style.display = 'none';
+        }
+
         async function saveDoctor() {
+            const editId = document.getElementById('editDocId').value;
             const payload = {
                 doctorName: document.getElementById('docNameInput').value.trim(),
                 hospitalClinicName: document.getElementById('docHospInput').value.trim(),
                 commissionType: document.getElementById('docCommType').value,
                 commissionValue: parseFloat(document.getElementById('docCutInput').value) || 0
             };
-            if (!payload.doctorName) return alert('Doctor name required');
-            await apiFetch('/api/doctors', { method: 'POST', body: JSON.stringify(payload) });
-            loadDoctors();
+            if (!payload.doctorName) return alert('Doctor name is required');
+            const url = editId ? `/api/doctors/${editId}` : '/api/doctors';
+            const method = editId ? 'PUT' : 'POST';
+            const res = await apiFetch(url, { method, body: JSON.stringify(payload) });
+            const json = await res.json();
+            if (json.success) {
+                alert('Doctor saved successfully!');
+                cancelDocEdit();
+                loadDoctors();
+            } else { alert('Error: ' + json.error); }
         }
 
         async function deleteDoctor(id) {
-            if (!confirm('Delete doctor?')) return;
+            if (!confirm('Permanently delete this doctor?')) return;
             await apiFetch(`/api/doctors/${id}`, { method: 'DELETE' });
             loadDoctors();
         }
 
+        /* DOCTOR BUSINESS REPORT */
         async function loadBusiness() {
             try {
                 const docId = document.getElementById('busDocSelect')?.value || '';

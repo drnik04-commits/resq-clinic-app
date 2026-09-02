@@ -114,9 +114,10 @@ function getTenantCentreId(req) {
   return headerId || queryId || bodyId || null;
 }
 
-// Doctor cut calculation helper: USG 30% percentage, X-Ray amount basis, preserved even when discounts are applied
-function calculateCommission(testArray, validDoctorId, docInfo = null) {
-  let totalCommission = 0;
+// Doctor cut calculation helper:
+// USG 30% percentage, X-Ray fixed cut, minus concession/discount amount
+function calculateCommission(testArray, validDoctorId, docInfo = null, concession = 0) {
+  let rawCommission = 0;
   for (const t of testArray) {
     const rate = parseFloat(t.price) || 0;
     const testName = (t.test_name || '').toLowerCase();
@@ -126,29 +127,31 @@ function calculateCommission(testArray, validDoctorId, docInfo = null) {
 
     if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || cat === 'imaging' || cat === 'obstetrics') {
       cutType = 'percentage';
-      cutVal = cutVal > 0 ? cutVal : 30; // 30% for all USG/Sonography
+      cutVal = cutVal > 0 ? cutVal : 30; // 30% default for USG
     } else if (testName.includes('x-ray') || testName.includes('xray')) {
       cutType = 'fixed';
-      cutVal = cutVal > 0 ? cutVal : 100; // Fixed amount for X-Ray
+      cutVal = cutVal > 0 ? cutVal : 100; // Fixed for X-Ray
     }
 
     if (cutType === 'percentage') {
-      totalCommission += (rate * cutVal) / 100;
+      rawCommission += (rate * cutVal) / 100;
     } else {
-      totalCommission += cutVal;
+      rawCommission += cutVal;
     }
   }
 
-  if (totalCommission === 0 && validDoctorId && docInfo) {
+  if (rawCommission === 0 && validDoctorId && docInfo) {
     const gross = testArray.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
     if (docInfo.commission_type === 'percentage') {
-      totalCommission = (gross * parseFloat(docInfo.commission_value || 0)) / 100;
+      rawCommission = (gross * parseFloat(docInfo.commission_value || 0)) / 100;
     } else {
-      totalCommission = parseFloat(docInfo.commission_value || 0);
+      rawCommission = parseFloat(docInfo.commission_value || 0);
     }
   }
 
-  return totalCommission;
+  // Subtract discount/concession from doctor's cut
+  const finalDiscount = parseFloat(concession) || 0;
+  return Math.max(0, rawCommission - finalDiscount);
 }
 
 const defaultTests = [
@@ -399,7 +402,6 @@ app.post('/api/auth/change-admin-password', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Individual Branch Verification (Ensures '1234' or branch PIN works for each clinic)
 app.post('/api/auth/verify-centre', async (req, res) => {
   try {
     const { centreId, password } = req.body;
@@ -508,7 +510,7 @@ app.delete('/api/centres/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Patients Directory (Strictly isolates centre data even on master admin login)
+// Patients Directory - Always strict branch data isolation
 app.get('/api/patients', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -538,6 +540,33 @@ app.get('/api/patients', async (req, res) => {
     query += ' ORDER BY p.created_at DESC LIMIT 500';
     const result = await pool.query(query, params);
     res.status(200).json({ success: true, data: result.rows });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.post('/api/patients', async (req, res) => {
+  try {
+    const centreId = getTenantCentreId(req);
+    const { patientCode, fullName, age, gender, phone, email, address } = req.body;
+    if (!fullName || !fullName.trim()) return res.status(400).json({ success: false, error: 'Full name required' });
+    const finalPatCode = patientCode?.trim() || `PAT-${Date.now().toString().slice(-6)}`;
+    const result = await pool.query(
+      `INSERT INTO patients (centre_id, patient_code, full_name, age, gender, phone, email, address)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [centreId, finalPatCode, fullName.trim(), age ? parseInt(age, 10) : null, gender || 'Female', phone || '', email || '', address || '']
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.put('/api/patients/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    const { fullName, age, gender, phone, email, address, patientCode } = req.body;
+    const result = await pool.query(
+      `UPDATE patients SET full_name = $1, age = $2, gender = $3, phone = $4, email = $5, address = $6, patient_code = $7 WHERE id::text = $8::text RETURNING *`,
+      [fullName, age ? parseInt(age, 10) : null, gender, phone, email, address, patientCode, validId]
+    );
+    res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -592,7 +621,7 @@ app.get('/api/imaging/patients-dropdown', async (req, res) => {
     const centreId = getTenantCentreId(req);
     let query = `
       SELECT COALESCE(v.id::text, p.id::text) as dropdown_key, v.id as visit_id, p.id as patient_id,
-             p.full_name, p.age, p.gender, p.patient_code,
+             p.full_name, p.age, p.gender, p.patient_code, p.phone, p.address,
              COALESCE(v.invoice_number, p.patient_code, 'REG') as invoice_number,
              COALESCE(d.doctor_name, 'Self / Direct OPD') as doctor_name,
              COALESCE(string_agg(DISTINCT tm.test_name, ', '), 'General Study') as test_names,
@@ -609,13 +638,13 @@ app.get('/api/imaging/patients-dropdown', async (req, res) => {
       params.push(String(centreId));
       query += ` AND (p.centre_id::text = $${params.length}::text OR v.centre_id::text = $${params.length}::text)`;
     }
-    query += ` GROUP BY v.id, p.id, p.full_name, p.age, p.gender, p.patient_code, d.doctor_name, v.invoice_number, v.created_at, p.created_at ORDER BY created_at DESC LIMIT 200`;
+    query += ` GROUP BY v.id, p.id, p.full_name, p.age, p.gender, p.patient_code, p.phone, p.address, d.doctor_name, v.invoice_number, v.created_at, p.created_at ORDER BY created_at DESC LIMIT 200`;
     const result = await pool.query(query, params);
     res.status(200).json({ success: true, data: result.rows });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Registration & Billing Endpoint
+// Registration & Billing
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -664,7 +693,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
       if (docRes.rows.length > 0) docInfo = docRes.rows[0];
     }
 
-    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo);
+    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo, disc);
     const invoiceNum = generateInvoiceNumber();
 
     const visitRes = await client.query(
@@ -699,7 +728,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
   }
 });
 
-// Update Bill Endpoint (Fixed calculations & robust deserialization)
+// Update Bill Endpoint (Full calculation update & discount subtracted from doctor cut)
 app.put('/api/visits/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -730,7 +759,7 @@ app.put('/api/visits/:id', async (req, res) => {
       if (docRes.rows.length > 0) docInfo = docRes.rows[0];
     }
 
-    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo);
+    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo, disc);
 
     await client.query(
       `UPDATE visits 
@@ -817,6 +846,7 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Master CRUD: Tests
 app.get('/api/tests', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM test_master ORDER BY test_name ASC');
@@ -855,6 +885,7 @@ app.delete('/api/tests/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Master CRUD: Doctors
 app.get('/api/doctors', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM referring_doctors ORDER BY doctor_name ASC');
@@ -870,6 +901,26 @@ app.post('/api/doctors', async (req, res) => {
       [doctorName, hospitalClinicName, commissionType || 'percentage', parseFloat(commissionValue) || 0]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.put('/api/doctors/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    const { doctorName, hospitalClinicName, commissionType, commissionValue } = req.body;
+    const result = await pool.query(
+      `UPDATE referring_doctors SET doctor_name = $1, hospital_clinic_name = $2, commission_type = $3, commission_value = $4 WHERE id::text = $5::text RETURNING *`,
+      [doctorName, hospitalClinicName, commissionType || 'percentage', parseFloat(commissionValue) || 0, validId]
+    );
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.delete('/api/doctors/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    await pool.query('DELETE FROM referring_doctors WHERE id::text = $1::text', [validId]);
+    res.status(200).json({ success: true, message: 'Doctor deleted' });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -905,6 +956,7 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Collections Report
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -961,6 +1013,7 @@ app.get('/api/reports/collection', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Doctor Cuts Report
 app.get('/api/reports/doctor-detailed', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1005,7 +1058,7 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Executive Audit Tab: Aggregates across all centres for cross-centre auditing
+// Cross-Centre Executive Audit
 app.get('/api/reports/executive-daily', async (req, res) => {
   try {
     const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
@@ -1073,7 +1126,7 @@ app.get('/api/pcpndt', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Robust Cloud Sync with Foreign Key and Unique Key Pre-Validation
+// Cloud Sync Engine with Foreign Key and Unique Key Pre-Validation
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
   const localClient = await pool.connect();
@@ -1088,14 +1141,14 @@ app.post('/api/sync/cloud', async (req, res) => {
       CREATE TABLE IF NOT EXISTS referring_doctors (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, doctor_name VARCHAR(255) NOT NULL, hospital_clinic_name VARCHAR(255), commission_type VARCHAR(50) DEFAULT 'percentage', commission_value DECIMAL(10,2) DEFAULT 0.00);
       CREATE TABLE IF NOT EXISTS test_master (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, test_name VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Pathology', price DECIMAL(10,2) DEFAULT 0.00, cut_type VARCHAR(20) DEFAULT 'fixed', test_cut DECIMAL(10,2) DEFAULT 0.00);
       CREATE TABLE IF NOT EXISTS patients (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, patient_code VARCHAR(100), full_name VARCHAR(255) NOT NULL, age INT, gender VARCHAR(20), phone VARCHAR(50), email VARCHAR(255), whatsapp_number VARCHAR(50), address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE IF NOT EXISTS visits (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, patient_id UUID, referring_doctor_id UUID, total_amount DECIMAL(10,2) DEFAULT 0.00, concession DECIMAL(10,2) DEFAULT 0.00, paid_amount DECIMAL(10,2) DEFAULT 0.00, balance_amount DECIMAL(10,2) DEFAULT 0.00, payment_status VARCHAR(50) DEFAULT 'Pending', payment_mode VARCHAR(50) DEFAULT 'Cash', invoice_number VARCHAR(100), doctor_commission DECIMAL(10,2) DEFAULT 0.00, report_file VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS visits (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, patient_id UUID REFERENCES patients(id) ON DELETE CASCADE, referring_doctor_id UUID, total_amount DECIMAL(10,2) DEFAULT 0.00, concession DECIMAL(10,2) DEFAULT 0.00, paid_amount DECIMAL(10,2) DEFAULT 0.00, balance_amount DECIMAL(10,2) DEFAULT 0.00, payment_status VARCHAR(50) DEFAULT 'Pending', payment_mode VARCHAR(50) DEFAULT 'Cash', invoice_number VARCHAR(100), doctor_commission DECIMAL(10,2) DEFAULT 0.00, report_file VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS patient_investigations (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, test_id UUID, barcode VARCHAR(100), status VARCHAR(50) DEFAULT 'Registered', price DECIMAL(10, 2), cut_type VARCHAR(20) DEFAULT 'fixed', test_cut DECIMAL(10, 2) DEFAULT 0.00);
       CREATE TABLE IF NOT EXISTS pcpndt_forms (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, centre_id UUID, relative_name VARCHAR(255), no_of_sons INT DEFAULT 0, sons_age VARCHAR(100), no_of_daughters INT DEFAULT 0, daughters_age VARCHAR(100), lmp_date VARCHAR(50), weeks_of_preg VARCHAR(50), indications TEXT, scan_result TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', clinic_reg_no VARCHAR(100) DEFAULT 'RC197', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS imaging_templates (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, template_name VARCHAR(255) UNIQUE NOT NULL, title VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Imaging', default_impression TEXT, template_body TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS imaging_reports (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, patient_id UUID, centre_id UUID, template_id UUID, template_name VARCHAR(255), report_text TEXT NOT NULL, impression TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
     `);
 
-    // Master Tables
+    // Master Tables Sync
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
     if (auths.rows.length > 0) {
       await cloudClient.query(`INSERT INTO app_auth (id, role, password) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password`, [auths.rows[0].id, auths.rows[0].role, auths.rows[0].password]);
@@ -1128,7 +1181,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [t.id, t.test_name, t.category, t.price, t.cut_type || 'fixed', t.test_cut]);
     }
 
-    // Resolves duplicate key violation on template_name and maps template IDs for safe foreign-key insertion
+    // Resolves duplicate template_name and maps template IDs for safe foreign-key insertion
     const templateIdMap = {};
     const templates = await localClient.query('SELECT * FROM imaging_templates');
     for (const t of templates.rows) {
@@ -1147,6 +1200,8 @@ app.post('/api/sync/cloud', async (req, res) => {
       }
     }
 
+    // Sync Patients and track all valid cloud patient IDs
+    const validCloudPatientIds = new Set();
     const patients = await localClient.query('SELECT * FROM patients');
     for (const p of patients.rows) {
       await cloudClient.query(`
@@ -1154,19 +1209,60 @@ app.post('/api/sync/cloud', async (req, res) => {
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender, phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address, centre_id = EXCLUDED.centre_id;
       `, [p.id, p.centre_id, p.patient_code, p.full_name, p.age, p.gender, p.phone, p.email, p.address, p.created_at]);
+      validCloudPatientIds.add(String(p.id));
     }
 
+    // Pre-validate visits to guarantee visits_patient_id_fkey is NEVER violated
+    const validCloudVisitIds = new Set();
     const visits = await localClient.query('SELECT * FROM visits');
     for (const v of visits.rows) {
+      if (!v.patient_id) continue;
+      const pid = String(v.patient_id);
+
+      if (!validCloudPatientIds.has(pid)) {
+        // Find if patient exists locally
+        const locPat = await localClient.query('SELECT * FROM patients WHERE id::text = $1', [pid]);
+        if (locPat.rows.length > 0) {
+          const p = locPat.rows[0];
+          await cloudClient.query(`
+            INSERT INTO patients (id, centre_id, patient_code, full_name, age, gender, phone, email, address, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name;
+          `, [p.id, p.centre_id, p.patient_code, p.full_name, p.age, p.gender, p.phone, p.email, p.address, p.created_at]);
+          validCloudPatientIds.add(pid);
+        } else {
+          // Orphaned visit whose patient was deleted locally: insert archived placeholder to satisfy FK
+          await cloudClient.query(`
+            INSERT INTO patients (id, full_name, patient_code)
+            VALUES ($1, 'Archived Patient', 'ARCHIVED')
+            ON CONFLICT (id) DO NOTHING;
+          `, [pid]);
+          validCloudPatientIds.add(pid);
+        }
+      }
+
+      let safeDoctorId = v.referring_doctor_id;
+      if (safeDoctorId) {
+        const docCheck = await cloudClient.query('SELECT id FROM referring_doctors WHERE id::text = $1', [String(safeDoctorId)]);
+        if (docCheck.rows.length === 0) safeDoctorId = null;
+      }
+      let safeCentreId = v.centre_id;
+      if (safeCentreId) {
+        const cCheck = await cloudClient.query('SELECT id FROM clinic_centres WHERE id::text = $1', [String(safeCentreId)]);
+        if (cCheck.rows.length === 0) safeCentreId = null;
+      }
+
       await cloudClient.query(`
         INSERT INTO visits (id, centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, payment_mode, invoice_number, doctor_commission, report_file, created_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT (id) DO UPDATE SET total_amount = EXCLUDED.total_amount, concession = EXCLUDED.concession, paid_amount = EXCLUDED.paid_amount, balance_amount = EXCLUDED.balance_amount, payment_status = EXCLUDED.payment_status, payment_mode = EXCLUDED.payment_mode, doctor_commission = EXCLUDED.doctor_commission, referring_doctor_id = EXCLUDED.referring_doctor_id;
-      `, [v.id, v.centre_id, v.patient_id, v.referring_doctor_id, v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, v.payment_mode, v.invoice_number, v.doctor_commission, v.report_file, v.created_at]);
+      `, [v.id, safeCentreId, v.patient_id, safeDoctorId, v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, v.payment_mode, v.invoice_number, v.doctor_commission, v.report_file, v.created_at]);
+      validCloudVisitIds.add(String(v.id));
     }
 
     const investigations = await localClient.query('SELECT * FROM patient_investigations');
     for (const pi of investigations.rows) {
+      if (!validCloudVisitIds.has(String(pi.visit_id))) continue;
       await cloudClient.query(`
         INSERT INTO patient_investigations (id, visit_id, test_id, barcode, status, price, cut_type, test_cut)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -1176,6 +1272,7 @@ app.post('/api/sync/cloud', async (req, res) => {
 
     const forms = await localClient.query('SELECT * FROM pcpndt_forms');
     for (const f of forms.rows) {
+      if (!validCloudVisitIds.has(String(f.visit_id))) continue;
       await cloudClient.query(`
         INSERT INTO pcpndt_forms (id, visit_id, centre_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, created_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
@@ -1185,11 +1282,12 @@ app.post('/api/sync/cloud', async (req, res) => {
 
     const reports = await localClient.query('SELECT * FROM imaging_reports');
     for (const r of reports.rows) {
+      if (!validCloudVisitIds.has(String(r.visit_id))) continue;
       let safeTemplateId = null;
       if (r.template_id) {
         safeTemplateId = templateIdMap[String(r.template_id)] || null;
         if (!safeTemplateId) {
-          const checkTmpl = await cloudClient.query('SELECT id FROM imaging_templates WHERE id = $1', [r.template_id]);
+          const checkTmpl = await cloudClient.query('SELECT id FROM imaging_templates WHERE id::text = $1', [String(r.template_id)]);
           if (checkTmpl.rows.length > 0) safeTemplateId = r.template_id;
         }
       }
