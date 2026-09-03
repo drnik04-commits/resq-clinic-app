@@ -1,3 +1,4 @@
+// server.js
 require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
@@ -122,9 +123,9 @@ function getTenantCentreId(req) {
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// Percentage calculation (30% of 1500 = 450, 1400 = 420)
-function calculateCommission(testArray, validDoctorId, docInfo = null) {
-  let totalCommission = 0;
+// Calculate test cut as final; deduct concession/discount from the final total
+function calculateCommission(testArray, validDoctorId = null, docInfo = null, concession = 0) {
+  let totalTestCut = 0;
   for (const t of testArray) {
     const rate = parseFloat(t.price) || 0;
     const testName = (t.test_name || '').toLowerCase();
@@ -135,7 +136,7 @@ function calculateCommission(testArray, validDoctorId, docInfo = null) {
     if (isNaN(cutVal) || cutVal <= 0) {
       if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || cat === 'imaging' || cat === 'obstetrics') {
         cutType = 'percentage';
-        cutVal = 30;
+        cutVal = 30; // 30% of 1500 = 450, 1400 = 420
       } else if (testName.includes('x-ray') || testName.includes('xray')) {
         cutType = 'fixed';
         cutVal = 100;
@@ -146,22 +147,23 @@ function calculateCommission(testArray, validDoctorId, docInfo = null) {
     }
 
     if (cutType === 'percentage') {
-      totalCommission += (rate * cutVal) / 100;
+      totalTestCut += (rate * cutVal) / 100;
     } else {
-      totalCommission += cutVal;
+      totalTestCut += cutVal;
     }
   }
 
-  if (totalCommission === 0 && validDoctorId && docInfo) {
+  if (totalTestCut === 0 && validDoctorId && docInfo) {
     const gross = testArray.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
     if (docInfo.commission_type === 'percentage') {
-      totalCommission = (gross * parseFloat(docInfo.commission_value || 30)) / 100;
+      totalTestCut = (gross * parseFloat(docInfo.commission_value || 30)) / 100;
     } else {
-      totalCommission = parseFloat(docInfo.commission_value || 0);
+      totalTestCut = parseFloat(docInfo.commission_value || 0);
     }
   }
 
-  return Math.round(totalCommission);
+  const finalDiscount = parseFloat(concession) || 0;
+  return Math.max(0, Math.round(totalTestCut - finalDiscount));
 }
 
 const defaultTests = [
@@ -630,7 +632,7 @@ app.put('/api/visits/:id', async (req, res) => {
       if (docRes.rows.length > 0) docInfo = docRes.rows[0];
     }
 
-    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo);
+    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo, disc);
 
     await client.query(
       `UPDATE visits 
@@ -725,7 +727,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
       if (docRes.rows.length > 0) docInfo = docRes.rows[0];
     }
 
-    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo);
+    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo, disc);
     const invoiceNum = generateInvoiceNumber();
 
     const visitRes = await client.query(
@@ -942,7 +944,8 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
       );
       count++;
     }
-    res.status(200).json({ success: true, message: `Successfully uploaded ${count} templates.` });
+    const all = await pool.query('SELECT * FROM imaging_templates ORDER BY title ASC');
+    res.status(200).json({ success: true, message: `Successfully uploaded ${count} templates.`, data: all.rows });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -1240,7 +1243,7 @@ app.post('/api/sync/cloud', async (req, res) => {
         INSERT INTO test_master (id, test_name, category, price, cut_type, test_cut)
         VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (id) DO UPDATE SET test_name = EXCLUDED.test_name, category = EXCLUDED.category, price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut;
-      `, [t.id, t.test_name, t.category, t.price, t.cut_type || 'fixed', t.test_cut]);
+      `, [t.id, t.test_name, t.category, t.price, t.cut_type || 'percentage', t.test_cut]);
     }
 
     // Templates
@@ -1323,9 +1326,8 @@ app.post('/api/sync/cloud', async (req, res) => {
       if (!validCloudVisitIds.has(String(f.visit_id))) continue;
       await cloudClient.query(`
         INSERT INTO pcpndt_forms (id, visit_id, centre_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-        ON CONFLICT (id) DO UPDATE SET relative_name = EXCLUDED.relative_name, lmp_date = EXCLUDED.lmp_date, weeks_of_preg = EXCLUDED.weeks_of_preg, no_of_sons = EXCLUDED.no_of_sons, sons_age = EXCLUDED.sons_age, no_of_daughters = EXCLUDED.no_of_daughters, daughters_age = EXCLUDED.daughters_age, indications = EXCLUDED.indications, scan_result = EXCLUDED.scan_result;
-      `, [f.id, f.visit_id, f.centre_id, f.relative_name, f.no_of_sons, f.sons_age, f.no_of_daughters, f.daughters_age, f.lmp_date, f.weeks_of_preg, f.indications, f.scan_result, f.doctor_name, f.doctor_reg_no, f.clinic_reg_no, f.created_at]);
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+        [f.id, f.visit_id, f.centre_id, f.relative_name, f.no_of_sons, f.sons_age, f.no_of_daughters, f.daughters_age, f.lmp_date, f.weeks_of_preg, f.indications, f.scan_result, f.doctor_name, f.doctor_reg_no, f.clinic_reg_no, f.created_at]);
     }
 
     const reports = await localClient.query('SELECT * FROM imaging_reports');
