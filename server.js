@@ -122,41 +122,46 @@ function getTenantCentreId(req) {
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-function calculateCommission(testArray, validDoctorId, docInfo = null, concession = 0) {
-  let rawCommission = 0;
+// Percentage calculation (30% of 1500 = 450, 1400 = 420)
+function calculateCommission(testArray, validDoctorId, docInfo = null) {
+  let totalCommission = 0;
   for (const t of testArray) {
     const rate = parseFloat(t.price) || 0;
     const testName = (t.test_name || '').toLowerCase();
     const cat = (t.category || '').toLowerCase();
-    let cutType = t.cut_type || 'fixed';
-    let cutVal = parseFloat(t.test_cut) || 0;
+    let cutType = t.cut_type || 'percentage';
+    let cutVal = parseFloat(t.test_cut);
 
-    if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || cat === 'imaging' || cat === 'obstetrics') {
-      cutType = 'percentage';
-      cutVal = cutVal > 0 ? cutVal : 30; // 30% of 1500 = 450
-    } else if (testName.includes('x-ray') || testName.includes('xray')) {
-      cutType = 'fixed';
-      cutVal = cutVal > 0 ? cutVal : 100;
+    if (isNaN(cutVal) || cutVal <= 0) {
+      if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || cat === 'imaging' || cat === 'obstetrics') {
+        cutType = 'percentage';
+        cutVal = 30;
+      } else if (testName.includes('x-ray') || testName.includes('xray')) {
+        cutType = 'fixed';
+        cutVal = 100;
+      } else {
+        cutType = 'percentage';
+        cutVal = 30;
+      }
     }
 
     if (cutType === 'percentage') {
-      rawCommission += (rate * cutVal) / 100;
+      totalCommission += (rate * cutVal) / 100;
     } else {
-      rawCommission += cutVal;
+      totalCommission += cutVal;
     }
   }
 
-  if (rawCommission === 0 && validDoctorId && docInfo) {
+  if (totalCommission === 0 && validDoctorId && docInfo) {
     const gross = testArray.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
     if (docInfo.commission_type === 'percentage') {
-      rawCommission = (gross * parseFloat(docInfo.commission_value || 0)) / 100;
+      totalCommission = (gross * parseFloat(docInfo.commission_value || 30)) / 100;
     } else {
-      rawCommission = parseFloat(docInfo.commission_value || 0);
+      totalCommission = parseFloat(docInfo.commission_value || 0);
     }
   }
 
-  const finalDiscount = parseFloat(concession) || 0;
-  return Math.max(0, rawCommission - finalDiscount);
+  return Math.round(totalCommission);
 }
 
 const defaultTests = [
@@ -443,6 +448,7 @@ app.get('/api/centres', async (req, res) => {
   res.status(200).json({ success: true, data: FALLBACK_CENTRES });
 });
 
+// Patients CRUD
 app.get('/api/patients', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -574,6 +580,7 @@ app.get('/api/imaging/patients-dropdown', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Doctor Cut Update Route
 app.put('/api/visits/:id/cut', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -592,6 +599,7 @@ app.put('/api/visits/:id/cut', async (req, res) => {
   }
 });
 
+// Update Visit
 app.put('/api/visits/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -622,7 +630,7 @@ app.put('/api/visits/:id', async (req, res) => {
       if (docRes.rows.length > 0) docInfo = docRes.rows[0];
     }
 
-    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo, disc);
+    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo);
 
     await client.query(
       `UPDATE visits 
@@ -635,7 +643,7 @@ app.put('/api/visits/:id', async (req, res) => {
     for (const t of testArray) {
       await client.query(
         `INSERT INTO patient_investigations (visit_id, test_id, barcode, price, cut_type, test_cut) VALUES ($1, $2, $3, $4, $5, $6)`,
-        [validVisitId, getCleanId(t.id), generateBarcode(), parseFloat(t.price) || 0, t.cut_type || 'fixed', parseFloat(t.test_cut) || 0]
+        [validVisitId, getCleanId(t.id), generateBarcode(), parseFloat(t.price) || 0, t.cut_type || 'percentage', parseFloat(t.test_cut) || 30]
       );
     }
 
@@ -668,6 +676,7 @@ app.put('/api/visits/:id', async (req, res) => {
   }
 });
 
+// Register Visit
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -716,7 +725,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
       if (docRes.rows.length > 0) docInfo = docRes.rows[0];
     }
 
-    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo, disc);
+    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo);
     const invoiceNum = generateInvoiceNumber();
 
     const visitRes = await client.query(
@@ -729,7 +738,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     for (const t of testArray) {
       await client.query(
         `INSERT INTO patient_investigations (visit_id, test_id, barcode, price, cut_type, test_cut) VALUES ($1, $2, $3, $4, $5, $6)`,
-        [visitId, getCleanId(t.id), generateBarcode(), parseFloat(t.price) || 0, t.cut_type || 'fixed', parseFloat(t.test_cut) || 0]
+        [visitId, getCleanId(t.id), generateBarcode(), parseFloat(t.price) || 0, t.cut_type || 'percentage', parseFloat(t.test_cut) || 30]
       );
     }
 
@@ -792,6 +801,7 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Master Tests CRUD & Bulk Import
 app.get('/api/tests', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM test_master ORDER BY test_name ASC');
@@ -804,9 +814,28 @@ app.post('/api/tests', async (req, res) => {
     const { testName, category, price, cutType, testCut } = req.body;
     const result = await pool.query(
       'INSERT INTO test_master (test_name, category, price, cut_type, test_cut) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [testName, category || 'Pathology', parseFloat(price) || 0, cutType || 'fixed', parseFloat(testCut) || 0]
+      [testName, category || 'Pathology', parseFloat(price) || 0, cutType || 'percentage', parseFloat(testCut) || 30]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.post('/api/tests/bulk-import', async (req, res) => {
+  try {
+    const { tests } = req.body;
+    if (!Array.isArray(tests) || !tests.length) return res.status(400).json({ success: false, error: 'No test rows provided.' });
+    let count = 0;
+    for (const t of tests) {
+      if (t.testName) {
+        await pool.query(
+          `INSERT INTO test_master (test_name, category, price, cut_type, test_cut)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [t.testName.trim(), t.category || 'Imaging', parseFloat(t.price) || 0, t.cutType || 'percentage', parseFloat(t.testCut) || 30]
+        );
+        count++;
+      }
+    }
+    res.status(200).json({ success: true, message: `Successfully imported ${count} tests.` });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -816,7 +845,7 @@ app.put('/api/tests/:id', async (req, res) => {
     const { testName, category, price, cutType, testCut } = req.body;
     const result = await pool.query(
       `UPDATE test_master SET test_name = $1, category = $2, price = $3, cut_type = $4, test_cut = $5 WHERE id::text = $6::text RETURNING *`,
-      [testName, category || 'Pathology', parseFloat(price) || 0, cutType || 'fixed', parseFloat(testCut) || 0, validId]
+      [testName, category || 'Pathology', parseFloat(price) || 0, cutType || 'percentage', parseFloat(testCut) || 30, validId]
     );
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -830,6 +859,7 @@ app.delete('/api/tests/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Master Doctors CRUD & Bulk Import
 app.get('/api/doctors', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM referring_doctors ORDER BY doctor_name ASC');
@@ -842,9 +872,28 @@ app.post('/api/doctors', async (req, res) => {
     const { doctorName, hospitalClinicName, commissionType, commissionValue } = req.body;
     const result = await pool.query(
       'INSERT INTO referring_doctors (doctor_name, hospital_clinic_name, commission_type, commission_value) VALUES ($1, $2, $3, $4) RETURNING *',
-      [doctorName, hospitalClinicName, commissionType || 'percentage', parseFloat(commissionValue) || 0]
+      [doctorName, hospitalClinicName, commissionType || 'percentage', parseFloat(commissionValue) || 30]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.post('/api/doctors/bulk-import', async (req, res) => {
+  try {
+    const { doctors } = req.body;
+    if (!Array.isArray(doctors) || !doctors.length) return res.status(400).json({ success: false, error: 'No doctor rows provided.' });
+    let count = 0;
+    for (const d of doctors) {
+      if (d.doctorName) {
+        await pool.query(
+          `INSERT INTO referring_doctors (doctor_name, hospital_clinic_name, commission_type, commission_value)
+           VALUES ($1, $2, $3, $4)`,
+          [d.doctorName.trim(), d.hospitalClinicName || '', d.commissionType || 'percentage', parseFloat(d.commissionValue) || 30]
+        );
+        count++;
+      }
+    }
+    res.status(200).json({ success: true, message: `Successfully imported ${count} referring doctors.` });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -854,7 +903,7 @@ app.put('/api/doctors/:id', async (req, res) => {
     const { doctorName, hospitalClinicName, commissionType, commissionValue } = req.body;
     const result = await pool.query(
       `UPDATE referring_doctors SET doctor_name = $1, hospital_clinic_name = $2, commission_type = $3, commission_value = $4 WHERE id::text = $5::text RETURNING *`,
-      [doctorName, hospitalClinicName, commissionType || 'percentage', parseFloat(commissionValue) || 0, validId]
+      [doctorName, hospitalClinicName, commissionType || 'percentage', parseFloat(commissionValue) || 30, validId]
     );
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -868,11 +917,33 @@ app.delete('/api/doctors/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Templates Bulk Upload & Reports
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM imaging_templates ORDER BY title ASC');
     res.status(200).json({ success: true, data: result.rows });
   } catch (err) {}
+});
+
+app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), async (req, res) => {
+  try {
+    const files = req.files || [];
+    let count = 0;
+    for (const f of files) {
+      const baseName = path.basename(f.originalname, path.extname(f.originalname));
+      const cleanTitle = baseName.replace(/_/g, ' ').toUpperCase();
+      let content = '';
+      try { content = fs.readFileSync(f.path, 'utf8'); } catch (e) { content = `FINDINGS FOR ${cleanTitle}:\n\n- Completed.`; }
+      await pool.query(
+        `INSERT INTO imaging_templates (template_name, title, category, template_body)
+         VALUES ($1, $2, 'Imaging', $3)
+         ON CONFLICT (template_name) DO UPDATE SET template_body = EXCLUDED.template_body`,
+        [f.originalname, cleanTitle, content]
+      );
+      count++;
+    }
+    res.status(200).json({ success: true, message: `Successfully uploaded ${count} templates.` });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/imaging/reports', async (req, res) => {
@@ -900,6 +971,7 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Collections Report
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -960,6 +1032,7 @@ app.get('/api/reports/collection', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Doctor Cuts Report
 app.get('/api/reports/doctor-detailed', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1032,6 +1105,7 @@ app.get('/api/reports/executive-daily', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// PCPNDT Form F Management & Update Route
 app.get('/api/pcpndt', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1071,7 +1145,31 @@ app.get('/api/pcpndt', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Robust Cloud Sync (Prevents NOT-NULL violation on patients.age and duplicate keys)
+app.put('/api/pcpndt/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    const { relativeName, lmpDate, weeksOfPreg, noOfSons, sonsAge, noOfDaughters, daughtersAge, indications, scanResult, doctorName, doctorRegNo, clinicRegNo } = req.body;
+    const result = await pool.query(
+      `UPDATE pcpndt_forms 
+       SET relative_name = $1, lmp_date = $2, weeks_of_preg = $3, no_of_sons = $4, sons_age = $5,
+           no_of_daughters = $6, daughters_age = $7, indications = $8, scan_result = $9,
+           doctor_name = $10, doctor_reg_no = $11, clinic_reg_no = $12
+       WHERE id::text = $13::text RETURNING *`,
+      [relativeName || '', lmpDate || '', weeksOfPreg || '', parseInt(noOfSons, 10) || 0, sonsAge || '', parseInt(noOfDaughters, 10) || 0, daughtersAge || '', indications || '', scanResult || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', clinicRegNo || 'RC197', validId]
+    );
+    res.status(200).json({ success: true, data: result.rows[0], message: 'Statutory Form F updated successfully!' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.delete('/api/pcpndt/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    await pool.query('DELETE FROM pcpndt_forms WHERE id::text = $1::text', [validId]);
+    res.status(200).json({ success: true, message: 'Form F deleted' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// Robust Cloud Sync with Safe Age handling
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
 
@@ -1079,14 +1177,14 @@ app.post('/api/sync/cloud', async (req, res) => {
   try {
     localClient = await pool.connect();
   } catch (err) {
-    return res.status(500).json({ success: false, error: 'Local database is busy or starting: ' + err.message });
+    return res.status(500).json({ success: false, error: 'Local DB starting: ' + err.message });
   }
 
   try {
     cloudClient = await cloudPool.connect();
   } catch (err) {
     localClient.release();
-    return res.status(503).json({ success: false, error: 'Cannot reach cloud database. Please verify internet connection: ' + err.message });
+    return res.status(503).json({ success: false, error: 'Cannot connect to Cloud DB. Please verify internet connection: ' + err.message });
   }
 
   try {
@@ -1106,13 +1204,12 @@ app.post('/api/sync/cloud', async (req, res) => {
       CREATE TABLE IF NOT EXISTS imaging_reports (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, patient_id UUID, centre_id UUID, template_id UUID, template_name VARCHAR(255), report_text TEXT NOT NULL, impression TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
     `);
 
-    // Remove not-null constraint on cloud patients.age
     try {
       await cloudClient.query(`ALTER TABLE patients ALTER COLUMN age DROP NOT NULL;`);
       await cloudClient.query(`ALTER TABLE patients ALTER COLUMN age SET DEFAULT 0;`);
     } catch (e) {}
 
-    // 1. Auth & Centres
+    // Auth & Centres
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
     if (auths.rows.length > 0) {
       await cloudClient.query(`INSERT INTO app_auth (id, role, password) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password`, [auths.rows[0].id, auths.rows[0].role, auths.rows[0].password]);
@@ -1127,7 +1224,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [c.id, c.centre_name, c.tagline, c.address, c.phone, c.reg_no, c.email, c.centre_password, c.created_at]);
     }
 
-    // 2. Doctors & Tests
+    // Doctors & Tests
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
     for (const d of doctors.rows) {
       await cloudClient.query(`
@@ -1146,7 +1243,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [t.id, t.test_name, t.category, t.price, t.cut_type || 'fixed', t.test_cut]);
     }
 
-    // 3. Templates (Upsert by template_name to prevent duplicate key error)
+    // Templates
     const templateIdMap = {};
     const templates = await localClient.query('SELECT * FROM imaging_templates');
     for (const t of templates.rows) {
@@ -1167,7 +1264,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       }
     }
 
-    // 4. Patients (Guarantees safe non-null age on cloud insert)
+    // Patients (Ensures age is never passed as null)
     const validCloudPatientIds = new Set();
     const patients = await localClient.query('SELECT * FROM patients');
     for (const p of patients.rows) {
@@ -1180,7 +1277,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       validCloudPatientIds.add(String(p.id));
     }
 
-    // 5. Visits
+    // Visits
     const validCloudVisitIds = new Set();
     const visits = await localClient.query('SELECT * FROM visits');
     for (const v of visits.rows) {
@@ -1208,38 +1305,19 @@ app.post('/api/sync/cloud', async (req, res) => {
       validCloudVisitIds.add(String(v.id));
     }
 
-    // 6. Investigations
+    // Investigations
     const investigations = await localClient.query('SELECT * FROM patient_investigations');
     for (const pi of investigations.rows) {
       if (!validCloudVisitIds.has(String(pi.visit_id))) continue;
-
-      const checkById = await cloudClient.query('SELECT id, barcode FROM patient_investigations WHERE id::text = $1', [pi.id]);
-      if (checkById.rows.length > 0) {
-        await cloudClient.query(`
-          UPDATE patient_investigations
-          SET visit_id = $1, test_id = $2, status = $3, price = $4, cut_type = $5, test_cut = $6
-          WHERE id::text = $7
-        `, [pi.visit_id, pi.test_id, pi.status, pi.price, pi.cut_type || 'fixed', pi.test_cut, pi.id]);
-      } else {
-        let safeBarcode = pi.barcode;
-        if (safeBarcode) {
-          const barcodeTaken = await cloudClient.query('SELECT id FROM patient_investigations WHERE barcode = $1', [safeBarcode]);
-          if (barcodeTaken.rows.length > 0) {
-            safeBarcode = `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
-          }
-        } else {
-          safeBarcode = `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
-        }
-
-        await cloudClient.query(`
-          INSERT INTO patient_investigations (id, visit_id, test_id, barcode, status, price, cut_type, test_cut)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          ON CONFLICT (id) DO UPDATE SET barcode = EXCLUDED.barcode, price = EXCLUDED.price, status = EXCLUDED.status, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut;
-        `, [pi.id, pi.visit_id, pi.test_id, safeBarcode, pi.status, pi.price, pi.cut_type || 'fixed', pi.test_cut]);
-      }
+      let safeBarcode = pi.barcode || `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
+      await cloudClient.query(`
+        INSERT INTO patient_investigations (id, visit_id, test_id, barcode, status, price, cut_type, test_cut)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (id) DO UPDATE SET price = EXCLUDED.price, status = EXCLUDED.status, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut;
+      `, [pi.id, pi.visit_id, pi.test_id, safeBarcode, pi.status, pi.price, pi.cut_type || 'percentage', pi.test_cut]);
     }
 
-    // 7. Form F & Reports
+    // Form F & Reports
     const forms = await localClient.query('SELECT * FROM pcpndt_forms');
     for (const f of forms.rows) {
       if (!validCloudVisitIds.has(String(f.visit_id))) continue;
