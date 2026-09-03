@@ -909,7 +909,7 @@ app.delete('/api/doctors/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Templates Engine: Get Templates (Merges DB + Disk)
+// Templates Engine: Merges DB with Disk Folder
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     let dbTemplates = [];
@@ -946,7 +946,6 @@ app.get('/api/imaging/templates', async (req, res) => {
   }
 });
 
-// Templates Bulk Upload
 app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), async (req, res) => {
   try {
     const files = req.files || [];
@@ -982,7 +981,7 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
   }
 });
 
-// Update Template Route
+// Update Template Body / Impression / Title
 app.put('/api/imaging/templates/:name', async (req, res) => {
   try {
     const { title, templateBody, defaultImpression, category } = req.body;
@@ -1011,7 +1010,7 @@ app.put('/api/imaging/templates/:name', async (req, res) => {
   }
 });
 
-// Delete Template Route
+// Delete Template from DB and Disk
 app.delete('/api/imaging/templates/:name', async (req, res) => {
   try {
     const templateName = req.params.name;
@@ -1055,7 +1054,6 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Collections Report
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1116,7 +1114,6 @@ app.get('/api/reports/collection', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Doctor Cuts Detailed Report
 app.get('/api/reports/doctor-detailed', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1161,7 +1158,6 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Executive Daily Audit
 app.get('/api/reports/executive-daily', async (req, res) => {
   try {
     const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
@@ -1190,7 +1186,6 @@ app.get('/api/reports/executive-daily', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PCPNDT Form F Management
 app.get('/api/pcpndt', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1254,7 +1249,7 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Robust Cloud Sync with exact 16-parameter binding fix
+// Cloud Sync with Exact Column-Value Matching on pcpndt_forms
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
 
@@ -1262,7 +1257,7 @@ app.post('/api/sync/cloud', async (req, res) => {
   try {
     localClient = await pool.connect();
   } catch (err) {
-    return res.status(500).json({ success: false, error: 'Local DB error: ' + err.message });
+    return res.status(500).json({ success: false, error: 'Local DB starting: ' + err.message });
   }
 
   try {
@@ -1289,13 +1284,12 @@ app.post('/api/sync/cloud', async (req, res) => {
       CREATE TABLE IF NOT EXISTS imaging_reports (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, patient_id UUID, centre_id UUID, template_id UUID, template_name VARCHAR(255), report_text TEXT NOT NULL, impression TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
     `);
 
-    // 1. App Auth
+    // Auth & Centres
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
     if (auths.rows.length > 0) {
       await cloudClient.query(`INSERT INTO app_auth (id, role, password) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password`, [auths.rows[0].id, auths.rows[0].role, auths.rows[0].password]);
     }
 
-    // 2. Centres
     const centres = await localClient.query('SELECT * FROM clinic_centres');
     for (const c of centres.rows) {
       await cloudClient.query(`
@@ -1305,7 +1299,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [c.id, c.centre_name, c.tagline, c.address, c.phone, c.reg_no, c.email, c.centre_password, c.created_at]);
     }
 
-    // 3. Doctors & Tests
+    // Doctors & Tests
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
     for (const d of doctors.rows) {
       await cloudClient.query(`
@@ -1324,7 +1318,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [t.id, t.test_name, t.category, t.price, t.cut_type || 'percentage', t.test_cut]);
     }
 
-    // 4. Templates
+    // Templates
     const templateIdMap = {};
     const templates = await localClient.query('SELECT * FROM imaging_templates');
     for (const t of templates.rows) {
@@ -1345,7 +1339,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       }
     }
 
-    // 5. Patients
+    // Patients
     const validCloudPatientIds = new Set();
     const patients = await localClient.query('SELECT * FROM patients');
     for (const p of patients.rows) {
@@ -1358,7 +1352,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       validCloudPatientIds.add(String(p.id));
     }
 
-    // 6. Visits
+    // Visits
     const validCloudVisitIds = new Set();
     const visits = await localClient.query('SELECT * FROM visits');
     for (const v of visits.rows) {
@@ -1386,7 +1380,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       validCloudVisitIds.add(String(v.id));
     }
 
-    // 7. Investigations
+    // Investigations
     const investigations = await localClient.query('SELECT * FROM patient_investigations');
     for (const pi of investigations.rows) {
       if (!validCloudVisitIds.has(String(pi.visit_id))) continue;
@@ -1398,7 +1392,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [pi.id, pi.visit_id, pi.test_id, safeBarcode, pi.status, pi.price, pi.cut_type || 'percentage', pi.test_cut]);
     }
 
-    // 8. PCPNDT Form F (Exact 16 matching target columns and expressions)
+    // PCPNDT Forms (Matches 16 target columns to 16 input parameters)
     const forms = await localClient.query('SELECT * FROM pcpndt_forms');
     for (const f of forms.rows) {
       if (!validCloudVisitIds.has(String(f.visit_id))) continue;
@@ -1422,7 +1416,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       ]);
     }
 
-    // 9. Imaging Reports
+    // Reports
     const reports = await localClient.query('SELECT * FROM imaging_reports');
     for (const r of reports.rows) {
       if (!validCloudVisitIds.has(String(r.visit_id))) continue;

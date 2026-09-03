@@ -62,10 +62,10 @@
 
         .clinical-window { background: #dbe4ee; border: 2px solid #6b8cae; border-radius: 6px; padding: 12px; color: #112233; }
         .cw-top-strip { background: #cbd9ea; border: 1px solid #9bb5d1; padding: 8px 12px; border-radius: 4px; display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
-        .cw-split-grid { display: grid; grid-template-columns: 360px 1fr; gap: 12px; }
+        .cw-split-grid { display: grid; grid-template-columns: 340px 1fr; gap: 12px; }
         .cw-left-pane { background: #ecf2f8; border: 1px solid #a4bdd7; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 8px; }
         .cw-filter-box { background: #e2ecf6; border: 1px solid #b6ccdf; padding: 6px 10px; font-size: 0.8rem; display: flex; gap: 12px; align-items: center; }
-        .cw-templates-list { background: #ffffff; border: 1.5px solid #7c98b6; height: 280px; overflow-y: auto; border-radius: 3px; }
+        .cw-templates-list { background: #ffffff; border: 1.5px solid #7c98b6; height: 320px; overflow-y: auto; border-radius: 3px; }
         .cw-template-item { font-size: 0.82rem; font-family: Consolas, monospace; border-bottom: 1px solid #edf2f7; }
         .cw-template-item:hover { background-color: #d8e8f8; }
         .cw-template-item.selected { background-color: #3182ce; color: #ffffff; font-weight: bold; }
@@ -76,16 +76,12 @@
         .cw-btn:hover { background: #cbd5e1; }
         .cw-btn-word { background: #1e40af !important; color: #ffffff !important; border: 1px solid #1e3a8a !important; grid-column: span 2; padding: 10px; font-size: 0.95rem; }
         .cw-right-pane { background: #ffffff; border: 1.5px solid #7c98b6; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; }
-        .cw-fields-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; font-family: Arial, sans-serif; margin-top: 0; }
-        .cw-fields-table th { background: #e2ecf6; color: #1e3a8a; border: 1px solid #a4bdd7; padding: 6px 8px; font-weight: bold; }
-        .cw-fields-table td { border: 1px solid #cbd5e1; padding: 3px 6px; }
-        .cw-field-name { font-family: Consolas, monospace; font-weight: bold; color: #0f172a; width: 140px; background: #f8fafc; }
-        .cw-fields-table input, .cw-fields-table textarea { width: 100%; border: 1px solid transparent; padding: 4px 6px; font-size: 0.82rem; font-family: Arial, sans-serif; background: transparent; outline: none; }
 
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); justify-content: center; align-items: center; z-index: 10000; }
         .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 20px; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 14px; }
 
+        /* Exact Letterhead (55mm) Margin Formatting */
         @media print {
             body * { visibility: hidden; }
             #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc *, #liveReportPreviewDrawer, #liveReportPreviewDrawer * { visibility: visible; }
@@ -260,14 +256,14 @@
             </div>
         </div>
 
-        <!-- TAB 3: REPORT GENERATOR STUDIO -->
+        <!-- TAB 3: REPORT GENERATOR STUDIO (MANUAL CONTENT EDITOR) -->
         <div id="tab-imaging-reports" class="tab-content">
             <div class="card" style="padding: 10px;">
                 <div class="clinical-window">
                     <div class="cw-top-strip">
                         <div style="display: flex; gap: 6px; align-items: center;">
                             <label style="font-weight: bold; font-size: 0.82rem;">Patient:</label>
-                            <select id="imagingVisitSelect" onchange="onImagingVisitSelected(this.value)" style="padding: 4px 8px; border: 1px solid #7c98b6; border-radius: 3px; font-weight: bold; min-width: 200px;">
+                            <select id="imagingVisitSelect" onchange="onImagingVisitSelected(this.value)" style="padding: 4px 8px; border: 1px solid #7c98b6; border-radius: 3px; font-weight: bold; min-width: 220px;">
                                 <option value="">-- Choose Patient / Visit --</option>
                             </select>
                             <button type="button" class="cw-btn" onclick="loadImagingVisitsDropdown()">Fetch</button>
@@ -303,6 +299,7 @@
                     </div>
 
                     <div class="cw-split-grid">
+                        <!-- LEFT PANE: TEMPLATES LIST & ACTIONS -->
                         <div class="cw-left-pane">
                             <div class="cw-filter-box">
                                 <span>Filter Templates by :</span>
@@ -318,48 +315,65 @@
                             </div>
 
                             <div class="cw-button-bar">
-                                <button type="button" class="cw-btn" onclick="mergeFieldsIntoPreview()">Merge Fields</button>
-                                <button type="button" class="cw-btn" onclick="toggleReportLivePreview()">Show / Preview</button>
+                                <button type="button" class="cw-btn" style="background:#2563eb; color:white;" onclick="mergeFieldsIntoPreview(true)">⚡ Merge & Show Preview</button>
+                                <button type="button" class="cw-btn" onclick="toggleReportLivePreview()">Show / Hide Preview</button>
                                 <button type="button" class="cw-btn" onclick="printReportStudio()">Print</button>
                                 <button type="button" class="cw-btn" onclick="printSingleInvoice(currentSelectedVisit?.visit_id)">Print Address</button>
                                 <button type="button" class="cw-btn cw-btn-word" onclick="openReportInExternalWord()">🚀 OPEN IN MICROSOFT WORD (.DOC)</button>
                             </div>
                         </div>
 
-                        <div class="cw-right-pane">
-                            <div style="overflow-y: auto; max-height: 480px;">
-                                <table class="cw-fields-table">
-                                    <thead><tr><th style="width: 140px;">Fields</th><th>Values</th></tr></thead>
-                                    <tbody id="desktopFieldsTableBody">
-                                        <tr><td class="cw-field-name">Pt_Name1</td><td><input type="text" id="fld_Pt_Name1" value=""></td></tr>
-                                        <tr><td class="cw-field-name">Date1</td><td><input type="text" id="fld_Date1" value=""></td></tr>
-                                        <tr><td class="cw-field-name">Age</td><td><input type="text" id="fld_Age" value=""></td></tr>
-                                        <tr><td class="cw-field-name">Ref1</td><td><input type="text" id="fld_Ref1" value=""></td></tr>
-                                        <tr><td class="cw-field-name">Sex</td><td><input type="text" id="fld_Sex" value=""></td></tr>
-                                        <tr><td class="cw-field-name">LIVER</td><td><input type="text" id="fld_LIVER" value="Normal size, shape & echotexture. No focal lesions. Portal vein 9 mm."></td></tr>
-                                        <tr><td class="cw-field-name">GALL BLADDER</td><td><input type="text" id="fld_GB" value="Distended & appears normal. No calculus or mass. CBD normal."></td></tr>
-                                        <tr><td class="cw-field-name">SPLEEN</td><td><input type="text" id="fld_SPLEEN" value="Normal size (10.4 cm), shape & echotexture. Splenic vein normal."></td></tr>
-                                        <tr><td class="cw-field-name">PANCREAS</td><td><input type="text" id="fld_PANCREAS" value="Normal size, shape and echogenicity."></td></tr>
-                                        <tr><td class="cw-field-name">RT K</td><td><input type="text" id="fld_RT_K" value="Measures 9.7 x 3.2 cm. Normal corticomedullary ratio. No calculus or hydronephrosis."></td></tr>
-                                        <tr><td class="cw-field-name">LT K</td><td><input type="text" id="fld_LT_K" value="Measures 10.0 x 3.3 cm. Normal corticomedullary ratio. No calculus or hydronephrosis."></td></tr>
-                                        <tr><td class="cw-field-name">PREVOID</td><td><input type="text" id="fld_PREVOID" value="Urinary Bladder is well distended. Wall thickness normal. No calculus/mass."></td></tr>
-                                        <tr><td class="cw-field-name">POSTVOID</td><td><input type="text" id="fld_POSTVOID" value="Insignificant post-void residual urine."></td></tr>
-                                        <tr><td class="cw-field-name">VERTED</td><td><input type="text" id="fld_VERTED" value="Anteverted"></td></tr>
-                                        <tr><td class="cw-field-name">UTERUS</td><td><input type="text" id="fld_UTERUS" value="Measures 7.0 x 3.4 x 3.3 cm. Endometrial canal is midline (3.7 mm). No fibroids."></td></tr>
-                                        <tr><td class="cw-field-name">OVARIES</td><td><input type="text" id="fld_OVARIES" value="Both ovaries normal. Right measures 2.8 x 1.5 cm. Left measures 2.3 x 1.6 cm."></td></tr>
-                                        <tr><td class="cw-field-name">IMPRESSION</td><td><textarea id="fld_IMPRESSION" rows="2" style="font-weight: bold; color: #991b1b;">• NORMAL STUDY OF ABDOMEN AND PELVIS.&#10;• NO FOCAL LESION, CALCULUS OR HYDRONEPHROSIS SEEN.</textarea></td></tr>
-                                    </tbody>
-                                </table>
+                        <!-- RIGHT PANE: PATIENT BAR & FULL MANUAL TEXT EDITOR -->
+                        <div class="cw-right-pane" style="padding: 10px; display:flex; flex-direction:column; gap:10px; background:#f8fafc;">
+                            <div style="display:grid; grid-template-columns: 2fr 1fr 1fr 1fr 2fr; gap:8px; background:#e2ecf6; padding:8px 10px; border-radius:4px; border:1px solid #cbd5e1;">
+                                <div>
+                                    <label style="font-size:0.75rem; font-weight:bold; color:#1e3a8a;">PATIENT NAME</label>
+                                    <input type="text" id="fld_Pt_Name1" placeholder="PATIENT NAME" style="width:100%; font-weight:bold; border:1px solid #94a3b8; background:#fff; padding:4px 6px; border-radius:3px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:0.75rem; font-weight:bold; color:#1e3a8a;">DATE</label>
+                                    <input type="text" id="fld_Date1" style="width:100%; border:1px solid #94a3b8; background:#fff; padding:4px 6px; border-radius:3px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:0.75rem; font-weight:bold; color:#1e3a8a;">AGE</label>
+                                    <input type="text" id="fld_Age" placeholder="e.g. 28 Yrs" style="width:100%; border:1px solid #94a3b8; background:#fff; padding:4px 6px; border-radius:3px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:0.75rem; font-weight:bold; color:#1e3a8a;">SEX</label>
+                                    <select id="fld_Sex" style="width:100%; border:1px solid #94a3b8; background:#fff; padding:4px 6px; border-radius:3px;">
+                                        <option value="FEMALE">FEMALE</option>
+                                        <option value="MALE">MALE</option>
+                                        <option value="OTHER">OTHER</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size:0.75rem; font-weight:bold; color:#1e3a8a;">REF. DOCTOR</label>
+                                    <input type="text" id="fld_Ref1" placeholder="Dr. Name / Direct OPD" style="width:100%; border:1px solid #94a3b8; background:#fff; padding:4px 6px; border-radius:3px;">
+                                </div>
+                            </div>
+
+                            <div style="display:flex; flex-direction:column; flex:1;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                    <label style="font-weight:bold; font-size:0.82rem; color:#0f172a;">REPORT FINDINGS & OBSERVATIONS (EDIT MANUALLY):</label>
+                                    <span style="font-size:0.75rem; color:#64748b;">Selected Template Content Loaded</span>
+                                </div>
+                                <textarea id="manualReportFindingsText" rows="14" style="width:100%; font-family: Calibri, 'Segoe UI', sans-serif; font-size:11pt; line-height:1.4; padding:10px; border:1.5px solid #94a3b8; border-radius:4px; outline:none; resize:vertical; background:#ffffff;"></textarea>
+                            </div>
+
+                            <div style="display:flex; flex-direction:column;">
+                                <label style="font-weight:bold; font-size:0.82rem; color:#991b1b; margin-bottom:4px;">IMPRESSION :-</label>
+                                <textarea id="manualReportImpressionText" rows="3" style="width:100%; font-family: Calibri, 'Segoe UI', sans-serif; font-size:11pt; font-weight:bold; color:#991b1b; line-height:1.3; padding:8px 10px; border:1.5px solid #f87171; border-radius:4px; outline:none; background:#fffaf0;"></textarea>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Live Merged Preview Drawer -->
                     <div id="liveReportPreviewDrawer" style="display: none; background: #ffffff; border: 1.5px solid #64748b; border-radius: 4px; padding: 16px; margin-top: 12px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 10px;">
-                            <strong style="color: #1e3a8a;">Merged Diagnostic Report Preview (Calibri 12pt / 8pt Spacing)</strong>
+                            <strong style="color: #1e3a8a;">Merged Diagnostic Report Preview</strong>
                             <button type="button" class="cw-btn" style="padding: 2px 8px;" onclick="toggleReportLivePreview()">✕ Hide Preview</button>
                         </div>
-                        <div id="desktopPreviewContent" style="font-family: Calibri, sans-serif; font-size: 12pt; line-height: 1.45; white-space: pre-wrap;"></div>
+                        <div id="desktopPreviewContent" style="font-family: Calibri, sans-serif; font-size: 12pt; line-height: 1.45; white-space: pre-wrap; background:#fdfdfd; padding:15px; border:1px dashed #cbd5e1;"></div>
                     </div>
                 </div>
             </div>
@@ -684,7 +698,7 @@
                     </select>
                 </div>
                 <div class="form-group full-width">
-                    <label>Findings / Organ Values (Format: ORGAN :- Text):</label>
+                    <label>Findings / Organ Values (Free Text):</label>
                     <textarea id="editTmplBody" rows="10" style="font-family: Consolas, monospace; padding: 8px;"></textarea>
                 </div>
                 <div class="form-group full-width">
@@ -851,100 +865,111 @@
                 title: 'SONOGRAPHY - ABDOMEN & PELVIS (FEMALE)',
                 category: 'Ultrasonography',
                 view: 'Abd and Pel',
-                fields: {
-                    LIVER: 'Normal size, shape & echotexture. No focal lesions. Portal vein 9 mm.',
-                    GALL_BLADDER: 'Distended & appears normal. No calculus or mass. CBD normal.',
-                    SPLEEN: 'Normal size (10.4 cm), shape & echotexture. Splenic vein normal.',
-                    PANCREAS: 'Normal size, shape and echogenicity.',
-                    RT_K: 'Measures 9.7 x 3.2 cm. Normal corticomedullary ratio. No calculus or hydronephrosis.',
-                    LT_K: 'Measures 10.0 x 3.3 cm. Normal corticomedullary ratio. No calculus or hydronephrosis.',
-                    PREVOID: 'Urinary Bladder is well distended. Wall thickness normal. No calculus/mass.',
-                    POSTVOID: 'Insignificant post-void residual urine.',
-                    VERTED: 'Anteverted',
-                    UTERUS: 'Measures 7.0 x 3.4 x 3.3 cm. Endometrial canal is midline (3.7 mm). No fibroids.',
-                    OVARIES: 'Both ovaries normal. Right measures 2.8 x 1.5 cm. Left measures 2.3 x 1.6 cm.',
-                    IMPRESSION: '• NORMAL STUDY OF ABDOMEN AND PELVIS.\n• NO FOCAL LESION, CALCULUS OR HYDRONEPHROSIS SEEN.'
-                }
+                body: `LIVER :- Normal size, shape & echotexture. No focal lesions. Portal vein measures 9 mm.
+
+GALL BLADDER :- Well distended & normal in lumen. Wall thickness normal. No calculus or mass. CBD is normal in caliber.
+
+SPLEEN :- Normal size (10.4 cm), shape & echotexture. Splenic vein is normal.
+
+PANCREAS :- Visualised parts appear normal in size, shape and echogenicity. Main pancreatic duct is not dilated.
+
+KIDNEYS :-
+• Right Kidney measures 9.7 x 3.2 cm. Normal corticomedullary ratio. No calculus or hydronephrosis seen.
+• Left Kidney measures 10.0 x 3.3 cm. Normal corticomedullary ratio. No calculus or hydronephrosis seen.
+
+URINARY BLADDER :- Well distended with normal anechoic lumen. Wall thickness is normal. No calculus or mass.
+
+UTERUS :- (Anteverted) Measures 7.0 x 3.4 x 3.3 cm. Endometrial canal is central and measures 3.7 mm. Myometrium shows normal echotexture. No focal lesion or fibroid.
+
+OVARIES :- Both ovaries appear normal in size and stroma. Right measures 2.8 x 1.5 cm. Left measures 2.3 x 1.6 cm.
+
+• No obvious retroperitoneal lymphadenopathy or free fluid / ascites noted in peritoneal cavity.
+• Visualised bowel loops appear unremarkable.`,
+                impression: `• NORMAL STUDY OF ABDOMEN AND PELVIS.\n• NO FOCAL LESION, CALCULUS OR HYDRONEPHROSIS SEEN.`
             },
             {
                 fileName: 'Ultrasonography_Abd and Pel_MaleNK.dot',
                 title: 'SONOGRAPHY - ABDOMEN & PELVIS (MALE)',
                 category: 'Ultrasonography',
                 view: 'Abd and Pel',
-                fields: {
-                    LIVER: 'Normal size, shape & echotexture. No focal lesions. Portal vein 9 mm.',
-                    GALL_BLADDER: 'Distended & appears normal. No calculus or mass. CBD normal.',
-                    SPLEEN: 'Normal size (10.4 cm), shape & echotexture. Splenic vein normal.',
-                    PANCREAS: 'Normal size, shape and echogenicity.',
-                    RT_K: 'Measures 9.7 x 3.2 cm. Normal corticomedullary ratio. No calculus or hydronephrosis.',
-                    LT_K: 'Measures 10.0 x 3.3 cm. Normal corticomedullary ratio. No calculus or hydronephrosis.',
-                    PREVOID: 'Urinary Bladder is well distended. Wall thickness normal. No calculus/mass.',
-                    POSTVOID: 'Insignificant post-void residual urine.',
-                    VERTED: 'N/A',
-                    UTERUS: 'PROSTATE: Normal size & echotexture (18 gms). No focal lesion.',
-                    OVARIES: 'N/A',
-                    IMPRESSION: '• NORMAL STUDY OF ABDOMEN AND PELVIS.\n• PROSTATE IS NORMAL IN SIZE AND ECHOTEXTURE.'
-                }
+                body: `LIVER :- Normal size, shape & echotexture. No focal lesions. Portal vein measures 9 mm.
+
+GALL BLADDER :- Well distended & appears normal. No calculus or mass. CBD is normal.
+
+SPLEEN :- Normal size (10.2 cm), shape & echotexture. Splenic vein normal.
+
+PANCREAS :- Normal size, shape and echogenicity.
+
+KIDNEYS :-
+• Right Kidney measures 9.8 x 3.4 cm. Normal corticomedullary ratio. No calculus or hydronephrosis.
+• Left Kidney measures 10.1 x 3.5 cm. Normal corticomedullary ratio. No calculus or hydronephrosis.
+
+URINARY BLADDER :- Well distended. Wall thickness normal. No calculus or mass. Post-void residual urine is insignificant.
+
+PROSTATE :- Normal in size and homogeneous echotexture (measures ~18 gms). Capsule intact. No focal lesion.
+
+• No obvious lymphadenopathy or ascites seen.\n• Visualised bowel loops appear unremarkable.`,
+                impression: `• NORMAL STUDY OF ABDOMEN AND PELVIS.\n• PROSTATE IS NORMAL IN SIZE AND ECHOTEXTURE.`
             },
             {
                 fileName: 'Echocardiography_2 D Echocardiography_NORMAL.dot',
                 title: '2D ECHOCARDIOGRAPHY & COLOR DOPPLER',
                 category: 'Echocardiography',
                 view: 'Echo',
-                fields: {
-                    LIVER: 'LV: Normal internal dimensions. Preserved global LV systolic function (LVEF: 62%).',
-                    GALL_BLADDER: 'VALVES: Mitral and Aortic valves show normal leaflet mobility.',
-                    SPLEEN: 'PERICARDIUM: Clear with no pericardial effusion.',
-                    PANCREAS: 'AORTA: Normal root and ascending aorta caliber.',
-                    RT_K: 'RV: Normal size and contractility (TAPSE: 22 mm).',
-                    LT_K: 'ATRIA: Left atrium and Right atrium normal in size.',
-                    PREVOID: 'PULMONARY ARTERY: Normal systolic pressure (PASP: 22 mmHg).',
-                    POSTVOID: 'DOPPLER: Normal mitral inflow E/A ratio > 1.',
-                    VERTED: 'N/A',
-                    UTERUS: 'N/A',
-                    OVARIES: 'N/A',
-                    IMPRESSION: '• NORMAL 2D ECHOCARDIOGRAPHY AND COLOR DOPPLER STUDY.\n• NORMAL LV SYSTOLIC FUNCTION (LVEF: 62%).'
-                }
+                body: `LEFT VENTRICLE :- Normal internal cavity dimensions. No regional wall motion abnormality. Good global LV systolic function (LVEF: 62%).
+
+VALVES :-
+• Mitral Valve: Leaflets are thin and pliable. Normal excursion. Mitral inflow E/A ratio > 1.
+• Aortic Valve: Trileaflet valve with normal opening and excursion.
+• Tricuspid & Pulmonary Valves: Structurally normal.
+
+RIGHT VENTRICLE :- Normal internal dimensions and contractility (TAPSE: 22 mm).
+
+ATRIA :- Left atrium and Right atrium are normal in size.
+
+PERICARDIUM :- Clear. No pericardial effusion or thickening noted.
+AORTA & PULMONARY ARTERY :- Normal root and ascending aorta caliber. Normal estimated pulmonary systolic pressure.`,
+                impression: `• NORMAL 2D ECHOCARDIOGRAPHY AND COLOR DOPPLER STUDY.\n• PRESERVED LV SYSTOLIC FUNCTION (LVEF: 62%).`
             },
             {
                 fileName: 'Ultrasonography_Obstetric_Anomaly.dot',
                 title: 'OBSTETRIC ULTRASOUND - ANOMALY SCAN',
                 category: 'Ultrasonography',
                 view: 'Obstetrics',
-                fields: {
-                    LIVER: 'Single live intrauterine fetus in cephalic presentation.',
-                    GALL_BLADDER: 'Placenta: Anterior, upper segment, Grade II maturity. No retroplacental clot.',
-                    SPLEEN: 'Amniotic Fluid: Adequate. AFI: 14 cm.',
-                    PANCREAS: 'Fetal Spine: Intact vertebrae and skin covering seen from cervical to sacral region.',
-                    RT_K: 'Fetal Heart: 4-chamber view and outflow tracts appear normal. FHR: 144 bpm.',
-                    LT_K: 'Fetal Kidneys & Bladder: Both kidneys seen in renal beds. Bladder seen filling.',
-                    PREVOID: 'Fetal Face & Lip: Upper lip intact without cleft defect. Normal facial profile.',
-                    POSTVOID: 'Fetal Stomach & Diaphragm: Normal stomach bubble below intact left diaphragm.',
-                    VERTED: 'N/A',
-                    UTERUS: 'Internal OS closed. Cervical length: 3.6 cm.',
-                    OVARIES: 'Biometry: BPD, HC, AC, FL correspond to gestational age.',
-                    IMPRESSION: '• SINGLE LIVE INTRAUTERINE GESTATION CORRESPONDING TO PERIOD OF AMENORRHOEA.\n• NO OBVIOUS GROSS CONGENITAL ANOMALY NOTED ON CURRENT SCAN.'
-                }
+                body: `FETAL BIOMETRY :-
+Single live intrauterine fetus in cephalic presentation. Cardiac activity regular. FHR: 144 bpm. Fetal movements present.
+
+ANATOMICAL SURVEY :-
+• Fetal Head & Brain: Intact skull vault. Cavum septum pellucidum visualized. Lateral ventricles and cerebellum appear normal.
+• Fetal Face: Upper lip and palate appear intact. Both orbits symmetrical.
+• Fetal Spine: Normal vertebral alignment and intact skin covering throughout.
+• Fetal Thorax & Heart: Four-chamber heart and outflow tracts appear normal. Intact diaphragm.
+• Fetal Abdomen: Stomach bubble noted on left. Intact anterior abdominal wall. Both kidneys in renal fossa.
+• Extremities: All four limbs visualized with 3 segments each. Hands and feet appear normal.
+
+PLACENTA & LIQUOR :-
+• Placenta: Anterior, upper segment, Grade II maturity. No retroplacental clot.
+• Amniotic Fluid: Adequate in volume. AFI: 14 cm.
+• Umbilical Cord: Three vessel cord (2 arteries, 1 vein).`,
+                impression: `• SINGLE LIVE INTRAUTERINE GESTATION CORRESPONDING TO PERIOD OF AMENORRHOEA.\n• NO OBVIOUS GROSS CONGENITAL ANOMALY DETECTED ON CURRENT SCAN.`
             },
             {
                 fileName: 'Color Doppler_Scrotal For Varicocoeles_Normal.dot',
                 title: 'COLOR DOPPLER - SCROTUM',
                 category: 'Color Doppler',
                 view: 'Scrotal',
-                fields: {
-                    LIVER: 'Right Testis: Normal size, contour and homogeneous echotexture. Measures 4.0 x 2.2 cm.',
-                    GALL_BLADDER: 'Left Testis: Normal size, contour and homogeneous echotexture. Measures 3.9 x 2.1 cm.',
-                    SPLEEN: 'Epididymis: Both right and left epididymal heads appear normal. No cyst.',
-                    PANCREAS: 'Vascularity: Normal symmetric parenchymal blood flow on color Doppler bilaterally.',
-                    RT_K: 'Pampiniform Plexus: No dilation. Caliber is normal (< 1.8 mm).',
-                    LT_K: 'Valsalva Maneuver: No retrograde venous reflux elicited on straining.',
-                    PREVOID: 'Hydrocele: No hydrocele or pyocele noted in tunica vaginalis bilaterally.',
-                    POSTVOID: 'Inguinal Region: No herniation of abdominal contents seen.',
-                    VERTED: 'N/A',
-                    UTERUS: 'N/A',
-                    OVARIES: 'N/A',
-                    IMPRESSION: '• NORMAL BILATERAL SCROTAL ULTRASOUND AND COLOR DOPPLER STUDY.\n• NO EVIDENCE OF VARICOCELE, ORCHITIS OR TESTICULAR MASS.'
-                }
+                body: `RIGHT TESTIS :- Normal size, contour and homogeneous echotexture (measures 4.0 x 2.2 cm). No focal testicular lesion. Normal vascularity on color Doppler.
+
+LEFT TESTIS :- Normal size, contour and homogeneous echotexture (measures 3.9 x 2.1 cm). No focal testicular lesion. Normal vascularity on color Doppler.
+
+EPIDIDYMIS :- Both epididymal heads and bodies appear normal in size and echotexture. No cyst or epididymitis.
+
+PAMPINIFORM PLEXUS :-
+• Bilateral spermatic veins show normal caliber (< 1.8 mm).
+• No retrograde venous reflux elicited on Valsalva maneuver on color Doppler.
+
+TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thickness is normal.`,
+                impression: `• NORMAL BILATERAL SCROTAL ULTRASOUND AND COLOR DOPPLER STUDY.\n• NO EVIDENCE OF VARICOCELE, ORCHITIS OR TESTICULAR MASS.`
             }
         ];
 
@@ -999,24 +1024,6 @@
             });
         }
 
-        function parseTemplateBodyToFields(text) {
-            const f = {};
-            if (!text || text.trim().length === 0) return f;
-
-            const lines = text.split('\n');
-            lines.forEach(line => {
-                const parts = line.split(/[:-]/);
-                if (parts.length >= 2) {
-                    const k = parts[0].trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
-                    const v = parts.slice(1).join('-').trim();
-                    if (k.length > 2 && v.length > 0) {
-                        f[k] = v;
-                    }
-                }
-            });
-            return f;
-        }
-
         async function apiFetch(url, options = {}) {
             options.headers = options.headers || {};
             if (!(options.body instanceof FormData)) options.headers['Content-Type'] = 'application/json';
@@ -1053,9 +1060,8 @@
                                 title: t.title || fName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
                                 category: t.category || 'Ultrasonography',
                                 view: 'All',
-                                body: t.template_body || '',
-                                impression: t.default_impression || '',
-                                fields: parseTemplateBodyToFields(t.template_body || '')
+                                body: t.template_body || `FINDINGS FOR ${t.title || fName}:\n\n- Completed.`,
+                                impression: t.default_impression || 'NORMAL STUDY.'
                             });
                         }
                     });
@@ -1931,7 +1937,7 @@
                 document.getElementById('fld_Pt_Name1').value = (p.full_name || '').toUpperCase();
                 document.getElementById('fld_Date1').value = new Date(p.created_at || Date.now()).toLocaleDateString('en-GB');
                 document.getElementById('fld_Age').value = p.age ? `${p.age} Years` : 'N/A';
-                document.getElementById('fld_Sex').value = (p.gender || 'F').toUpperCase().startsWith('M') ? 'M' : 'F';
+                document.getElementById('fld_Sex').value = (p.gender || 'F').toUpperCase().startsWith('M') ? 'MALE' : 'FEMALE';
                 document.getElementById('fld_Ref1').value = p.doctor_name || 'Direct OPD';
                 mergeFieldsIntoPreview();
             }
@@ -1943,26 +1949,26 @@
             list.forEach((tmpl, idx) => {
                 const row = document.createElement('div');
                 row.className = `cw-template-item ${currentSelectedTemplate?.fileName === tmpl.fileName ? 'selected' : ''}`;
-                row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:5px 8px;';
+                row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:6px 8px; border-bottom:1px solid #edf2f7;';
 
                 const nameSpan = document.createElement('span');
                 nameSpan.textContent = tmpl.fileName;
-                nameSpan.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; cursor:pointer;';
+                nameSpan.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; cursor:pointer; font-weight:600;';
                 nameSpan.onclick = () => selectDesktopTemplate(tmpl, row);
 
                 const actionsDiv = document.createElement('div');
-                actionsDiv.style.cssText = 'display:flex; gap:4px; margin-left:6px;';
+                actionsDiv.style.cssText = 'display:flex; gap:6px; margin-left:6px;';
 
                 const btnEdit = document.createElement('button');
                 btnEdit.innerHTML = '✏️';
                 btnEdit.title = 'Edit Template';
-                btnEdit.style.cssText = 'border:none; background:transparent; cursor:pointer; font-size:0.8rem;';
+                btnEdit.style.cssText = 'border:none; background:transparent; cursor:pointer; font-size:0.85rem;';
                 btnEdit.onclick = (e) => { e.stopPropagation(); openEditTemplateModal(tmpl); };
 
                 const btnDel = document.createElement('button');
                 btnDel.innerHTML = '🗑️';
                 btnDel.title = 'Delete Template';
-                btnDel.style.cssText = 'border:none; background:transparent; cursor:pointer; font-size:0.8rem; color:#dc3545;';
+                btnDel.style.cssText = 'border:none; background:transparent; cursor:pointer; font-size:0.85rem; color:#dc3545;';
                 btnDel.onclick = (e) => { e.stopPropagation(); deleteTemplateByName(tmpl.fileName); };
 
                 actionsDiv.appendChild(btnEdit);
@@ -1983,34 +1989,8 @@
             if (el) el.classList.add('selected');
             document.getElementById('desktopSelectedTmplLabel').textContent = tmpl.fileName;
 
-            const fields = tmpl.fields || parseTemplateBodyToFields(tmpl.body) || {};
-
-            const fieldMapping = {
-                'LIVER': document.getElementById('fld_LIVER'),
-                'GALL_BLADDER': document.getElementById('fld_GB'),
-                'SPLEEN': document.getElementById('fld_SPLEEN'),
-                'PANCREAS': document.getElementById('fld_PANCREAS'),
-                'RT_K': document.getElementById('fld_RT_K'),
-                'LT_K': document.getElementById('fld_LT_K'),
-                'PREVOID': document.getElementById('fld_PREVOID'),
-                'POSTVOID': document.getElementById('fld_POSTVOID'),
-                'VERTED': document.getElementById('fld_VERTED'),
-                'UTERUS': document.getElementById('fld_UTERUS'),
-                'OVARIES': document.getElementById('fld_OVARIES')
-            };
-
-            Object.keys(fieldMapping).forEach(key => {
-                if (fieldMapping[key]) {
-                    fieldMapping[key].value = fields[key] !== undefined ? fields[key] : (fields[key.replace('_', ' ')] || 'N/A');
-                }
-            });
-
-            const impBox = document.getElementById('fld_IMPRESSION');
-            if (impBox) {
-                impBox.value = fields.IMPRESSION || tmpl.impression || `• STUDY OF ${tmpl.title}.\n• NO SIGNIFICANT ABNORMALITY DETECTED.`;
-            }
-
-            mergeFieldsIntoPreview();
+            document.getElementById('manualReportFindingsText').value = tmpl.body || '';
+            document.getElementById('manualReportImpressionText').value = tmpl.impression || '';
         }
 
         function filterTemplatesByUI() {
@@ -2037,16 +2017,8 @@
             document.getElementById('editTmplOldName').value = tmpl.fileName;
             document.getElementById('editTmplTitle').value = tmpl.title || '';
             document.getElementById('editTmplCategory').value = tmpl.category || 'Ultrasonography';
-            
-            let bodyText = tmpl.body || '';
-            if (!bodyText && tmpl.fields) {
-                bodyText = Object.entries(tmpl.fields)
-                    .filter(([k]) => k !== 'IMPRESSION')
-                    .map(([k, v]) => `${k} :- ${v}`)
-                    .join('\n\n');
-            }
-            document.getElementById('editTmplBody').value = bodyText;
-            document.getElementById('editTmplImpression').value = tmpl.fields?.IMPRESSION || tmpl.impression || '';
+            document.getElementById('editTmplBody').value = tmpl.body || '';
+            document.getElementById('editTmplImpression').value = tmpl.impression || '';
             document.getElementById('editTemplateModal').style.display = 'flex';
         }
 
@@ -2075,7 +2047,6 @@
                     item.category = category;
                     item.body = templateBody;
                     item.impression = defaultImpression;
-                    item.fields = { ...parseTemplateBodyToFields(templateBody), IMPRESSION: defaultImpression };
                     if (currentSelectedTemplate?.fileName === fileName) {
                         selectDesktopTemplate(item, null);
                     }
@@ -2104,33 +2075,33 @@
             }
         }
 
-        function mergeFieldsIntoPreview() {
-            const ptName = document.getElementById('fld_Pt_Name1').value || 'PATIENT NAME';
+        function mergeFieldsIntoPreview(openPreviewDrawer = false) {
+            const ptName = (document.getElementById('fld_Pt_Name1').value || 'PATIENT NAME').toUpperCase();
             const dateStr = document.getElementById('fld_Date1').value || getTodayDisplayDate();
             const age = document.getElementById('fld_Age').value || 'N/A';
-            const sex = document.getElementById('fld_Sex').value || 'F';
+            const sex = (document.getElementById('fld_Sex').value || 'FEMALE').toUpperCase();
             const refDoc = document.getElementById('fld_Ref1').value || 'Direct OPD';
-            const title = currentSelectedTemplate ? currentSelectedTemplate.title : 'SONOGRAPHY - ABDOMEN & PELVIS';
+            const title = currentSelectedTemplate ? currentSelectedTemplate.title : 'DIAGNOSTIC REPORT';
 
-            const liv = document.getElementById('fld_LIVER').value;
-            const gb = document.getElementById('fld_GB').value;
-            const spleen = document.getElementById('fld_SPLEEN').value;
-            const panc = document.getElementById('fld_PANCREAS').value;
-            const rtk = document.getElementById('fld_RT_K').value;
-            const ltk = document.getElementById('fld_LT_K').value;
-            const pre = document.getElementById('fld_PREVOID').value;
-            const verted = document.getElementById('fld_VERTED').value;
-            const ute = document.getElementById('fld_UTERUS').value;
-            const ova = document.getElementById('fld_OVARIES').value;
-            const imp = document.getElementById('fld_IMPRESSION').value;
+            const findings = document.getElementById('manualReportFindingsText').value.trim();
+            const impression = document.getElementById('manualReportImpressionText').value.trim();
 
-            let reportText = `LIVER :- ${liv}\n\nGALL BLADDER :- ${gb}\n\nSPLEEN :- ${spleen}\n\nPANCREAS :- ${panc}\n\nKIDNEYS :-\n• Right Kidney: ${rtk}\n• Left Kidney: ${ltk}\n\nURINARY BLADDER :- ${pre}\n\nUTERUS :- (${verted}) ${ute}\n\nOVARIES :- ${ova}\n\n• No obvious lymphadenopathy or free fluid / ascites noted.\n• Visualised bowel loops appear unremarkable.\n\nIMPRESSION :-\n${imp}\n\nDR. NIKUNJ KOTHIA\nConsultant Radiologist`;
+            const fullReportText = `PATIENT: ${ptName} | DATE: ${dateStr} | AGE/SEX: ${age} / ${sex} | REF: ${refDoc}\n` +
+                                   `======================================================================\n` +
+                                   `[${title}]\n\n` +
+                                   `${findings}\n\n` +
+                                   `IMPRESSION :-\n${impression}\n\n` +
+                                   `DR. NIKUNJ KOTHIA\nConsultant Radiologist`;
 
             const preview = document.getElementById('desktopPreviewContent');
             if (preview) {
-                preview.textContent = `[${title}]\nPATIENT: ${ptName} | DATE: ${dateStr} | AGE/SEX: ${age} / ${sex} | REF: ${refDoc}\n============================================================\n\n` + reportText;
+                preview.textContent = fullReportText;
             }
-            return reportText;
+
+            if (openPreviewDrawer) {
+                document.getElementById('liveReportPreviewDrawer').style.display = 'block';
+            }
+            return fullReportText;
         }
 
         function toggleReportLivePreview() {
@@ -2162,19 +2133,11 @@
             const age = document.getElementById('fld_Age').value || 'N/A';
             const sex = (document.getElementById('fld_Sex').value || 'FEMALE').toUpperCase();
             const refDoc = document.getElementById('fld_Ref1').value || 'Dr. Self / Direct OPD';
-            const title = currentSelectedTemplate ? currentSelectedTemplate.title : 'SONOGRAPHY - ABDOMEN & PELVIS';
+            const title = currentSelectedTemplate ? currentSelectedTemplate.title : 'DIAGNOSTIC REPORT';
             const isPreprinted = document.getElementById('chkPreprintedLetterhead').checked;
 
-            const liv = document.getElementById('fld_LIVER').value;
-            const gb = document.getElementById('fld_GB').value;
-            const spleen = document.getElementById('fld_SPLEEN').value;
-            const panc = document.getElementById('fld_PANCREAS').value;
-            const rtk = document.getElementById('fld_RT_K').value;
-            const ltk = document.getElementById('fld_LT_K').value;
-            const pre = document.getElementById('fld_PREVOID').value;
-            const ute = document.getElementById('fld_UTERUS').value;
-            const ova = document.getElementById('fld_OVARIES').value;
-            const imp = document.getElementById('fld_IMPRESSION').value;
+            const findings = document.getElementById('manualReportFindingsText').value.replace(/\n/g, '<br>');
+            const impression = document.getElementById('manualReportImpressionText').value.replace(/\n/g, '<br>');
 
             const wordHTML = `
                 <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -2184,21 +2147,21 @@
                     <style>
                         @page Section1 { size: 210mm 297mm; margin: ${isPreprinted ? '55mm' : '15mm'} 15mm 15mm 15mm; }
                         div.Section1 { page: Section1; }
-                        body { font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; font-size: 12pt; line-height: 1.4; color: #000; }
-                        .patient-box-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; font-size: 11pt; border: 1.5px solid #000; font-family: 'Calibri', sans-serif; }
+                        body { font-family: 'Calibri', Arial, sans-serif; font-size: 12pt; line-height: 1.4; color: #000; }
+                        .patient-box-table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; font-size: 11pt; border: 1.5px solid #000; }
                         .patient-box-table td { padding: 4px 8px; border: 1px solid #000; vertical-align: middle; }
-                        .report-heading { text-align: center; font-size: 13pt; font-weight: bold; color: #004b87; text-decoration: underline; margin-top: 8pt; margin-bottom: 8pt; text-transform: uppercase; font-family: 'Calibri', sans-serif; }
-                        .organ-row { margin-top: 8pt; margin-bottom: 8pt; font-size: 12pt; }
-                        .organ-title { font-weight: bold; text-decoration: underline; }
-                        .impression-title { font-weight: bold; text-decoration: underline; margin-top: 8pt; margin-bottom: 4pt; font-size: 12pt; }
-                        .sign-block { margin-top: 30px; width: 100%; border: none; font-family: 'Calibri', sans-serif; }
+                        .report-heading { text-align: center; font-size: 13pt; font-weight: bold; color: #004b87; text-decoration: underline; margin: 10pt 0; text-transform: uppercase; }
+                        .findings-content { font-size: 12pt; line-height: 1.45; }
+                        .impression-title { font-weight: bold; text-decoration: underline; margin-top: 14pt; margin-bottom: 4pt; font-size: 12pt; color: #991b1b; }
+                        .impression-body { font-weight: bold; font-size: 12pt; color: #991b1b; }
+                        .sign-block { margin-top: 35px; width: 100%; border: none; }
                     </style>
                 </head>
                 <body>
                     <div class="Section1">
                         ${!isPreprinted ? `
-                            <div style="text-align: center; border-bottom: 2px solid #19486a; padding-bottom: 4px; margin-bottom: 8pt;">
-                                <h2 style="margin: 0; color: #19486a; font-size: 16pt; font-family: 'Calibri', sans-serif;">${activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE'}</h2>
+                            <div style="text-align: center; border-bottom: 2px solid #19486a; padding-bottom: 4px; margin-bottom: 10pt;">
+                                <h2 style="margin: 0; color: #19486a; font-size: 16pt;">${activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE'}</h2>
                                 <p style="margin: 2px 0; font-size: 9pt;">${activeCentre?.address || 'Kandivali West, Mumbai'}</p>
                             </div>
                         ` : ''}
@@ -2224,19 +2187,10 @@
 
                         <div class="report-heading">${title}</div>
 
-                        <p class="organ-row"><span class="organ-title">LIVER :-</span> ${liv}</p>
-                        <p class="organ-row"><span class="organ-title">GALL BLADDER :-</span> ${gb}</p>
-                        <p class="organ-row"><span class="organ-title">SPLEEN :-</span> ${spleen}</p>
-                        <p class="organ-row"><span class="organ-title">PANCREAS :-</span> ${panc}</p>
-                        <p class="organ-row"><span class="organ-title">KIDNEYS :-</span> Right kidney: ${rtk} Left kidney: ${ltk}</p>
-                        <p class="organ-row"><span class="organ-title">URINARY BLADDER :-</span> ${pre}</p>
-                        <p class="organ-row"><span class="organ-title">UTERUS :-</span> ${ute}</p>
-                        <p class="organ-row"><span class="organ-title">OVARIES :-</span> ${ova}</p>
-
-                        <p class="organ-row">• No obvious lymphadenopathy / ascites noted.<br>• No mass lesion or collection is noted in both iliac fossa.<br>• Visualised bowel loops appear unremarkable.</p>
+                        <div class="findings-content">${findings}</div>
 
                         <div class="impression-title">IMPRESSION :-</div>
-                        <div style="font-weight: bold; white-space: pre-wrap; font-size: 12pt; margin-top: 4pt; margin-bottom: 8pt;">${imp}</div>
+                        <div class="impression-body">${impression}</div>
 
                         <table class="sign-block">
                             <tr>
@@ -2268,8 +2222,8 @@
                         visitId: currentSelectedVisit.visit_id,
                         patientId: currentSelectedVisit.patient_id,
                         templateName: title,
-                        reportText: mergeFieldsIntoPreview(),
-                        impression: imp
+                        reportText: document.getElementById('manualReportFindingsText').value,
+                        impression: document.getElementById('manualReportImpressionText').value
                     })
                 });
             }
