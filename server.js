@@ -909,7 +909,7 @@ app.delete('/api/doctors/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Templates Engine: Merges DB Templates with Disk Report_Templates folder
+// Templates Engine: Get Templates (Merges DB + Disk)
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     let dbTemplates = [];
@@ -946,6 +946,7 @@ app.get('/api/imaging/templates', async (req, res) => {
   }
 });
 
+// Templates Bulk Upload
 app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), async (req, res) => {
   try {
     const files = req.files || [];
@@ -981,6 +982,54 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
   }
 });
 
+// Update Template Route
+app.put('/api/imaging/templates/:name', async (req, res) => {
+  try {
+    const { title, templateBody, defaultImpression, category } = req.body;
+    const templateName = req.params.name;
+
+    if (isDbConnected) {
+      await pool.query(
+        `UPDATE imaging_templates 
+         SET title = COALESCE($1, title),
+             template_body = COALESCE($2, template_body),
+             default_impression = COALESCE($3, default_impression),
+             category = COALESCE($4, category)
+         WHERE template_name = $5`,
+        [title, templateBody, defaultImpression, category, templateName]
+      );
+    }
+
+    const filePath = path.join(TEMPLATES_DIR, templateName);
+    if (fs.existsSync(filePath) && templateBody !== undefined) {
+      fs.writeFileSync(filePath, templateBody, 'utf8');
+    }
+
+    res.status(200).json({ success: true, message: 'Template updated successfully!' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete Template Route
+app.delete('/api/imaging/templates/:name', async (req, res) => {
+  try {
+    const templateName = req.params.name;
+    if (isDbConnected) {
+      await pool.query('DELETE FROM imaging_templates WHERE template_name = $1', [templateName]);
+    }
+
+    const filePath = path.join(TEMPLATES_DIR, templateName);
+    if (fs.existsSync(filePath)) {
+      try { fs.unlinkSync(filePath); } catch (e) {}
+    }
+
+    res.status(200).json({ success: true, message: 'Template deleted successfully!' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/imaging/reports', async (req, res) => {
   try {
     const { visitId, patientId, templateId, templateName, reportText, impression, doctorName, doctorRegNo } = req.body;
@@ -1006,6 +1055,7 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Collections Report
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1066,6 +1116,7 @@ app.get('/api/reports/collection', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Doctor Cuts Detailed Report
 app.get('/api/reports/doctor-detailed', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1110,6 +1161,7 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Executive Daily Audit
 app.get('/api/reports/executive-daily', async (req, res) => {
   try {
     const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
@@ -1138,6 +1190,7 @@ app.get('/api/reports/executive-daily', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// PCPNDT Form F Management
 app.get('/api/pcpndt', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1201,6 +1254,7 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Robust Cloud Sync with exact 16-parameter binding fix
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
 
@@ -1208,7 +1262,7 @@ app.post('/api/sync/cloud', async (req, res) => {
   try {
     localClient = await pool.connect();
   } catch (err) {
-    return res.status(500).json({ success: false, error: 'Local DB starting: ' + err.message });
+    return res.status(500).json({ success: false, error: 'Local DB error: ' + err.message });
   }
 
   try {
@@ -1235,12 +1289,13 @@ app.post('/api/sync/cloud', async (req, res) => {
       CREATE TABLE IF NOT EXISTS imaging_reports (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, patient_id UUID, centre_id UUID, template_id UUID, template_name VARCHAR(255), report_text TEXT NOT NULL, impression TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
     `);
 
-    // Auth & Centres
+    // 1. App Auth
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
     if (auths.rows.length > 0) {
       await cloudClient.query(`INSERT INTO app_auth (id, role, password) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password`, [auths.rows[0].id, auths.rows[0].role, auths.rows[0].password]);
     }
 
+    // 2. Centres
     const centres = await localClient.query('SELECT * FROM clinic_centres');
     for (const c of centres.rows) {
       await cloudClient.query(`
@@ -1250,7 +1305,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [c.id, c.centre_name, c.tagline, c.address, c.phone, c.reg_no, c.email, c.centre_password, c.created_at]);
     }
 
-    // Doctors & Tests
+    // 3. Doctors & Tests
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
     for (const d of doctors.rows) {
       await cloudClient.query(`
@@ -1269,7 +1324,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [t.id, t.test_name, t.category, t.price, t.cut_type || 'percentage', t.test_cut]);
     }
 
-    // Templates
+    // 4. Templates
     const templateIdMap = {};
     const templates = await localClient.query('SELECT * FROM imaging_templates');
     for (const t of templates.rows) {
@@ -1290,7 +1345,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       }
     }
 
-    // Patients
+    // 5. Patients
     const validCloudPatientIds = new Set();
     const patients = await localClient.query('SELECT * FROM patients');
     for (const p of patients.rows) {
@@ -1303,7 +1358,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       validCloudPatientIds.add(String(p.id));
     }
 
-    // Visits
+    // 6. Visits
     const validCloudVisitIds = new Set();
     const visits = await localClient.query('SELECT * FROM visits');
     for (const v of visits.rows) {
@@ -1331,7 +1386,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       validCloudVisitIds.add(String(v.id));
     }
 
-    // Investigations
+    // 7. Investigations
     const investigations = await localClient.query('SELECT * FROM patient_investigations');
     for (const pi of investigations.rows) {
       if (!validCloudVisitIds.has(String(pi.visit_id))) continue;
@@ -1343,16 +1398,31 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [pi.id, pi.visit_id, pi.test_id, safeBarcode, pi.status, pi.price, pi.cut_type || 'percentage', pi.test_cut]);
     }
 
-    // PCPNDT forms & Reports
+    // 8. PCPNDT Form F (Exact 16 matching target columns and expressions)
     const forms = await localClient.query('SELECT * FROM pcpndt_forms');
     for (const f of forms.rows) {
       if (!validCloudVisitIds.has(String(f.visit_id))) continue;
       await cloudClient.query(`
-        INSERT INTO pcpndt_forms (id, visit_id, centre_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-        [f.id, f.visit_id, f.centre_id, f.relative_name, f.no_of_sons, f.sons_age, f.no_of_daughters, f.daughters_age, f.lmp_date, f.weeks_of_preg, f.indications, f.scan_result, f.doctor_name, f.doctor_reg_no, f.clinic_reg_no, f.created_at]);
+        INSERT INTO pcpndt_forms (
+          id, visit_id, centre_id, relative_name, no_of_sons, sons_age,
+          no_of_daughters, daughters_age, lmp_date, weeks_of_preg,
+          indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        ON CONFLICT (id) DO UPDATE SET
+          relative_name = EXCLUDED.relative_name,
+          lmp_date = EXCLUDED.lmp_date,
+          weeks_of_preg = EXCLUDED.weeks_of_preg,
+          indications = EXCLUDED.indications,
+          scan_result = EXCLUDED.scan_result;
+      `, [
+        f.id, f.visit_id, f.centre_id, f.relative_name, f.no_of_sons, f.sons_age,
+        f.no_of_daughters, f.daughters_age, f.lmp_date, f.weeks_of_preg,
+        f.indications, f.scan_result, f.doctor_name, f.doctor_reg_no, f.clinic_reg_no, f.created_at
+      ]);
     }
 
+    // 9. Imaging Reports
     const reports = await localClient.query('SELECT * FROM imaging_reports');
     for (const r of reports.rows) {
       if (!validCloudVisitIds.has(String(r.visit_id))) continue;

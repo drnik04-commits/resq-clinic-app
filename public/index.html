@@ -66,9 +66,10 @@
         .cw-left-pane { background: #ecf2f8; border: 1px solid #a4bdd7; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 8px; }
         .cw-filter-box { background: #e2ecf6; border: 1px solid #b6ccdf; padding: 6px 10px; font-size: 0.8rem; display: flex; gap: 12px; align-items: center; }
         .cw-templates-list { background: #ffffff; border: 1.5px solid #7c98b6; height: 280px; overflow-y: auto; border-radius: 3px; }
-        .cw-template-item { padding: 7px 10px; font-size: 0.82rem; font-family: Consolas, monospace; border-bottom: 1px solid #edf2f7; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cw-template-item { font-size: 0.82rem; font-family: Consolas, monospace; border-bottom: 1px solid #edf2f7; }
         .cw-template-item:hover { background-color: #d8e8f8; }
         .cw-template-item.selected { background-color: #3182ce; color: #ffffff; font-weight: bold; }
+        .cw-template-item.selected button { color: #ffffff !important; }
         .cw-selected-badge { background: #fdf2f2; border: 1px solid #fca5a5; color: #991b1b; font-size: 0.8rem; font-weight: bold; padding: 6px 10px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .cw-button-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 4px; }
         .cw-btn { background: #e2e8f0; border: 1px solid #94a3b8; padding: 7px 4px; font-size: 0.8rem; font-weight: bold; color: #1e293b; border-radius: 3px; cursor: pointer; text-align: center; }
@@ -85,7 +86,6 @@
         .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 20px; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 14px; }
 
-        /* Exact Letterhead (55mm) Margin Formatting */
         @media print {
             body * { visibility: hidden; }
             #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc *, #liveReportPreviewDrawer, #liveReportPreviewDrawer * { visibility: visible; }
@@ -664,6 +664,41 @@
         </div>
     </div>
 
+    <!-- MODAL 8: EDIT / CUSTOMIZE TEMPLATE -->
+    <div id="editTemplateModal" class="modal">
+        <div class="modal-content" style="max-width: 750px;">
+            <div class="modal-header">
+                <h3>✏️ Edit / Customize Report Template</h3>
+                <button type="button" onclick="closeEditTemplateModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
+            <input type="hidden" id="editTmplOldName">
+            <div class="form-grid">
+                <div class="form-group"><label>Template Title / Heading:</label><input type="text" id="editTmplTitle"></div>
+                <div class="form-group">
+                    <label>Category:</label>
+                    <select id="editTmplCategory">
+                        <option value="Ultrasonography">Ultrasonography</option>
+                        <option value="Echocardiography">Echocardiography</option>
+                        <option value="Color Doppler">Color Doppler</option>
+                        <option value="Digital X-Ray">Digital X-Ray</option>
+                    </select>
+                </div>
+                <div class="form-group full-width">
+                    <label>Findings / Organ Values (Format: ORGAN :- Text):</label>
+                    <textarea id="editTmplBody" rows="10" style="font-family: Consolas, monospace; padding: 8px;"></textarea>
+                </div>
+                <div class="form-group full-width">
+                    <label>Default Impression:</label>
+                    <textarea id="editTmplImpression" rows="3" style="font-family: Consolas, monospace; padding: 8px; color: #991b1b; font-weight: bold;"></textarea>
+                </div>
+            </div>
+            <div style="margin-top: 14px; display: flex; gap: 8px;">
+                <button type="button" class="btn-complete-reg" onclick="saveEditedTemplate()">Save Template Changes</button>
+                <button type="button" class="btn-act btn-act-del" onclick="closeEditTemplateModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- INVOICE PRINT PAPER -->
     <div id="invoicePrintArea" class="print-paper">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
@@ -811,14 +846,106 @@
         let isSuperAdmin = false, activeEditingBillTests = [];
 
         let desktopTemplateCatalog = [
-            { fileName: 'Ultrasonography_Abd and Pel_FemaleNK.dot', title: 'SONOGRAPHY - ABDOMEN & PELVIS (FEMALE)', category: 'Ultrasonography', view: 'Abd and Pel' },
-            { fileName: 'Ultrasonography_Abd and Pel_FEMALEOLD.dot', title: 'SONOGRAPHY - ABDOMEN & PELVIS (FEMALE OLD)', category: 'Ultrasonography', view: 'Abd and Pel' },
-            { fileName: 'Ultrasonography_Abd and Pel_MaleNK.dot', title: 'SONOGRAPHY - ABDOMEN & PELVIS (MALE)', category: 'Ultrasonography', view: 'Abd and Pel' },
-            { fileName: 'Ultrasonography_Abd and Pel_CHILD.dot', title: 'SONOGRAPHY - ABDOMEN & PELVIS (PEDIATRIC)', category: 'Ultrasonography', view: 'Abd and Pel' },
-            { fileName: 'Ultrasonography_KUB.dot', title: 'SONOGRAPHY - KIDNEY, URETER & BLADDER (KUB)', category: 'Ultrasonography', view: 'KUB' },
-            { fileName: 'Ultrasonography_Obstetric_Anomaly.dot', title: 'OBSTETRIC ULTRASOUND - ANOMALY SCAN', category: 'Ultrasonography', view: 'Obstetrics' },
-            { fileName: 'Echocardiography_2 D Echocardiography_NORMAL.dot', title: '2D ECHOCARDIOGRAPHY & COLOR DOPPLER', category: 'Echocardiography', view: 'Echo' },
-            { fileName: 'Color Doppler_Scrotal For Varicocoeles_Normal.dot', title: 'COLOR DOPPLER - SCROTUM', category: 'Color Doppler', view: 'Scrotal' }
+            {
+                fileName: 'Ultrasonography_Abd and Pel_FemaleNK.dot',
+                title: 'SONOGRAPHY - ABDOMEN & PELVIS (FEMALE)',
+                category: 'Ultrasonography',
+                view: 'Abd and Pel',
+                fields: {
+                    LIVER: 'Normal size, shape & echotexture. No focal lesions. Portal vein 9 mm.',
+                    GALL_BLADDER: 'Distended & appears normal. No calculus or mass. CBD normal.',
+                    SPLEEN: 'Normal size (10.4 cm), shape & echotexture. Splenic vein normal.',
+                    PANCREAS: 'Normal size, shape and echogenicity.',
+                    RT_K: 'Measures 9.7 x 3.2 cm. Normal corticomedullary ratio. No calculus or hydronephrosis.',
+                    LT_K: 'Measures 10.0 x 3.3 cm. Normal corticomedullary ratio. No calculus or hydronephrosis.',
+                    PREVOID: 'Urinary Bladder is well distended. Wall thickness normal. No calculus/mass.',
+                    POSTVOID: 'Insignificant post-void residual urine.',
+                    VERTED: 'Anteverted',
+                    UTERUS: 'Measures 7.0 x 3.4 x 3.3 cm. Endometrial canal is midline (3.7 mm). No fibroids.',
+                    OVARIES: 'Both ovaries normal. Right measures 2.8 x 1.5 cm. Left measures 2.3 x 1.6 cm.',
+                    IMPRESSION: '• NORMAL STUDY OF ABDOMEN AND PELVIS.\n• NO FOCAL LESION, CALCULUS OR HYDRONEPHROSIS SEEN.'
+                }
+            },
+            {
+                fileName: 'Ultrasonography_Abd and Pel_MaleNK.dot',
+                title: 'SONOGRAPHY - ABDOMEN & PELVIS (MALE)',
+                category: 'Ultrasonography',
+                view: 'Abd and Pel',
+                fields: {
+                    LIVER: 'Normal size, shape & echotexture. No focal lesions. Portal vein 9 mm.',
+                    GALL_BLADDER: 'Distended & appears normal. No calculus or mass. CBD normal.',
+                    SPLEEN: 'Normal size (10.4 cm), shape & echotexture. Splenic vein normal.',
+                    PANCREAS: 'Normal size, shape and echogenicity.',
+                    RT_K: 'Measures 9.7 x 3.2 cm. Normal corticomedullary ratio. No calculus or hydronephrosis.',
+                    LT_K: 'Measures 10.0 x 3.3 cm. Normal corticomedullary ratio. No calculus or hydronephrosis.',
+                    PREVOID: 'Urinary Bladder is well distended. Wall thickness normal. No calculus/mass.',
+                    POSTVOID: 'Insignificant post-void residual urine.',
+                    VERTED: 'N/A',
+                    UTERUS: 'PROSTATE: Normal size & echotexture (18 gms). No focal lesion.',
+                    OVARIES: 'N/A',
+                    IMPRESSION: '• NORMAL STUDY OF ABDOMEN AND PELVIS.\n• PROSTATE IS NORMAL IN SIZE AND ECHOTEXTURE.'
+                }
+            },
+            {
+                fileName: 'Echocardiography_2 D Echocardiography_NORMAL.dot',
+                title: '2D ECHOCARDIOGRAPHY & COLOR DOPPLER',
+                category: 'Echocardiography',
+                view: 'Echo',
+                fields: {
+                    LIVER: 'LV: Normal internal dimensions. Preserved global LV systolic function (LVEF: 62%).',
+                    GALL_BLADDER: 'VALVES: Mitral and Aortic valves show normal leaflet mobility.',
+                    SPLEEN: 'PERICARDIUM: Clear with no pericardial effusion.',
+                    PANCREAS: 'AORTA: Normal root and ascending aorta caliber.',
+                    RT_K: 'RV: Normal size and contractility (TAPSE: 22 mm).',
+                    LT_K: 'ATRIA: Left atrium and Right atrium normal in size.',
+                    PREVOID: 'PULMONARY ARTERY: Normal systolic pressure (PASP: 22 mmHg).',
+                    POSTVOID: 'DOPPLER: Normal mitral inflow E/A ratio > 1.',
+                    VERTED: 'N/A',
+                    UTERUS: 'N/A',
+                    OVARIES: 'N/A',
+                    IMPRESSION: '• NORMAL 2D ECHOCARDIOGRAPHY AND COLOR DOPPLER STUDY.\n• NORMAL LV SYSTOLIC FUNCTION (LVEF: 62%).'
+                }
+            },
+            {
+                fileName: 'Ultrasonography_Obstetric_Anomaly.dot',
+                title: 'OBSTETRIC ULTRASOUND - ANOMALY SCAN',
+                category: 'Ultrasonography',
+                view: 'Obstetrics',
+                fields: {
+                    LIVER: 'Single live intrauterine fetus in cephalic presentation.',
+                    GALL_BLADDER: 'Placenta: Anterior, upper segment, Grade II maturity. No retroplacental clot.',
+                    SPLEEN: 'Amniotic Fluid: Adequate. AFI: 14 cm.',
+                    PANCREAS: 'Fetal Spine: Intact vertebrae and skin covering seen from cervical to sacral region.',
+                    RT_K: 'Fetal Heart: 4-chamber view and outflow tracts appear normal. FHR: 144 bpm.',
+                    LT_K: 'Fetal Kidneys & Bladder: Both kidneys seen in renal beds. Bladder seen filling.',
+                    PREVOID: 'Fetal Face & Lip: Upper lip intact without cleft defect. Normal facial profile.',
+                    POSTVOID: 'Fetal Stomach & Diaphragm: Normal stomach bubble below intact left diaphragm.',
+                    VERTED: 'N/A',
+                    UTERUS: 'Internal OS closed. Cervical length: 3.6 cm.',
+                    OVARIES: 'Biometry: BPD, HC, AC, FL correspond to gestational age.',
+                    IMPRESSION: '• SINGLE LIVE INTRAUTERINE GESTATION CORRESPONDING TO PERIOD OF AMENORRHOEA.\n• NO OBVIOUS GROSS CONGENITAL ANOMALY NOTED ON CURRENT SCAN.'
+                }
+            },
+            {
+                fileName: 'Color Doppler_Scrotal For Varicocoeles_Normal.dot',
+                title: 'COLOR DOPPLER - SCROTUM',
+                category: 'Color Doppler',
+                view: 'Scrotal',
+                fields: {
+                    LIVER: 'Right Testis: Normal size, contour and homogeneous echotexture. Measures 4.0 x 2.2 cm.',
+                    GALL_BLADDER: 'Left Testis: Normal size, contour and homogeneous echotexture. Measures 3.9 x 2.1 cm.',
+                    SPLEEN: 'Epididymis: Both right and left epididymal heads appear normal. No cyst.',
+                    PANCREAS: 'Vascularity: Normal symmetric parenchymal blood flow on color Doppler bilaterally.',
+                    RT_K: 'Pampiniform Plexus: No dilation. Caliber is normal (< 1.8 mm).',
+                    LT_K: 'Valsalva Maneuver: No retrograde venous reflux elicited on straining.',
+                    PREVOID: 'Hydrocele: No hydrocele or pyocele noted in tunica vaginalis bilaterally.',
+                    POSTVOID: 'Inguinal Region: No herniation of abdominal contents seen.',
+                    VERTED: 'N/A',
+                    UTERUS: 'N/A',
+                    OVARIES: 'N/A',
+                    IMPRESSION: '• NORMAL BILATERAL SCROTAL ULTRASOUND AND COLOR DOPPLER STUDY.\n• NO EVIDENCE OF VARICOCELE, ORCHITIS OR TESTICULAR MASS.'
+                }
+            }
         ];
 
         function escapeHtml(str) { return str ? String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;') : ''; }
@@ -872,6 +999,24 @@
             });
         }
 
+        function parseTemplateBodyToFields(text) {
+            const f = {};
+            if (!text || text.trim().length === 0) return f;
+
+            const lines = text.split('\n');
+            lines.forEach(line => {
+                const parts = line.split(/[:-]/);
+                if (parts.length >= 2) {
+                    const k = parts[0].trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+                    const v = parts.slice(1).join('-').trim();
+                    if (k.length > 2 && v.length > 0) {
+                        f[k] = v;
+                    }
+                }
+            });
+            return f;
+        }
+
         async function apiFetch(url, options = {}) {
             options.headers = options.headers || {};
             if (!(options.body instanceof FormData)) options.headers['Content-Type'] = 'application/json';
@@ -909,7 +1054,8 @@
                                 category: t.category || 'Ultrasonography',
                                 view: 'All',
                                 body: t.template_body || '',
-                                impression: t.default_impression || ''
+                                impression: t.default_impression || '',
+                                fields: parseTemplateBodyToFields(t.template_body || '')
                             });
                         }
                     });
@@ -1795,13 +1941,40 @@
             const box = document.getElementById('desktopTemplatesList');
             box.innerHTML = '';
             list.forEach((tmpl, idx) => {
-                const item = document.createElement('div');
-                item.className = `cw-template-item ${idx === 0 ? 'selected' : ''}`;
-                item.textContent = tmpl.fileName;
-                item.onclick = () => selectDesktopTemplate(tmpl, item);
-                box.appendChild(item);
+                const row = document.createElement('div');
+                row.className = `cw-template-item ${currentSelectedTemplate?.fileName === tmpl.fileName ? 'selected' : ''}`;
+                row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:5px 8px;';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = tmpl.fileName;
+                nameSpan.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; cursor:pointer;';
+                nameSpan.onclick = () => selectDesktopTemplate(tmpl, row);
+
+                const actionsDiv = document.createElement('div');
+                actionsDiv.style.cssText = 'display:flex; gap:4px; margin-left:6px;';
+
+                const btnEdit = document.createElement('button');
+                btnEdit.innerHTML = '✏️';
+                btnEdit.title = 'Edit Template';
+                btnEdit.style.cssText = 'border:none; background:transparent; cursor:pointer; font-size:0.8rem;';
+                btnEdit.onclick = (e) => { e.stopPropagation(); openEditTemplateModal(tmpl); };
+
+                const btnDel = document.createElement('button');
+                btnDel.innerHTML = '🗑️';
+                btnDel.title = 'Delete Template';
+                btnDel.style.cssText = 'border:none; background:transparent; cursor:pointer; font-size:0.8rem; color:#dc3545;';
+                btnDel.onclick = (e) => { e.stopPropagation(); deleteTemplateByName(tmpl.fileName); };
+
+                actionsDiv.appendChild(btnEdit);
+                actionsDiv.appendChild(btnDel);
+                row.appendChild(nameSpan);
+                row.appendChild(actionsDiv);
+                box.appendChild(row);
             });
-            if (list.length > 0) selectDesktopTemplate(list[0], box.firstChild);
+
+            if (list.length > 0 && !currentSelectedTemplate) {
+                selectDesktopTemplate(list[0], box.firstChild);
+            }
         }
 
         function selectDesktopTemplate(tmpl, el) {
@@ -1809,23 +1982,34 @@
             document.querySelectorAll('.cw-template-item').forEach(i => i.classList.remove('selected'));
             if (el) el.classList.add('selected');
             document.getElementById('desktopSelectedTmplLabel').textContent = tmpl.fileName;
-            
-            if (tmpl.fileName.includes('Male')) {
-                document.getElementById('fld_VERTED').value = 'N/A';
-                document.getElementById('fld_UTERUS').value = 'PROSTATE: Normal size & echotexture (18 gms). No focal lesion.';
-                document.getElementById('fld_OVARIES').value = 'N/A';
-                document.getElementById('fld_IMPRESSION').value = '• NORMAL STUDY OF ABDOMEN AND PELVIS.\n• PROSTATE IS NORMAL IN SIZE AND ECHOTEXTURE.';
-            } else if (tmpl.fileName.includes('Echo')) {
-                document.getElementById('fld_LIVER').value = 'LV: Normal internal dimensions. Preserved global LV systolic function (LVEF: 62%).';
-                document.getElementById('fld_GB').value = 'VALVES: Mitral and Aortic valves show normal leaflet mobility.';
-                document.getElementById('fld_SPLEEN').value = 'PERICARDIUM: Clear with no pericardial effusion.';
-                document.getElementById('fld_IMPRESSION').value = '• NORMAL 2D ECHOCARDIOGRAPHY AND COLOR DOPPLER STUDY.\n• NORMAL LV SYSTOLIC FUNCTION (LVEF: 62%).';
-            } else {
-                document.getElementById('fld_VERTED').value = 'Anteverted';
-                document.getElementById('fld_UTERUS').value = 'Measures 7.0 x 3.4 x 3.3 cm. Endometrial canal is midline (3.7 mm). No fibroids.';
-                document.getElementById('fld_OVARIES').value = 'Both ovaries normal. Right measures 2.8 x 1.5 cm. Left measures 2.3 x 1.6 cm.';
-                document.getElementById('fld_IMPRESSION').value = '• NORMAL STUDY OF ABDOMEN AND PELVIS.\n• NO FOCAL LESION, CALCULUS OR HYDRONEPHROSIS SEEN.';
+
+            const fields = tmpl.fields || parseTemplateBodyToFields(tmpl.body) || {};
+
+            const fieldMapping = {
+                'LIVER': document.getElementById('fld_LIVER'),
+                'GALL_BLADDER': document.getElementById('fld_GB'),
+                'SPLEEN': document.getElementById('fld_SPLEEN'),
+                'PANCREAS': document.getElementById('fld_PANCREAS'),
+                'RT_K': document.getElementById('fld_RT_K'),
+                'LT_K': document.getElementById('fld_LT_K'),
+                'PREVOID': document.getElementById('fld_PREVOID'),
+                'POSTVOID': document.getElementById('fld_POSTVOID'),
+                'VERTED': document.getElementById('fld_VERTED'),
+                'UTERUS': document.getElementById('fld_UTERUS'),
+                'OVARIES': document.getElementById('fld_OVARIES')
+            };
+
+            Object.keys(fieldMapping).forEach(key => {
+                if (fieldMapping[key]) {
+                    fieldMapping[key].value = fields[key] !== undefined ? fields[key] : (fields[key.replace('_', ' ')] || 'N/A');
+                }
+            });
+
+            const impBox = document.getElementById('fld_IMPRESSION');
+            if (impBox) {
+                impBox.value = fields.IMPRESSION || tmpl.impression || `• STUDY OF ${tmpl.title}.\n• NO SIGNIFICANT ABNORMALITY DETECTED.`;
             }
+
             mergeFieldsIntoPreview();
         }
 
@@ -1847,6 +2031,77 @@
             });
 
             renderDesktopTemplatesList(filtered.length > 0 ? filtered : desktopTemplateCatalog);
+        }
+
+        function openEditTemplateModal(tmpl) {
+            document.getElementById('editTmplOldName').value = tmpl.fileName;
+            document.getElementById('editTmplTitle').value = tmpl.title || '';
+            document.getElementById('editTmplCategory').value = tmpl.category || 'Ultrasonography';
+            
+            let bodyText = tmpl.body || '';
+            if (!bodyText && tmpl.fields) {
+                bodyText = Object.entries(tmpl.fields)
+                    .filter(([k]) => k !== 'IMPRESSION')
+                    .map(([k, v]) => `${k} :- ${v}`)
+                    .join('\n\n');
+            }
+            document.getElementById('editTmplBody').value = bodyText;
+            document.getElementById('editTmplImpression').value = tmpl.fields?.IMPRESSION || tmpl.impression || '';
+            document.getElementById('editTemplateModal').style.display = 'flex';
+        }
+
+        function closeEditTemplateModal() {
+            document.getElementById('editTemplateModal').style.display = 'none';
+        }
+
+        async function saveEditedTemplate() {
+            const fileName = document.getElementById('editTmplOldName').value;
+            const title = document.getElementById('editTmplTitle').value.trim();
+            const category = document.getElementById('editTmplCategory').value;
+            const templateBody = document.getElementById('editTmplBody').value;
+            const defaultImpression = document.getElementById('editTmplImpression').value;
+
+            const res = await apiFetch(`/api/imaging/templates/${encodeURIComponent(fileName)}`, {
+                method: 'PUT',
+                body: JSON.stringify({ title, category, templateBody, defaultImpression })
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert('Template saved!');
+                closeEditTemplateModal();
+                const item = desktopTemplateCatalog.find(t => t.fileName === fileName);
+                if (item) {
+                    item.title = title;
+                    item.category = category;
+                    item.body = templateBody;
+                    item.impression = defaultImpression;
+                    item.fields = { ...parseTemplateBodyToFields(templateBody), IMPRESSION: defaultImpression };
+                    if (currentSelectedTemplate?.fileName === fileName) {
+                        selectDesktopTemplate(item, null);
+                    }
+                }
+                filterTemplatesByUI();
+            } else {
+                alert('Error: ' + json.error);
+            }
+        }
+
+        async function deleteTemplateByName(fileName) {
+            if (!confirm(`Are you sure you want to permanently delete "${fileName}"?`)) return;
+            const res = await apiFetch(`/api/imaging/templates/${encodeURIComponent(fileName)}`, {
+                method: 'DELETE'
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert('Template deleted!');
+                desktopTemplateCatalog = desktopTemplateCatalog.filter(t => t.fileName !== fileName);
+                if (currentSelectedTemplate?.fileName === fileName) {
+                    currentSelectedTemplate = null;
+                }
+                filterTemplatesByUI();
+            } else {
+                alert('Error: ' + json.error);
+            }
         }
 
         function mergeFieldsIntoPreview() {
