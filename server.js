@@ -64,7 +64,9 @@ let memoryAdminPassword = 'admin123';
 
 const pool = new Pool({
   connectionString: cleanDbUrl,
-  ssl: cleanDbUrl.includes('localhost') || cleanDbUrl.includes('127.0.0.1') ? false : { rejectUnauthorized: false }
+  ssl: cleanDbUrl.includes('localhost') || cleanDbUrl.includes('127.0.0.1') ? false : { rejectUnauthorized: false },
+  connectionTimeoutMillis: 3000,
+  idleTimeoutMillis: 10000
 });
 
 pool.on('error', (err) => {
@@ -78,7 +80,7 @@ const cleanCloudUrl = sanitizePostgresUrl(rawCloudUrl);
 const cloudPool = new Pool({
   connectionString: cleanCloudUrl,
   ssl: { rejectUnauthorized: false },
-  connectionTimeoutMillis: 25000,
+  connectionTimeoutMillis: 20000,
   idleTimeoutMillis: 30000,
   max: 10
 });
@@ -131,7 +133,7 @@ function calculateCommission(testArray, validDoctorId, docInfo = null, concessio
 
     if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || cat === 'imaging' || cat === 'obstetrics') {
       cutType = 'percentage';
-      cutVal = cutVal > 0 ? cutVal : 30;
+      cutVal = cutVal > 0 ? cutVal : 30; // 30% of 1500 = 450
     } else if (testName.includes('x-ray') || testName.includes('xray')) {
       cutType = 'fixed';
       cutVal = cutVal > 0 ? cutVal : 100;
@@ -172,7 +174,7 @@ const defaultTests = [
 async function initDB() {
   if (!cleanDbUrl) {
     isDbConnected = false;
-    dbErrorMessage = 'DATABASE_URL is missing. Operating in in-memory mode.';
+    dbErrorMessage = 'Running in Local Offline Mode.';
     return;
   }
   try {
@@ -251,7 +253,7 @@ async function initDB() {
         centre_id UUID REFERENCES clinic_centres(id) ON DELETE SET NULL,
         patient_code VARCHAR(100),
         full_name VARCHAR(255) NOT NULL,
-        age INT,
+        age INT DEFAULT 0,
         gender VARCHAR(20),
         phone VARCHAR(50),
         email VARCHAR(255),
@@ -260,6 +262,10 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    try {
+      await pool.query(`ALTER TABLE patients ALTER COLUMN age DROP NOT NULL;`);
+      await pool.query(`ALTER TABLE patients ALTER COLUMN age SET DEFAULT 0;`);
+    } catch (e) {}
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS visits (
@@ -469,6 +475,35 @@ app.get('/api/patients', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+app.post('/api/patients', async (req, res) => {
+  try {
+    const centreId = getTenantCentreId(req);
+    const { patientCode, fullName, age, gender, phone, email, address } = req.body;
+    if (!fullName || !fullName.trim()) return res.status(400).json({ success: false, error: 'Full name required' });
+    const finalPatCode = patientCode?.trim() || `PAT-${Date.now().toString().slice(-6)}`;
+    const parsedAge = age !== null && age !== undefined && !isNaN(parseInt(age, 10)) ? parseInt(age, 10) : 0;
+    const result = await pool.query(
+      `INSERT INTO patients (centre_id, patient_code, full_name, age, gender, phone, email, address)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [centreId, finalPatCode, fullName.trim(), parsedAge, gender || 'Female', phone || '', email || '', address || '']
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.put('/api/patients/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    const { fullName, age, gender, phone, email, address, patientCode } = req.body;
+    const parsedAge = age !== null && age !== undefined && !isNaN(parseInt(age, 10)) ? parseInt(age, 10) : 0;
+    const result = await pool.query(
+      `UPDATE patients SET full_name = $1, age = $2, gender = $3, phone = $4, email = $5, address = $6, patient_code = $7 WHERE id::text = $8::text RETURNING *`,
+      [fullName, parsedAge, gender || 'Female', phone || '', email || '', address || '', patientCode || '', validId]
+    );
+    res.status(200).json({ success: true, data: result.rows[0], message: 'Patient details updated successfully!' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 app.delete('/api/patients/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -648,7 +683,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     if (!fullName || !fullName.trim()) throw new Error('Patient full name is required.');
 
     let patientId = getCleanId(existingPatientId);
-    const parsedAge = age && !isNaN(parseInt(age, 10)) ? parseInt(age, 10) : null;
+    const parsedAge = age !== null && age !== undefined && !isNaN(parseInt(age, 10)) ? parseInt(age, 10) : 0;
 
     if (!patientId) {
       const finalPatCode = patientCode?.trim() || `PAT-${Date.now().toString().slice(-6)}`;
@@ -865,7 +900,6 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Collections & Reports Filter Engine (Supports Date range, Month, Category, Patient Name)
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1037,7 +1071,7 @@ app.get('/api/pcpndt', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Robust Cloud Sync with Network Reconnect & Keep-Alive Protection
+// Robust Cloud Sync (Prevents NOT-NULL violation on patients.age and duplicate keys)
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
 
@@ -1045,17 +1079,14 @@ app.post('/api/sync/cloud', async (req, res) => {
   try {
     localClient = await pool.connect();
   } catch (err) {
-    return res.status(500).json({ success: false, error: 'Failed to access local database: ' + err.message });
+    return res.status(500).json({ success: false, error: 'Local database is busy or starting: ' + err.message });
   }
 
   try {
     cloudClient = await cloudPool.connect();
   } catch (err) {
     localClient.release();
-    return res.status(503).json({
-      success: false,
-      error: 'Cannot connect to Cloud Database. Check internet connection or CLOUD_DATABASE_URL credentials: ' + err.message
-    });
+    return res.status(503).json({ success: false, error: 'Cannot reach cloud database. Please verify internet connection: ' + err.message });
   }
 
   try {
@@ -1067,13 +1098,19 @@ app.post('/api/sync/cloud', async (req, res) => {
       CREATE TABLE IF NOT EXISTS clinic_centres (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_name VARCHAR(255) NOT NULL, tagline VARCHAR(255), address TEXT, phone VARCHAR(100), reg_no VARCHAR(100) DEFAULT 'RC197', email VARCHAR(100), centre_password VARCHAR(255) DEFAULT '1234', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS referring_doctors (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, doctor_name VARCHAR(255) NOT NULL, hospital_clinic_name VARCHAR(255), commission_type VARCHAR(50) DEFAULT 'percentage', commission_value DECIMAL(10,2) DEFAULT 0.00);
       CREATE TABLE IF NOT EXISTS test_master (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, test_name VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Pathology', price DECIMAL(10,2) DEFAULT 0.00, cut_type VARCHAR(20) DEFAULT 'fixed', test_cut DECIMAL(10,2) DEFAULT 0.00);
-      CREATE TABLE IF NOT EXISTS patients (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, patient_code VARCHAR(100), full_name VARCHAR(255) NOT NULL, age INT, gender VARCHAR(20), phone VARCHAR(50), email VARCHAR(255), whatsapp_number VARCHAR(50), address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS patients (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, patient_code VARCHAR(100), full_name VARCHAR(255) NOT NULL, age INT DEFAULT 0, gender VARCHAR(20), phone VARCHAR(50), email VARCHAR(255), whatsapp_number VARCHAR(50), address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS visits (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, patient_id UUID REFERENCES patients(id) ON DELETE CASCADE, referring_doctor_id UUID, total_amount DECIMAL(10,2) DEFAULT 0.00, concession DECIMAL(10,2) DEFAULT 0.00, paid_amount DECIMAL(10,2) DEFAULT 0.00, balance_amount DECIMAL(10,2) DEFAULT 0.00, payment_status VARCHAR(50) DEFAULT 'Pending', payment_mode VARCHAR(50) DEFAULT 'Cash', invoice_number VARCHAR(100), doctor_commission DECIMAL(10,2) DEFAULT 0.00, report_file VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS patient_investigations (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, test_id UUID, barcode VARCHAR(100), status VARCHAR(50) DEFAULT 'Registered', price DECIMAL(10, 2), cut_type VARCHAR(20) DEFAULT 'fixed', test_cut DECIMAL(10, 2) DEFAULT 0.00);
       CREATE TABLE IF NOT EXISTS pcpndt_forms (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, centre_id UUID, relative_name VARCHAR(255), no_of_sons INT DEFAULT 0, sons_age VARCHAR(100), no_of_daughters INT DEFAULT 0, daughters_age VARCHAR(100), lmp_date VARCHAR(50), weeks_of_preg VARCHAR(50), indications TEXT, scan_result TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', clinic_reg_no VARCHAR(100) DEFAULT 'RC197', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS imaging_templates (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, template_name VARCHAR(255) UNIQUE NOT NULL, title VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Imaging', default_impression TEXT, template_body TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS imaging_reports (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, patient_id UUID, centre_id UUID, template_id UUID, template_name VARCHAR(255), report_text TEXT NOT NULL, impression TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
     `);
+
+    // Remove not-null constraint on cloud patients.age
+    try {
+      await cloudClient.query(`ALTER TABLE patients ALTER COLUMN age DROP NOT NULL;`);
+      await cloudClient.query(`ALTER TABLE patients ALTER COLUMN age SET DEFAULT 0;`);
+    } catch (e) {}
 
     // 1. Auth & Centres
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
@@ -1130,15 +1167,16 @@ app.post('/api/sync/cloud', async (req, res) => {
       }
     }
 
-    // 4. Patients
+    // 4. Patients (Guarantees safe non-null age on cloud insert)
     const validCloudPatientIds = new Set();
     const patients = await localClient.query('SELECT * FROM patients');
     for (const p of patients.rows) {
+      const safeAge = p.age !== null && p.age !== undefined && !isNaN(parseInt(p.age, 10)) ? parseInt(p.age, 10) : 0;
       await cloudClient.query(`
         INSERT INTO patients (id, centre_id, patient_code, full_name, age, gender, phone, email, address, created_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender, phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address, centre_id = EXCLUDED.centre_id;
-      `, [p.id, p.centre_id, p.patient_code, p.full_name, p.age, p.gender, p.phone, p.email, p.address, p.created_at]);
+      `, [p.id, p.centre_id, p.patient_code, p.full_name, safeAge, p.gender || 'Female', p.phone || '', p.email || '', p.address || '', p.created_at]);
       validCloudPatientIds.add(String(p.id));
     }
 
@@ -1150,7 +1188,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       const pid = String(v.patient_id);
       if (!validCloudPatientIds.has(pid)) {
         await cloudClient.query(`
-          INSERT INTO patients (id, full_name, patient_code) VALUES ($1, 'Archived Patient', 'ARCHIVED')
+          INSERT INTO patients (id, full_name, patient_code, age, gender) VALUES ($1, 'Archived Patient', 'ARCHIVED', 0, 'Other')
           ON CONFLICT (id) DO NOTHING;
         `, [pid]);
         validCloudPatientIds.add(pid);
