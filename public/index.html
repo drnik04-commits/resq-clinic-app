@@ -59,14 +59,161 @@
         .btn-act-wa { background-color: #25d366; color: white; }
         .btn-act-formf { background-color: #ca8a04; color: white; }
         .btn-act-del { background-color: #dc3545; color: white; }
-        .imaging-workspace-grid { display: grid; grid-template-columns: 280px 1fr; gap: 16px; min-height: 520px; }
-        .template-list-box { border: 1px solid var(--border); border-radius: 4px; max-height: 480px; overflow-y: auto; background: #fafbfc; }
-        .template-item-btn { display: block; width: 100%; text-align: left; padding: 10px 12px; border: none; border-bottom: 1px solid #e2e8f0; background: white; font-size: 0.85rem; cursor: pointer; }
-        .template-item-btn.selected { background-color: #0284c7; color: white; font-weight: bold; }
-        .studio-right-panel { border: 1px solid var(--border); border-radius: 6px; padding: 18px; background: #ffffff; display: flex; flex-direction: column; gap: 12px; }
+
+        /* ================= VINTAGE CLINICAL DESKTOP SUITE (IMAGES 1 & 2) ================= */
+        .clinical-window {
+            background: #dbe4ee;
+            border: 2px solid #6b8cae;
+            border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            padding: 12px;
+            color: #112233;
+        }
+        .cw-top-strip {
+            background: #cbd9ea;
+            border: 1px solid #9bb5d1;
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .cw-split-grid {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 12px;
+        }
+        .cw-left-pane {
+            background: #ecf2f8;
+            border: 1px solid #a4bdd7;
+            padding: 10px;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .cw-filter-box {
+            background: #e2ecf6;
+            border: 1px solid #b6ccdf;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .cw-templates-list {
+            background: #ffffff;
+            border: 1.5px solid #7c98b6;
+            height: 280px;
+            overflow-y: auto;
+            border-radius: 3px;
+        }
+        .cw-template-item {
+            padding: 7px 10px;
+            font-size: 0.82rem;
+            font-family: Consolas, monospace;
+            border-bottom: 1px solid #edf2f7;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cw-template-item:hover { background-color: #d8e8f8; }
+        .cw-template-item.selected { background-color: #3182ce; color: #ffffff; font-weight: bold; }
+        
+        .cw-selected-badge {
+            background: #fdf2f2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+            font-size: 0.8rem;
+            font-weight: bold;
+            padding: 6px 10px;
+            border-radius: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cw-button-bar {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+            margin-top: 4px;
+        }
+        .cw-btn {
+            background: #e2e8f0;
+            border: 1px solid #94a3b8;
+            padding: 7px 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #1e293b;
+            border-radius: 3px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .cw-btn:hover { background: #cbd5e1; }
+        .cw-btn-word {
+            background: #1e40af !important;
+            color: #ffffff !important;
+            border: 1px solid #1e3a8a !important;
+            grid-column: span 2;
+            padding: 10px;
+            font-size: 0.95rem;
+        }
+
+        .cw-right-pane {
+            background: #ffffff;
+            border: 1.5px solid #7c98b6;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .cw-fields-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+            font-family: Arial, sans-serif;
+            margin-top: 0;
+        }
+        .cw-fields-table th {
+            background: #e2ecf6;
+            color: #1e3a8a;
+            border: 1px solid #a4bdd7;
+            padding: 6px 8px;
+            font-weight: bold;
+        }
+        .cw-fields-table td {
+            border: 1px solid #cbd5e1;
+            padding: 3px 6px;
+        }
+        .cw-field-name {
+            font-family: Consolas, monospace;
+            font-weight: bold;
+            color: #0f172a;
+            width: 140px;
+            background: #f8fafc;
+        }
+        .cw-fields-table input, .cw-fields-table textarea {
+            width: 100%;
+            border: 1px solid transparent;
+            padding: 4px 6px;
+            font-size: 0.82rem;
+            font-family: Arial, sans-serif;
+            background: transparent;
+            outline: none;
+        }
+        .cw-fields-table input:focus, .cw-fields-table textarea:focus {
+            background: #f0f9ff;
+            border: 1px solid #38bdf8;
+            border-radius: 2px;
+        }
+
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); justify-content: center; align-items: center; z-index: 10000; }
         .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 20px; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 14px; }
+        
         @media print {
             body * { visibility: hidden; }
             #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc * { visibility: visible; }
@@ -75,17 +222,6 @@
             @page { size: A4 portrait; margin: 0; }
         }
         .print-paper { display: none; background: white; padding: 20px; border: 1px solid #333; color: #000; }
-        .doc-line-item { display: flex; margin-bottom: 1.5px; font-size: 7.7pt; }
-        .doc-line-item .label { min-width: 250px; }
-        .doc-line-item .val { flex: 1; font-weight: bold; }
-        .indications-grid { margin-left: 8px; font-size: 6.8pt; line-height: 1.1; }
-        .indication-row { display: flex; margin-bottom: 0.5px; }
-        .ind-num { min-width: 22px; font-weight: bold; }
-        .sec-c-grid { font-size: 7.2pt; line-height: 1.15; }
-        .sec-c-row { display: flex; margin-bottom: 1px; }
-        .sec-c-lbl { flex: 1; }
-        .sec-c-val { width: 140px; font-weight: bold; }
-        .doc-sign-box { display: flex; justify-content: space-between; margin-top: 6px; font-size: 7.7pt; }
     </style>
 </head>
 <body>
@@ -128,7 +264,7 @@
 
     <div class="main-container">
 
-        <!-- TAB 1: BILLING & REGISTRATION (Doctor Cut Excluded from Patient Intake) -->
+        <!-- TAB 1: BILLING & REGISTRATION -->
         <div id="tab-billing" class="tab-content active">
             <div class="card">
                 <div class="card-title">
@@ -245,37 +381,119 @@
             </div>
         </div>
 
-        <!-- TAB 3: REPORT GENERATOR STUDIO -->
+        <!-- TAB 3: REPORT GENERATOR STUDIO (EXACT REPLICA OF DESKTOP SYSTEM IN PHOTOS 1 & 2) -->
         <div id="tab-imaging-reports" class="tab-content">
-            <div class="card">
-                <div class="card-title">
-                    <span>🩻 Diagnostic Report Studio (Auto Word .doc)</span>
-                    <label style="font-size: 0.85rem; font-weight: bold; cursor: pointer;"><input type="checkbox" id="chkPreprintedLetterhead"> 🖨️ Preprinted Margin (45mm Top)</label>
-                </div>
-
-                <div style="background: #f1f5f9; border: 1px solid var(--border); padding: 12px 16px; border-radius: 6px; display: flex; gap: 16px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 280px;">
-                        <label style="font-size: 0.8rem; font-weight: bold; color: #1e293b; display: block; margin-bottom: 4px;">Select Registered Patient / Visit:</label>
-                        <select id="imagingVisitSelect" onchange="onImagingVisitSelected(this.value)" style="width:100%; padding:8px; font-weight:bold; border: 1.5px solid #0284c7; border-radius: 4px; font-size: 0.95rem;">
-                            <option value="">-- Choose Registered Patient / Visit --</option>
-                        </select>
+            <div class="card" style="padding: 10px;">
+                <div class="clinical-window">
+                    <!-- Top Fetch Strip -->
+                    <div class="cw-top-strip">
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <label style="font-weight: bold; font-size: 0.82rem;">Patient:</label>
+                            <select id="imagingVisitSelect" onchange="onImagingVisitSelected(this.value)" style="padding: 4px 8px; border: 1px solid #7c98b6; border-radius: 3px; font-weight: bold; min-width: 200px;">
+                                <option value="">-- Choose Patient / Visit --</option>
+                            </select>
+                            <button type="button" class="cw-btn" onclick="loadImagingVisitsDropdown()">Fetch</button>
+                        </div>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <label style="font-weight: bold; font-size: 0.82rem;">Invest:</label>
+                            <select id="tmplInvestFilter" onchange="filterTemplatesByUI()" style="padding: 4px 8px; border: 1px solid #7c98b6; border-radius: 3px;">
+                                <option value="">All Investigations</option>
+                                <option value="Ultrasonography" selected>Ultrasonography</option>
+                                <option value="Echocardiography">Echocardiography</option>
+                                <option value="Color Doppler">Color Doppler</option>
+                                <option value="Digital X-Ray">Digital X-Ray</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <label style="font-weight: bold; font-size: 0.82rem;">View:</label>
+                            <select id="tmplViewFilter" onchange="filterTemplatesByUI()" style="padding: 4px 8px; border: 1px solid #7c98b6; border-radius: 3px;">
+                                <option value="">All Views</option>
+                                <option value="Abd and Pel" selected>Abd and Pel</option>
+                                <option value="Obstetrics">Obstetrics / Fetal</option>
+                                <option value="KUB">KUB</option>
+                                <option value="Scrotal">Scrotal Doppler</option>
+                                <option value="Echo">Echocardiography</option>
+                            </select>
+                        </div>
+                        <div style="margin-left: auto;">
+                            <label style="font-size: 0.8rem; font-weight: bold; cursor: pointer;">
+                                <input type="checkbox" id="chkPreprintedLetterhead"> 🖨️ 45mm Preprinted Letterhead Margin
+                            </label>
+                        </div>
                     </div>
-                    <div><span style="font-size: 0.75rem; color: #64748b;">Patient:</span><br><strong id="imgDispPatName">-</strong></div>
-                    <div><span style="font-size: 0.75rem; color: #64748b;">Age / Sex:</span><br><strong id="imgDispPatMeta">-</strong></div>
-                    <div><span style="font-size: 0.75rem; color: #64748b;">Ref Doctor:</span><br><strong id="imgDispDocName">-</strong></div>
-                </div>
 
-                <div class="imaging-workspace-grid">
-                    <div>
-                        <input type="text" id="templateSearchInput" placeholder="🔍 Search template..." oninput="filterTemplatesList(this.value)" style="padding: 6px 10px; width: 100%; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                        <div class="template-list-box" id="templatesListBox"></div>
+                    <!-- Split Dual Pane Grid -->
+                    <div class="cw-split-grid">
+                        <!-- Left Pane: Templates List & Control Buttons -->
+                        <div class="cw-left-pane">
+                            <div class="cw-filter-box">
+                                <span>Filter Templates by :</span>
+                                <label><input type="checkbox" id="chkFilterInvest" checked onchange="filterTemplatesByUI()"> Investigation</label>
+                                <label><input type="checkbox" id="chkFilterView" checked onchange="filterTemplatesByUI()"> View</label>
+                                <button type="button" class="cw-btn" style="padding: 1px 6px;" onclick="filterTemplatesByUI()">Set</button>
+                            </div>
+
+                            <div class="cw-templates-list" id="desktopTemplatesList">
+                                <!-- Populated dynamically with exact .dot catalog -->
+                            </div>
+
+                            <div class="cw-selected-badge" id="desktopSelectedTmplLabel">
+                                Ultrasonography_Abd and Pel_FemaleNK.dot
+                            </div>
+
+                            <div class="cw-button-bar">
+                                <button type="button" class="cw-btn" onclick="mergeFieldsIntoPreview()">Merge Fields</button>
+                                <button type="button" class="cw-btn" onclick="toggleReportLivePreview()">Show / Preview</button>
+                                <button type="button" class="cw-btn" onclick="window.print()">Print</button>
+                                <button type="button" class="cw-btn" onclick="printSingleInvoice(currentSelectedVisit?.visit_id)">Print Address</button>
+                                <button type="button" class="cw-btn cw-btn-word" onclick="openReportInExternalWord()">🚀 OPEN IN MICROSOFT WORD (.DOC)</button>
+                            </div>
+                        </div>
+
+                        <!-- Right Pane: Exact Fields / Values Grid Table -->
+                        <div class="cw-right-pane">
+                            <div style="overflow-y: auto; max-height: 480px;">
+                                <table class="cw-fields-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 140px;">Fields</th>
+                                            <th>Values</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="desktopFieldsTableBody">
+                                        <!-- Patient Metadata Rows -->
+                                        <tr><td class="cw-field-name">Pt_Name1</td><td><input type="text" id="fld_Pt_Name1" value=""></td></tr>
+                                        <tr><td class="cw-field-name">Date1</td><td><input type="text" id="fld_Date1" value=""></td></tr>
+                                        <tr><td class="cw-field-name">Age</td><td><input type="text" id="fld_Age" value=""></td></tr>
+                                        <tr><td class="cw-field-name">Ref1</td><td><input type="text" id="fld_Ref1" value=""></td></tr>
+                                        <tr><td class="cw-field-name">Sex</td><td><input type="text" id="fld_Sex" value=""></td></tr>
+                                        
+                                        <!-- Organ / Parameter Measurement Rows from Image 1 & 2 -->
+                                        <tr><td class="cw-field-name">LIVER</td><td><input type="text" id="fld_LIVER" value="Normal size, shape & echotexture. No focal lesions. Portal vein 9 mm."></td></tr>
+                                        <tr><td class="cw-field-name">GALL BLADDER</td><td><input type="text" id="fld_GB" value="Distended & appears normal. No calculus or mass. CBD normal."></td></tr>
+                                        <tr><td class="cw-field-name">SPLEEN</td><td><input type="text" id="fld_SPLEEN" value="Normal size (10.4 cm), shape & echotexture. Splenic vein normal."></td></tr>
+                                        <tr><td class="cw-field-name">PANCREAS</td><td><input type="text" id="fld_PANCREAS" value="Normal size, shape and echogenicity."></td></tr>
+                                        <tr><td class="cw-field-name">RT K</td><td><input type="text" id="fld_RT_K" value="Measures 9.7 x 3.2 cm. Normal corticomedullary ratio. No calculus or hydronephrosis."></td></tr>
+                                        <tr><td class="cw-field-name">LT K</td><td><input type="text" id="fld_LT_K" value="Measures 10.0 x 3.3 cm. Normal corticomedullary ratio. No calculus or hydronephrosis."></td></tr>
+                                        <tr><td class="cw-field-name">PREVOID</td><td><input type="text" id="fld_PREVOID" value="Urinary Bladder is well distended. Wall thickness normal. No calculus/mass."></td></tr>
+                                        <tr><td class="cw-field-name">POSTVOID</td><td><input type="text" id="fld_POSTVOID" value="Insignificant post-void residual urine."></td></tr>
+                                        <tr><td class="cw-field-name">VERTED</td><td><input type="text" id="fld_VERTED" value="Anteverted"></td></tr>
+                                        <tr><td class="cw-field-name">UTERUS</td><td><input type="text" id="fld_UTERUS" value="Measures 7.0 x 3.4 x 3.3 cm. Endometrial canal is midline (3.7 mm). No fibroids."></td></tr>
+                                        <tr><td class="cw-field-name">OVARIES</td><td><input type="text" id="fld_OVARIES" value="Both ovaries normal. Right measures 2.8 x 1.5 cm. Left measures 2.3 x 1.6 cm."></td></tr>
+                                        <tr><td class="cw-field-name">IMPRESSION</td><td><textarea id="fld_IMPRESSION" rows="2" style="font-weight: bold; color: #991b1b;">• NORMAL STUDY OF ABDOMEN AND PELVIS.&#10;• NO FOCAL LESION, CALCULUS OR HYDRONEPHROSIS SEEN.</textarea></td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="studio-right-panel">
-                        <div class="form-group full-width"><label style="font-weight: bold; color: #1e3a8a;">Report Title / Heading:</label><input type="text" id="liveReportTitle" style="font-weight: bold; color: #1e40af;"></div>
-                        <div class="form-group full-width"><label style="font-weight: bold;">Report Findings & Observations:</label><textarea id="liveReportFindings" rows="11" style="font-family: Arial, sans-serif; font-size: 0.9rem;"></textarea></div>
-                        <div class="form-group full-width"><label style="font-weight: bold; color: #991b1b;">Impression / Conclusion:</label><textarea id="liveReportImpression" rows="3" style="font-family: Arial, sans-serif; font-weight: bold;"></textarea></div>
-                        <button type="button" class="btn-complete-reg" style="background:#1e40af;" onclick="openReportInExternalWord()">🚀 SAVE & DOWNLOAD MICROSOFT WORD (.DOC)</button>
+                    <!-- Collapsible Live Text Preview Panel -->
+                    <div id="liveReportPreviewDrawer" style="display: none; background: #ffffff; border: 1.5px solid #64748b; border-radius: 4px; padding: 16px; margin-top: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 10px;">
+                            <strong style="color: #1e3a8a;">Merged Diagnostic Report Preview</strong>
+                            <button type="button" class="cw-btn" style="padding: 2px 8px;" onclick="toggleReportLivePreview()">✕ Hide Preview</button>
+                        </div>
+                        <div id="desktopPreviewContent" style="font-family: Arial, sans-serif; font-size: 0.92rem; line-height: 1.45; white-space: pre-wrap;"></div>
                     </div>
                 </div>
             </div>
@@ -356,40 +574,25 @@
             </div>
         </div>
 
-        <!-- TAB 7: COLLECTIONS & REPORTS (With Date, Month, Category & Name Filters Restored) -->
+        <!-- TAB 7: COLLECTIONS & REPORTS -->
         <div id="tab-reports" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Collections & Departmental Invoices Summary</span></div>
 
-                <!-- Restored Multi-Parameter Search & Filter Bar -->
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; background: #f8fafc; padding: 12px; border: 1px solid var(--border); border-radius: 6px;">
-                    <div>
-                        <label style="font-size:0.8rem; font-weight:bold; color:#475569;">Start Date:</label><br>
-                        <input type="date" id="repStartDate" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-                    </div>
-                    <div>
-                        <label style="font-size:0.8rem; font-weight:bold; color:#475569;">End Date:</label><br>
-                        <input type="date" id="repEndDate" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-                    </div>
-                    <div>
-                        <label style="font-size:0.8rem; font-weight:bold; color:#475569;">OR Month:</label><br>
-                        <input type="month" id="repMonth" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-                    </div>
-                    <div>
-                        <label style="font-size:0.8rem; font-weight:bold; color:#475569;">Modality / Dept:</label><br>
+                    <div><label style="font-size:0.8rem; font-weight:bold; color:#475569;">Start Date:</label><br><input type="date" id="repStartDate" style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
+                    <div><label style="font-size:0.8rem; font-weight:bold; color:#475569;">End Date:</label><br><input type="date" id="repEndDate" style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
+                    <div><label style="font-size:0.8rem; font-weight:bold; color:#475569;">OR Month:</label><br><input type="month" id="repMonth" style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
+                    <div><label style="font-size:0.8rem; font-weight:bold; color:#475569;">Modality / Dept:</label><br>
                         <select id="repCategory" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
                             <option value="">All Categories</option>
                             <option value="Pathology">Pathology</option>
                             <option value="Imaging">Imaging</option>
                             <option value="Cardiology">Cardiology</option>
                             <option value="Obstetrics">Obstetrics</option>
-                            <option value="Consulting">Consulting</option>
                         </select>
                     </div>
-                    <div>
-                        <label style="font-size:0.8rem; font-weight:bold; color:#475569;">Search Patient / Inv:</label><br>
-                        <input type="text" id="repPatientSearch" placeholder="Name, Mobile, or Invoice..." style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-                    </div>
+                    <div><label style="font-size:0.8rem; font-weight:bold; color:#475569;">Search Patient / Inv:</label><br><input type="text" id="repPatientSearch" placeholder="Name, Mobile, Inv..." style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
                     <div style="display:flex; gap:6px;">
                         <button type="button" class="btn-search" onclick="loadReports()">🔍 Filter</button>
                         <button type="button" class="btn-act btn-act-edit" onclick="resetReportsFilters()">🔄 Show All</button>
@@ -397,7 +600,6 @@
                     </div>
                 </div>
 
-                <!-- Cash vs. Online Collection Bifurcation Section -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
                     <div style="background: #e8f5e9; border: 1.5px solid #81c784; padding: 12px 16px; border-radius: 6px;">
                         <div style="font-size: 0.8rem; font-weight: bold; color: #2e7d32;">💵 CASH COLLECTED</div>
@@ -421,7 +623,7 @@
             </div>
         </div>
 
-        <!-- TAB 8: DOCTOR BUSINESS (With Inline Doctor Cut Editing) -->
+        <!-- TAB 8: DOCTOR BUSINESS -->
         <div id="tab-business" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Doctor Business & Referral Commissions</span></div>
@@ -440,19 +642,15 @@
 
     </div>
 
-    <!-- PATIENT BILLS HISTORY MODAL -->
+    <!-- MODALS: BILLS HISTORY, EDIT BILL, ADMIN -->
     <div id="patientBillsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3 id="patientBillsTitle">Bills History</h3><button type="button" onclick="closePatientBillsModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
-            <table>
-                <thead><tr><th>Invoice No</th><th>Date</th><th>Centre</th><th>Total</th><th>Paid</th><th>Balance</th><th style="width: 200px;">Actions</th></tr></thead>
-                <tbody id="patientBillsTableBody"></tbody>
-            </table>
+            <table><thead><tr><th>Invoice No</th><th>Date</th><th>Centre</th><th>Total</th><th>Paid</th><th>Balance</th><th style="width: 200px;">Actions</th></tr></thead><tbody id="patientBillsTableBody"></tbody></table>
             <button type="button" class="btn-act btn-act-del" style="margin-top: 14px;" onclick="closePatientBillsModal()">Close</button>
         </div>
     </div>
 
-    <!-- EDIT BILL MODAL -->
     <div id="editBillModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3>Edit Bill & Rate Details</h3><button type="button" onclick="closeEditBillModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
@@ -465,9 +663,8 @@
                     <div id="editBillLiveSearchResultsBox" class="live-search-box"></div>
                 </div>
             </div>
-            <label style="font-size: 0.9rem; font-weight: bold; color: #1a365d;">Bill Items & Charges:</label>
             <table style="margin-bottom: 10px;">
-                <thead><tr><th>Investigation / Service Name</th><th>Category</th><th style="width: 140px;">Rate (₹)</th><th style="width: 90px;">Action</th></tr></thead>
+                <thead><tr><th>Investigation</th><th>Category</th><th style="width: 140px;">Rate (₹)</th><th style="width: 90px;">Action</th></tr></thead>
                 <tbody id="editBillItemsTableBody"></tbody>
             </table>
             <div class="rates-summary-panel" style="margin-bottom: 14px;">
@@ -485,7 +682,6 @@
         </div>
     </div>
 
-    <!-- ADMIN SETTINGS MODAL -->
     <div id="adminModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3>⚙️ Admin Settings & Multi-Centre Manager</h3><button type="button" onclick="closeAdminModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
@@ -510,7 +706,7 @@
         </div>
     </div>
 
-    <!-- INVOICE PRINT PAPER (No Cash/UPI Mode Shown) -->
+    <!-- PRINT PAPERS: INVOICE & EXACT STATUTORY PCPNDT FORM F -->
     <div id="invoicePrintArea" class="print-paper">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
             <h2 id="prtClinicName" style="font-size: 16pt;">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
@@ -546,13 +742,9 @@
         </div>
     </div>
 
-    <!-- EXACT 2-PAGE STATUTORY PCPNDT FORM F DOCUMENT -->
     <div id="exactPcpndtDoc" class="print-paper">
-        <!-- PAGE 1 -->
         <div class="doc-page">
-            <div style="text-align:center; font-size:8.5pt; font-weight:bold; border-bottom:1.5px solid #000; padding-bottom:2px; margin-bottom:4px;">
-                FORM FOR MAINTENANCE OF RECORD IN CASE OF PRENATAL DIAGNOSTIC TEST /PROCEDURE BY GENETIC CLINIC/ULTRASOUND CLINIC/IMAGING CENTRE
-            </div>
+            <div style="text-align:center; font-size:8.5pt; font-weight:bold; border-bottom:1.5px solid #000; padding-bottom:2px; margin-bottom:4px;">FORM FOR MAINTENANCE OF RECORD IN CASE OF PRENATAL DIAGNOSTIC TEST /PROCEDURE BY GENETIC CLINIC/ULTRASOUND CLINIC/IMAGING CENTRE</div>
             <div style="font-weight:bold; font-size:8.8pt; margin-top:3px; text-decoration:underline;">Section A :</div>
             <div class="doc-line-item"><div class="label">1. &nbsp; Name and Address of Clinic :</div><div class="val" id="docClinicName">RESQ HEART CLINIC AND IMAGING CENTRE Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West</div></div>
             <div class="doc-line-item"><div class="label">2. &nbsp; Reg No :</div><div class="val" id="docClinicReg">RC197</div></div>
@@ -611,7 +803,6 @@
             </div>
         </div>
 
-        <!-- PAGE 2 -->
         <div class="doc-page">
             <div class="doc-line-item"><div class="label" style="min-width:320px;">20. Date on which consent obtained in Form G :</div><div class="val">Not Applicable</div></div>
             <div class="doc-line-item"><div class="label" style="min-width:320px;">21. Invasive procedures carried out :</div><div class="val">Not Applicable</div></div>
@@ -655,6 +846,18 @@
         let activeCentre = null, currentSelectedTemplate = null, currentSelectedVisit = null, dropdownPatientsList = [];
         let isSuperAdmin = false, activeEditingBillTests = [];
 
+        // Desktop Template Catalog (Matches Image 1 & 2)
+        const desktopTemplateCatalog = [
+            { fileName: 'Ultrasonography_Abd and Pel_FemaleNK.dot', title: 'SONOGRAPHY - ABDOMEN & PELVIS (FEMALE)', category: 'Ultrasonography', view: 'Abd and Pel' },
+            { fileName: 'Ultrasonography_Abd and Pel_FEMALEOLD.dot', title: 'SONOGRAPHY - ABDOMEN & PELVIS (FEMALE OLD)', category: 'Ultrasonography', view: 'Abd and Pel' },
+            { fileName: 'Ultrasonography_Abd and Pel_MaleNK.dot', title: 'SONOGRAPHY - ABDOMEN & PELVIS (MALE)', category: 'Ultrasonography', view: 'Abd and Pel' },
+            { fileName: 'Ultrasonography_Abd and Pel_CHILD.dot', title: 'SONOGRAPHY - ABDOMEN & PELVIS (PEDIATRIC)', category: 'Ultrasonography', view: 'Abd and Pel' },
+            { fileName: 'Ultrasonography_KUB.dot', title: 'SONOGRAPHY - KIDNEY, URETER & BLADDER (KUB)', category: 'Ultrasonography', view: 'KUB' },
+            { fileName: 'Ultrasonography_Obstetric_Anomaly.dot', title: 'OBSTETRIC ULTRASOUND - ANOMALY SCAN', category: 'Ultrasonography', view: 'Obstetrics' },
+            { fileName: 'Echocardiography_2 D Echocardiography_NORMAL.dot', title: '2D ECHOCARDIOGRAPHY & COLOR DOPPLER', category: 'Echocardiography', view: 'Echo' },
+            { fileName: 'Color Doppler_Scrotal For Varicocoeles_Normal.dot', title: 'COLOR DOPPLER - SCROTUM', category: 'Color Doppler', view: 'Scrotal' }
+        ];
+
         function escapeHtml(str) { return str ? String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;') : ''; }
 
         async function apiFetch(url, options = {}) {
@@ -669,7 +872,7 @@
             await loadCentres();
             await loadDoctors();
             await loadTests();
-            await loadImagingTemplates();
+            renderDesktopTemplatesList(desktopTemplateCatalog);
         });
 
         async function loadCentres() {
@@ -762,7 +965,7 @@
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
             btn.classList.add('active');
-            if (tabId === 'tab-imaging-reports') { loadImagingTemplates(); loadImagingVisitsDropdown(); }
+            if (tabId === 'tab-imaging-reports') { loadImagingVisitsDropdown(); }
             if (tabId === 'tab-pcpndt-register') loadPcpndtRegister();
             if (tabId === 'tab-reports') loadReports();
             if (tabId === 'tab-business') loadBusiness();
@@ -874,7 +1077,6 @@
             } else { alert('Error: ' + json.error); }
         }
 
-        /* AUTO-SELECT DOCTOR ON SEARCH & ADD NEW */
         function onFilterDoctorSelect(query) {
             const q = (query || '').toLowerCase().trim();
             const sel = document.getElementById('referringDoctorSelect');
@@ -883,7 +1085,6 @@
             matches.forEach(d => {
                 sel.innerHTML += `<option value="${d.id}">${escapeHtml(d.doctor_name)}</option>`;
             });
-
             if (matches.length === 1 && q.length >= 2) {
                 sel.value = String(matches[0].id);
                 calculateFinancialTotals();
@@ -924,16 +1125,7 @@
                 item.innerHTML = `<div><strong>${escapeHtml(t.test_name)}</strong> <span style="font-size:0.75rem; color:#64748b;">${t.category}</span></div><div style="font-weight:bold; color:#1e3a8a;">₹${t.price}</div>`;
                 item.onclick = () => {
                     const price = parseFloat(t.price) || 0;
-                    let cut = 0;
-                    const testName = (t.test_name || '').toLowerCase();
-                    const cat = (t.category || '').toLowerCase();
-                    if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || cat === 'imaging' || cat === 'obstetrics' || t.cut_type === 'percentage') {
-                        const pct = parseFloat(t.test_cut) > 0 ? parseFloat(t.test_cut) : 30;
-                        cut = (price * pct) / 100;
-                    } else {
-                        cut = parseFloat(t.test_cut) || 0;
-                    }
-                    selectedBillTests.push({ ...t, calculated_cut: cut });
+                    selectedBillTests.push({ ...t });
                     renderSelectedTests();
                     document.getElementById('liveTestInput').value = '';
                     box.style.display = 'none';
@@ -954,22 +1146,11 @@
                         <tr>
                             <td><strong>${escapeHtml(t.test_name)}</strong></td>
                             <td>${t.category}</td>
-                            <td><input type="number" value="${t.price}" oninput="updateTestPrice(${idx}, this.value)" style="width:110px; padding:4px; font-weight:bold;"></td>
+                            <td><input type="number" value="${t.price}" oninput="selectedBillTests[${idx}].price = parseFloat(this.value)||0; calculateFinancialTotals();" style="width:110px; padding:4px; font-weight:bold;"></td>
                             <td><button type="button" class="btn-act btn-act-del" onclick="selectedBillTests.splice(${idx},1);renderSelectedTests();">✕ Remove</button></td>
                         </tr>
                     `;
                 });
-            }
-            calculateFinancialTotals();
-        }
-
-        function updateTestPrice(idx, newPrice) {
-            const p = parseFloat(newPrice) || 0;
-            selectedBillTests[idx].price = p;
-            const testName = (selectedBillTests[idx].test_name || '').toLowerCase();
-            if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || selectedBillTests[idx].cut_type === 'percentage') {
-                const pct = parseFloat(selectedBillTests[idx].test_cut) > 0 ? parseFloat(selectedBillTests[idx].test_cut) : 30;
-                selectedBillTests[idx].calculated_cut = (p * pct) / 100;
             }
             calculateFinancialTotals();
         }
@@ -1118,7 +1299,7 @@
             window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
-        /* RESTORED SEARCH & FILTER HANDLERS IN COLLECTIONS & REPORTS */
+        /* COLLECTIONS & REPORTS SEARCH */
         async function loadReports() {
             const startDate = document.getElementById('repStartDate')?.value || '';
             const endDate = document.getElementById('repEndDate')?.value || '';
@@ -1144,11 +1325,8 @@
                 grandTotal += paid;
                 pendingTotal += bal;
                 const mode = (v.payment_mode || '').toLowerCase();
-                if (mode === 'cash') {
-                    cashTotal += paid;
-                } else {
-                    onlineTotal += paid;
-                }
+                if (mode === 'cash') cashTotal += paid;
+                else onlineTotal += paid;
             });
 
             document.getElementById('repCashTotal').textContent = `₹${cashTotal.toFixed(2)}`;
@@ -1401,7 +1579,7 @@
             const json = await res.json();
             dropdownPatientsList = json.data || [];
             const sel = document.getElementById('imagingVisitSelect');
-            sel.innerHTML = '<option value="">-- Choose Registered Patient / Visit --</option>';
+            sel.innerHTML = '<option value="">-- Choose Patient / Visit --</option>';
             dropdownPatientsList.forEach(p => {
                 sel.innerHTML += `<option value="${p.dropdown_key}">[${p.invoice_number}] ${escapeHtml(p.full_name)}</option>`;
             });
@@ -1411,48 +1589,129 @@
             const p = dropdownPatientsList.find(x => String(x.dropdown_key) === String(dropdownKey));
             if (p) {
                 currentSelectedVisit = p;
-                document.getElementById('imgDispPatName').textContent = p.full_name;
-                document.getElementById('imgDispPatMeta').textContent = `${p.age || 'N/A'} Yrs / ${p.gender || '-'}`;
-                document.getElementById('imgDispDocName').textContent = p.doctor_name || 'Direct OPD';
+                document.getElementById('fld_Pt_Name1').value = (p.full_name || '').toUpperCase();
+                document.getElementById('fld_Date1').value = new Date(p.created_at || Date.now()).toLocaleDateString('en-GB');
+                document.getElementById('fld_Age').value = p.age ? `${p.age} Years` : 'N/A';
+                document.getElementById('fld_Sex').value = (p.gender || 'F').toUpperCase().startsWith('M') ? 'M' : 'F';
+                document.getElementById('fld_Ref1').value = p.doctor_name || 'Direct OPD';
+                mergeFieldsIntoPreview();
             }
         }
 
-        async function loadImagingTemplates() {
-            const res = await apiFetch('/api/imaging/templates');
-            const json = await res.json();
-            const list = json.data || [];
-            const box = document.getElementById('templatesListBox');
+        /* ================= DESKTOP TEMPLATE MANAGER (IMAGES 1 & 2) ================= */
+        function renderDesktopTemplatesList(list) {
+            const box = document.getElementById('desktopTemplatesList');
             box.innerHTML = '';
-            list.forEach(tmpl => {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'template-item-btn';
-                btn.innerHTML = `<strong>${escapeHtml(tmpl.title)}</strong><span style="font-size:0.75rem; color:#64748b;">${tmpl.category}</span>`;
-                btn.onclick = () => {
-                    currentSelectedTemplate = tmpl;
-                    document.getElementById('liveReportTitle').value = tmpl.title;
-                    document.getElementById('liveReportFindings').value = tmpl.template_body;
-                    document.getElementById('liveReportImpression').value = tmpl.default_impression || '';
-                };
-                box.appendChild(btn);
+            list.forEach((tmpl, idx) => {
+                const item = document.createElement('div');
+                item.className = `cw-template-item ${idx === 0 ? 'selected' : ''}`;
+                item.textContent = tmpl.fileName;
+                item.onclick = () => selectDesktopTemplate(tmpl, item);
+                box.appendChild(item);
             });
+            if (list.length > 0) {
+                selectDesktopTemplate(list[0], box.firstChild);
+            }
         }
 
+        function selectDesktopTemplate(tmpl, el) {
+            currentSelectedTemplate = tmpl;
+            document.querySelectorAll('.cw-template-item').forEach(i => i.classList.remove('selected'));
+            if (el) el.classList.add('selected');
+            document.getElementById('desktopSelectedTmplLabel').textContent = tmpl.fileName;
+            
+            // Auto-adjust default impressions based on selection
+            if (tmpl.fileName.includes('Male')) {
+                document.getElementById('fld_VERTED').value = 'N/A';
+                document.getElementById('fld_UTERUS').value = 'PROSTATE: Normal size & echotexture (18 gms). No focal lesion.';
+                document.getElementById('fld_OVARIES').value = 'N/A';
+                document.getElementById('fld_IMPRESSION').value = '• NORMAL STUDY OF ABDOMEN AND PELVIS.\n• PROSTATE IS NORMAL IN SIZE AND ECHOTEXTURE.';
+            } else if (tmpl.fileName.includes('Echo')) {
+                document.getElementById('fld_LIVER').value = 'LV: Normal internal dimensions. Preserved global LV systolic function (LVEF: 62%).';
+                document.getElementById('fld_GB').value = 'VALVES: Mitral and Aortic valves show normal leaflet mobility.';
+                document.getElementById('fld_SPLEEN').value = 'PERICARDIUM: Clear with no pericardial effusion.';
+                document.getElementById('fld_IMPRESSION').value = '• NORMAL 2D ECHOCARDIOGRAPHY AND COLOR DOPPLER STUDY.\n• NORMAL LV SYSTOLIC FUNCTION (LVEF: 62%).';
+            } else {
+                document.getElementById('fld_VERTED').value = 'Anteverted';
+                document.getElementById('fld_UTERUS').value = 'Measures 7.0 x 3.4 x 3.3 cm. Endometrial canal is midline (3.7 mm). No fibroids.';
+                document.getElementById('fld_OVARIES').value = 'Both ovaries normal. Right measures 2.8 x 1.5 cm. Left measures 2.3 x 1.6 cm.';
+                document.getElementById('fld_IMPRESSION').value = '• NORMAL STUDY OF ABDOMEN AND PELVIS.\n• NO FOCAL LESION, CALCULUS OR HYDRONEPHROSIS SEEN.';
+            }
+            mergeFieldsIntoPreview();
+        }
+
+        function filterTemplatesByUI() {
+            const filterInvest = document.getElementById('chkFilterInvest').checked;
+            const filterView = document.getElementById('chkFilterView').checked;
+            const investVal = document.getElementById('tmplInvestFilter').value;
+            const viewVal = document.getElementById('tmplViewFilter').value;
+
+            const filtered = desktopTemplateCatalog.filter(t => {
+                let match = true;
+                if (filterInvest && investVal && t.category !== investVal) match = false;
+                if (filterView && viewVal && t.view !== viewVal) match = false;
+                return match;
+            });
+            renderDesktopTemplatesList(filtered);
+        }
+
+        function mergeFieldsIntoPreview() {
+            const ptName = document.getElementById('fld_Pt_Name1').value || 'PATIENT NAME';
+            const dateStr = document.getElementById('fld_Date1').value || new Date().toLocaleDateString('en-GB');
+            const age = document.getElementById('fld_Age').value || 'N/A';
+            const sex = document.getElementById('fld_Sex').value || 'F';
+            const refDoc = document.getElementById('fld_Ref1').value || 'Direct OPD';
+            const title = currentSelectedTemplate ? currentSelectedTemplate.title : 'SONOGRAPHY - ABDOMEN & PELVIS';
+
+            const liv = document.getElementById('fld_LIVER').value;
+            const gb = document.getElementById('fld_GB').value;
+            const spleen = document.getElementById('fld_SPLEEN').value;
+            const panc = document.getElementById('fld_PANCREAS').value;
+            const rtk = document.getElementById('fld_RT_K').value;
+            const ltk = document.getElementById('fld_LT_K').value;
+            const pre = document.getElementById('fld_PREVOID').value;
+            const verted = document.getElementById('fld_VERTED').value;
+            const ute = document.getElementById('fld_UTERUS').value;
+            const ova = document.getElementById('fld_OVARIES').value;
+            const imp = document.getElementById('fld_IMPRESSION').value;
+
+            let reportText = `LIVER :- ${liv}\n\nGALL BLADDER :- ${gb}\n\nSPLEEN :- ${spleen}\n\nPANCREAS :- ${panc}\n\nKIDNEYS :-\n• Right Kidney: ${rtk}\n• Left Kidney: ${ltk}\n\nURINARY BLADDER :- ${pre}\n\nUTERUS :- (${verted}) ${ute}\n\nOVARIES :- ${ova}\n\n• No obvious lymphadenopathy or free fluid / ascites noted.\n• Visualised bowel loops appear unremarkable.\n\nIMPRESSION :-\n${imp}\n\nDR. NIKUNJ KOTHIA\nConsultant Radiologist`;
+
+            const preview = document.getElementById('desktopPreviewContent');
+            if (preview) {
+                preview.textContent = `[${title}]\nPATIENT: ${ptName} | DATE: ${dateStr} | AGE/SEX: ${age} / ${sex} | REF: ${refDoc}\n============================================================\n\n` + reportText;
+            }
+            return reportText;
+        }
+
+        function toggleReportLivePreview() {
+            const drawer = document.getElementById('liveReportPreviewDrawer');
+            if (!drawer) return;
+            const isHidden = drawer.style.display === 'none';
+            if (isHidden) mergeFieldsIntoPreview();
+            drawer.style.display = isHidden ? 'block' : 'none';
+        }
+
+        /* ================= MICROSOFT WORD DOCUMENT EXPORT (.DOC) (MATCHES IMAGE 3) ================= */
         async function openReportInExternalWord() {
-            if (!currentSelectedVisit) return alert('Select patient first.');
-            const title = document.getElementById('liveReportTitle').value || 'DIAGNOSTIC REPORT';
-            const text = document.getElementById('liveReportFindings').value || '';
-            const impression = document.getElementById('liveReportImpression').value || '• NO SIGNIFICANT ABNORMALITY DETECTED.';
+            const ptName = (document.getElementById('fld_Pt_Name1').value || 'Patient').toUpperCase();
+            const dateStr = document.getElementById('fld_Date1').value || new Date().toLocaleDateString('en-GB');
+            const age = document.getElementById('fld_Age').value || 'N/A';
+            const sex = (document.getElementById('fld_Sex').value || 'FEMALE').toUpperCase();
+            const refDoc = document.getElementById('fld_Ref1').value || 'Dr. Self / Direct OPD';
+            const title = currentSelectedTemplate ? currentSelectedTemplate.title : 'SONOGRAPHY - ABDOMEN & PELVIS';
             const isPreprinted = document.getElementById('chkPreprintedLetterhead').checked;
 
-            const patientName = (currentSelectedVisit.full_name || 'Patient').toUpperCase();
-            const cleanAge = currentSelectedVisit.age ? `${currentSelectedVisit.age} Yrs` : 'N/A';
-            const cleanGender = (currentSelectedVisit.gender || '-').toUpperCase();
-            const refDoctor = currentSelectedVisit.doctor_name || 'Self / Direct OPD';
-            const invoiceNo = currentSelectedVisit.invoice_number || '-';
-            const patientCode = currentSelectedVisit.patient_code || '-';
-            const phone = currentSelectedVisit.phone || '-';
-            const studyDate = new Date(currentSelectedVisit.created_at || Date.now()).toLocaleDateString('en-GB');
+            const liv = document.getElementById('fld_LIVER').value;
+            const gb = document.getElementById('fld_GB').value;
+            const spleen = document.getElementById('fld_SPLEEN').value;
+            const panc = document.getElementById('fld_PANCREAS').value;
+            const rtk = document.getElementById('fld_RT_K').value;
+            const ltk = document.getElementById('fld_LT_K').value;
+            const pre = document.getElementById('fld_PREVOID').value;
+            const ute = document.getElementById('fld_UTERUS').value;
+            const ova = document.getElementById('fld_OVARIES').value;
+            const imp = document.getElementById('fld_IMPRESSION').value;
 
             const wordHTML = `
                 <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -1462,68 +1721,66 @@
                     <style>
                         @page Section1 { size: 210mm 297mm; margin: ${isPreprinted ? '45mm' : '15mm'} 15mm 15mm 15mm; }
                         div.Section1 { page: Section1; }
-                        body { font-family: 'Arial', sans-serif; font-size: 10pt; line-height: 1.35; color: #000; }
-                        .clinic-title { font-size: 15pt; font-weight: bold; color: #19486a; margin: 0; text-align: center; }
-                        .clinic-sub { font-size: 9pt; font-style: italic; margin: 2px 0; color: #333; text-align: center; }
-                        .patient-box-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 9.5pt; border: 1.5px solid #000; }
-                        .patient-box-table td { padding: 5px 8px; border: 1px solid #000; vertical-align: middle; }
-                        .report-heading { text-align: center; font-size: 11pt; font-weight: bold; color: #1a4b75; text-decoration: underline; margin: 12px 0 14px 0; text-transform: uppercase; }
-                        .report-body-text { font-family: 'Arial', sans-serif; font-size: 9.8pt; line-height: 1.45; white-space: pre-wrap; margin-bottom: 18px; min-height: 380px; }
-                        .impression-block { border-top: 1.5px solid #000; padding-top: 6px; margin-top: 14px; font-size: 10pt; }
+                        body { font-family: 'Calibri', 'Arial', sans-serif; font-size: 10pt; line-height: 1.35; color: #000; }
+                        .patient-box-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 9pt; border: 1.5px solid #000; }
+                        .patient-box-table td { padding: 4px 8px; border: 1px solid #000; vertical-align: middle; }
+                        .report-heading { text-align: center; font-size: 11pt; font-weight: bold; color: #004b87; text-decoration: underline; margin: 12px 0; text-transform: uppercase; }
+                        .organ-title { font-weight: bold; text-decoration: underline; }
+                        .impression-title { font-weight: bold; text-decoration: underline; margin-top: 14px; font-size: 10.5pt; }
                         .sign-block { margin-top: 35px; width: 100%; border: none; }
                     </style>
                 </head>
                 <body>
                     <div class="Section1">
                         ${!isPreprinted ? `
-                            <div style="text-align: center; border-bottom: 2px solid #19486a; padding-bottom: 6px; margin-bottom: 12px;">
-                                <div class="clinic-title">${activeCentre.centre_name}</div>
-                                <div class="clinic-sub">${activeCentre.tagline || ''}</div>
-                                <div style="font-size: 8.5pt;">${activeCentre.address || ''}</div>
+                            <div style="text-align: center; border-bottom: 2px solid #19486a; padding-bottom: 4px; margin-bottom: 12px;">
+                                <h2 style="margin: 0; color: #19486a; font-size: 15pt;">${activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE'}</h2>
+                                <p style="margin: 2px 0; font-size: 8.5pt;">${activeCentre?.address || 'Kandivali West, Mumbai'}</p>
                             </div>
                         ` : ''}
 
+                        <!-- Exact Two-Column Patient Header Box (Matches Screenshot 3) -->
                         <table class="patient-box-table">
                             <tr>
-                                <td style="width: 18%; font-weight: bold;">PATIENT NAME</td>
-                                <td style="width: 42%; font-weight: bold;">${patientName}</td>
-                                <td style="width: 18%; font-weight: bold;">DATE</td>
-                                <td style="width: 22%;">${studyDate}</td>
+                                <td style="width: 15%; font-weight: bold;">NAME</td>
+                                <td style="width: 45%; font-weight: bold;">${ptName}</td>
+                                <td style="width: 15%; font-weight: bold;">DATE</td>
+                                <td style="width: 25%; font-weight: bold;">${dateStr}</td>
                             </tr>
                             <tr>
-                                <td style="font-weight: bold;">AGE / GENDER</td>
-                                <td>${cleanAge} / ${cleanGender}</td>
-                                <td style="font-weight: bold;">INVOICE NO</td>
-                                <td>${invoiceNo}</td>
+                                <td style="font-weight: bold;" rowspan="2">REF. BY DR.</td>
+                                <td style="font-weight: bold;" rowspan="2">${refDoc}</td>
+                                <td style="font-weight: bold;">AGE</td>
+                                <td>${age}</td>
                             </tr>
                             <tr>
-                                <td style="font-weight: bold;">REF. BY DOCTOR</td>
-                                <td>${refDoctor}</td>
-                                <td style="font-weight: bold;">PATIENT ID</td>
-                                <td>${patientCode}</td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight: bold;">CONTACT NO</td>
-                                <td>${phone}</td>
-                                <td style="font-weight: bold;">STUDY TYPE</td>
-                                <td>${title}</td>
+                                <td style="font-weight: bold;">SEX</td>
+                                <td>${sex}</td>
                             </tr>
                         </table>
 
                         <div class="report-heading">${title}</div>
-                        <div class="report-body-text">${text}</div>
 
-                        <div class="impression-block">
-                            <strong><u>IMPRESSION :-</u></strong><br>
-                            <div style="font-weight: bold; white-space: pre-wrap; margin-top: 4px;">${impression}</div>
-                        </div>
+                        <p><span class="organ-title">LIVER :-</span> ${liv}</p>
+                        <p><span class="organ-title">GALL BLADDER :-</span> ${gb}</p>
+                        <p><span class="organ-title">SPLEEN :-</span> ${spleen}</p>
+                        <p><span class="organ-title">PANCREAS :-</span> ${panc}</p>
+                        <p><span class="organ-title">KIDNEYS :-</span> Right kidney: ${rtk} Left kidney: ${ltk}</p>
+                        <p><span class="organ-title">URINARY BLADDER :-</span> ${pre}</p>
+                        <p><span class="organ-title">UTERUS :-</span> ${ute}</p>
+                        <p><span class="organ-title">OVARIES :-</span> ${ova}</p>
+
+                        <p>• No obvious lymphadenopathy / ascites noted.<br>• No mass lesion or collection is noted in both iliac fossa.<br>• Visualised bowel loops appear unremarkable.</p>
+
+                        <div class="impression-title">IMPRESSION :-</div>
+                        <div style="font-weight: bold; white-space: pre-wrap; margin-top: 4px;">${imp}</div>
 
                         <table class="sign-block">
                             <tr>
-                                <td style="font-size: 8.5pt; font-style: italic;">Electronically verified diagnostic imaging report.</td>
+                                <td style="font-size: 8.5pt; font-style: italic; vertical-align: bottom;">Electronically verified diagnostic report.</td>
                                 <td style="text-align: right; font-size: 9.5pt;">
                                     <strong>DR. NIKUNJ KOTHIA</strong><br>
-                                    <span>Consultant Radiologist / Sonologist</span><br>
+                                    <span>Consultant Radiologist</span><br>
                                     <span style="font-size: 8.5pt; color: #444;">Reg. No: 2009/09/3218</span>
                                 </td>
                             </tr>
@@ -1532,29 +1789,30 @@
                 </body>
                 </html>
             `;
+
             const blob = new Blob(['\ufeff', wordHTML], { type: 'application/msword;charset=utf-8' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `Report_${currentSelectedVisit.full_name.replace(/\s+/g, '_')}_${Date.now()}.doc`;
+            link.download = `Report_${ptName.replace(/\s+/g, '_')}_${Date.now()}.doc`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
-            if (currentSelectedVisit.visit_id) {
+            if (currentSelectedVisit?.visit_id) {
                 apiFetch('/api/imaging/reports', {
                     method: 'POST',
                     body: JSON.stringify({
                         visitId: currentSelectedVisit.visit_id,
                         patientId: currentSelectedVisit.patient_id,
-                        templateId: currentSelectedTemplate?.id || null,
                         templateName: title,
-                        reportText: text,
-                        impression: impression
+                        reportText: mergeFieldsIntoPreview(),
+                        impression: imp
                     })
                 });
             }
         }
 
+        /* MASTER CRUD: TESTS */
         async function loadTests() {
             const res = await apiFetch('/api/tests');
             const json = await res.json();
@@ -1634,6 +1892,7 @@
             loadTests();
         }
 
+        /* MASTER CRUD: DOCTORS */
         async function loadDoctors() {
             const res = await apiFetch('/api/doctors');
             const json = await res.json();
@@ -1731,6 +1990,7 @@
             loadDoctors();
         }
 
+        /* DOCTOR BUSINESS & INLINE CUT EDITING */
         async function loadBusiness() {
             const docId = document.getElementById('busDocSelect')?.value || '';
             const start = document.getElementById('busStartDate')?.value || '';
