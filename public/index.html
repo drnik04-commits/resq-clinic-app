@@ -60,8 +60,7 @@
         .btn-act-formf { background-color: #ca8a04; color: white; }
         .btn-act-del { background-color: #dc3545; color: white; }
 
-        /* Clinical Reporting Window */
-        .clinical-window { background: #dbe4ee; border: 2px solid #6b8cae; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.18); padding: 12px; color: #112233; }
+        .clinical-window { background: #dbe4ee; border: 2px solid #6b8cae; border-radius: 6px; padding: 12px; color: #112233; }
         .cw-top-strip { background: #cbd9ea; border: 1px solid #9bb5d1; padding: 8px 12px; border-radius: 4px; display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
         .cw-split-grid { display: grid; grid-template-columns: 360px 1fr; gap: 12px; }
         .cw-left-pane { background: #ecf2f8; border: 1px solid #a4bdd7; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 8px; }
@@ -81,15 +80,17 @@
         .cw-fields-table td { border: 1px solid #cbd5e1; padding: 3px 6px; }
         .cw-field-name { font-family: Consolas, monospace; font-weight: bold; color: #0f172a; width: 140px; background: #f8fafc; }
         .cw-fields-table input, .cw-fields-table textarea { width: 100%; border: 1px solid transparent; padding: 4px 6px; font-size: 0.82rem; font-family: Arial, sans-serif; background: transparent; outline: none; }
-        .cw-fields-table input:focus, .cw-fields-table textarea:focus { background: #f0f9ff; border: 1px solid #38bdf8; border-radius: 2px; }
 
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); justify-content: center; align-items: center; z-index: 10000; }
         .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 20px; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 14px; }
+
+        /* Exact Letterhead (55mm) Margin Formatting */
         @media print {
             body * { visibility: hidden; }
-            #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc * { visibility: visible; }
+            #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc *, #liveReportPreviewDrawer, #liveReportPreviewDrawer * { visibility: visible; }
             .print-active { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+            .with-55mm-margin { padding-top: 55mm !important; }
             .doc-page { page-break-after: always; page-break-inside: avoid; margin: 0; padding: 8mm 12mm; box-sizing: border-box; font-family: Arial, sans-serif !important; color: #000 !important; background: #fff !important; font-size: 7.7pt; line-height: 1.2; }
             @page { size: A4 portrait; margin: 0; }
         }
@@ -97,14 +98,6 @@
         .doc-line-item { display: flex; margin-bottom: 1.5px; font-size: 7.7pt; }
         .doc-line-item .label { min-width: 250px; }
         .doc-line-item .val { flex: 1; font-weight: bold; }
-        .indications-grid { margin-left: 8px; font-size: 6.8pt; line-height: 1.1; }
-        .indication-row { display: flex; margin-bottom: 0.5px; }
-        .ind-num { min-width: 22px; font-weight: bold; }
-        .sec-c-grid { font-size: 7.2pt; line-height: 1.15; }
-        .sec-c-row { display: flex; margin-bottom: 1px; }
-        .sec-c-lbl { flex: 1; }
-        .sec-c-val { width: 140px; font-weight: bold; }
-        .doc-sign-box { display: flex; justify-content: space-between; margin-top: 6px; font-size: 7.7pt; }
     </style>
 </head>
 <body>
@@ -132,10 +125,7 @@
         <div class="centre-nav">
             <button type="button" class="btn-sync-cloud" onclick="triggerCloudSync()">☁️ Sync Cloud</button>
             <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" class="btn-gov-portal">🏛️ Maha PCPNDT</a>
-            <select id="activeCentreSelector" onchange="switchCentre(this.value)">
-                <option value="c1111111-1111-1111-1111-111111111111">RESQ HEART CLINIC (Kandivali West)</option>
-                <option value="c2222222-2222-2222-2222-222222222222">RESQ DIAGNOSTIC (Branch 2)</option>
-            </select>
+            <select id="activeCentreSelector" onchange="switchCentre(this.value)"></select>
             <button type="button" class="btn-settings" onclick="openAdminModal()">⚙ Settings</button>
         </div>
     </header>
@@ -187,7 +177,7 @@
                     <div class="form-group full-width">
                         <label>Referring Doctor (Select or Type New):</label>
                         <div style="display: flex; gap: 8px;">
-                            <input type="text" id="docSearchQuickInput" placeholder="Type doctor name to filter or add new..." oninput="onFilterDoctorSelect(this.value)" style="flex: 1;">
+                            <input type="text" id="docSearchQuickInput" placeholder="Type doctor name..." oninput="onFilterDoctorSelect(this.value)" style="flex: 1;">
                             <select id="referringDoctorSelect" onchange="onDoctorDropdownChanged(this.value)" style="flex: 1.5;"><option value="">Select Doctor (or Direct OPD)</option></select>
                             <button type="button" class="btn-act btn-act-bills" style="background:#059669; padding:0 12px;" onclick="quickAddNewDoctor()">➕ Add & Select</button>
                         </div>
@@ -218,7 +208,7 @@
                 <div style="margin-top: 14px;">
                     <label style="font-size: 0.9rem; font-weight: bold; color: #1a365d;">Search & Add Investigations / Services:</label>
                     <div class="live-search-container" style="margin-top: 6px;">
-                        <input type="text" id="liveTestInput" placeholder="🔍 Start typing test name (e.g. USG, Echo, CBC)..." oninput="onLiveTestSearchInput(this.value)" autocomplete="off" style="width:100%; padding:10px 14px; border:2px solid #90caf9; border-radius:4px; outline:none;">
+                        <input type="text" id="liveTestInput" placeholder="🔍 Start typing test name..." oninput="onLiveTestSearchInput(this.value)" autocomplete="off" style="width:100%; padding:10px 14px; border:2px solid #90caf9; border-radius:4px; outline:none;">
                         <div id="liveSearchResultsBox" class="live-search-box"></div>
                     </div>
                 </div>
@@ -270,7 +260,7 @@
             </div>
         </div>
 
-        <!-- TAB 3: REPORT GENERATOR STUDIO (CALIBRI 12PT & 8PT HEADING SPACING) -->
+        <!-- TAB 3: REPORT GENERATOR STUDIO -->
         <div id="tab-imaging-reports" class="tab-content">
             <div class="card" style="padding: 10px;">
                 <div class="clinical-window">
@@ -296,7 +286,7 @@
                             <label style="font-weight: bold; font-size: 0.82rem;">View:</label>
                             <select id="tmplViewFilter" onchange="filterTemplatesByUI()" style="padding: 4px 8px; border: 1px solid #7c98b6; border-radius: 3px;">
                                 <option value="">All Views</option>
-                                <option value="Abd and Pel" selected>Abd and Pel</option>
+                                <option value="Abd and Pel">Abd and Pel</option>
                                 <option value="Obstetrics">Obstetrics / Fetal</option>
                                 <option value="KUB">KUB</option>
                                 <option value="Scrotal">Scrotal Doppler</option>
@@ -307,7 +297,7 @@
                             <button type="button" class="btn-act btn-act-bills" style="background:#475569;" onclick="document.getElementById('tmplUploadFileInput').click()">📁 Bulk Upload Templates</button>
                             <input type="file" id="tmplUploadFileInput" multiple accept=".dot,.doc,.docx" style="display:none;" onchange="uploadTemplatesFiles(this.files)">
                             <label style="font-size: 0.8rem; font-weight: bold; cursor: pointer;">
-                                <input type="checkbox" id="chkPreprintedLetterhead"> 🖨️ 45mm Preprinted Letterhead Margin
+                                <input type="checkbox" id="chkPreprintedLetterhead" checked> 🖨️ 55mm Preprinted Letterhead Margin
                             </label>
                         </div>
                     </div>
@@ -316,8 +306,8 @@
                         <div class="cw-left-pane">
                             <div class="cw-filter-box">
                                 <span>Filter Templates by :</span>
-                                <label><input type="checkbox" id="chkFilterInvest" checked onchange="filterTemplatesByUI()"> Investigation</label>
-                                <label><input type="checkbox" id="chkFilterView" checked onchange="filterTemplatesByUI()"> View</label>
+                                <label><input type="checkbox" id="chkFilterInvest" onchange="filterTemplatesByUI()"> Investigation</label>
+                                <label><input type="checkbox" id="chkFilterView" onchange="filterTemplatesByUI()"> View</label>
                                 <button type="button" class="cw-btn" style="padding: 1px 6px;" onclick="filterTemplatesByUI()">Set</button>
                             </div>
 
@@ -330,7 +320,7 @@
                             <div class="cw-button-bar">
                                 <button type="button" class="cw-btn" onclick="mergeFieldsIntoPreview()">Merge Fields</button>
                                 <button type="button" class="cw-btn" onclick="toggleReportLivePreview()">Show / Preview</button>
-                                <button type="button" class="cw-btn" onclick="window.print()">Print</button>
+                                <button type="button" class="cw-btn" onclick="printReportStudio()">Print</button>
                                 <button type="button" class="cw-btn" onclick="printSingleInvoice(currentSelectedVisit?.visit_id)">Print Address</button>
                                 <button type="button" class="cw-btn cw-btn-word" onclick="openReportInExternalWord()">🚀 OPEN IN MICROSOFT WORD (.DOC)</button>
                             </div>
@@ -339,12 +329,7 @@
                         <div class="cw-right-pane">
                             <div style="overflow-y: auto; max-height: 480px;">
                                 <table class="cw-fields-table">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 140px;">Fields</th>
-                                            <th>Values</th>
-                                        </tr>
-                                    </thead>
+                                    <thead><tr><th style="width: 140px;">Fields</th><th>Values</th></tr></thead>
                                     <tbody id="desktopFieldsTableBody">
                                         <tr><td class="cw-field-name">Pt_Name1</td><td><input type="text" id="fld_Pt_Name1" value=""></td></tr>
                                         <tr><td class="cw-field-name">Date1</td><td><input type="text" id="fld_Date1" value=""></td></tr>
@@ -380,7 +365,7 @@
             </div>
         </div>
 
-        <!-- TAB 4: PCPNDT FORM F REGISTER (WITH EDIT FORM F RESTORED) -->
+        <!-- TAB 4: PCPNDT FORM F REGISTER -->
         <div id="tab-pcpndt-register" class="tab-content">
             <div class="card">
                 <div class="card-title">
@@ -396,7 +381,7 @@
             </div>
         </div>
 
-        <!-- TAB 5: DOCTORS & TESTS MASTERS (WITH BULK IMPORTS) -->
+        <!-- TAB 5: DOCTORS & TESTS MASTERS -->
         <div id="tab-masters" class="tab-content">
             <div class="dashboard-grid">
                 <div>
@@ -452,7 +437,7 @@
             </div>
         </div>
 
-        <!-- TAB 6: MANAGE PATIENTS & BILLS (WITH EDIT PATIENT BUTTON) -->
+        <!-- TAB 6: MANAGE PATIENTS & BILLS -->
         <div id="tab-patients" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Manage Patients Directory</span></div>
@@ -510,10 +495,10 @@
             </div>
         </div>
 
-        <!-- TAB 8: DOCTOR BUSINESS (ACCURATE 30% CUTS & LIVE EDIT) -->
+        <!-- TAB 8: DOCTOR BUSINESS -->
         <div id="tab-business" class="tab-content">
             <div class="card">
-                <div class="card-title"><span>Doctor Business & Referral Commissions (Exact 30%)</span></div>
+                <div class="card-title"><span>Doctor Business & Referral Commissions</span></div>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px;">
                     <div><label style="font-size:0.8rem; font-weight:bold;">Doctor:</label><br><select id="busDocSelect" style="padding:6px; border:1px solid #ccc; border-radius:4px;"><option value="">All Doctors</option></select></div>
                     <div><label style="font-size:0.8rem; font-weight:bold;">Start:</label><br><input type="date" id="busStartDate" style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
@@ -591,9 +576,10 @@
     <div id="bulkDocModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
-                <h3>📥 Bulk Import Doctors (One Per Line: Name, Hospital, Cut%)</h3>
+                <h3>📥 Bulk Import Doctors</h3>
                 <button type="button" onclick="closeBulkDocModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
             </div>
+            <p style="font-size: 0.8rem; color: #475569; margin-bottom: 8px;">Format: Doctor Name, Clinic Name, Cut % (one per line)</p>
             <textarea id="bulkDocText" rows="10" style="width:100%; font-family:monospace; padding:8px;" placeholder="Dr. Sharma, City Clinic, 30&#10;Dr. Mehta, LifeCare, 30&#10;Dr. Verma, Apollo, 30"></textarea>
             <button type="button" class="btn-complete-reg" style="margin-top:10px; width:100%;" onclick="submitBulkDoctors()">Import Doctors</button>
         </div>
@@ -603,9 +589,10 @@
     <div id="bulkTestModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
-                <h3>📥 Bulk Import Tests (One Per Line: Name, Category, Price, Cut%)</h3>
+                <h3>📥 Bulk Import Tests</h3>
                 <button type="button" onclick="closeBulkTestModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
             </div>
+            <p style="font-size: 0.8rem; color: #475569; margin-bottom: 8px;">Format: Test Name, Category, Price, Cut % or Amount (one per line)</p>
             <textarea id="bulkTestText" rows="10" style="width:100%; font-family:monospace; padding:8px;" placeholder="USG Abdomen, Imaging, 1500, 30&#10;Digital X-Ray Chest, Imaging, 400, 100&#10;2D Echo Doppler, Cardiology, 1800, 30"></textarea>
             <button type="button" class="btn-complete-reg" style="margin-top:10px; width:100%;" onclick="submitBulkTests()">Import Tests</button>
         </div>
@@ -823,7 +810,7 @@
         let activeCentre = FALLBACK_CENTRES_CLIENT[0], currentSelectedTemplate = null, currentSelectedVisit = null, dropdownPatientsList = [];
         let isSuperAdmin = false, activeEditingBillTests = [];
 
-        const desktopTemplateCatalog = [
+        let desktopTemplateCatalog = [
             { fileName: 'Ultrasonography_Abd and Pel_FemaleNK.dot', title: 'SONOGRAPHY - ABDOMEN & PELVIS (FEMALE)', category: 'Ultrasonography', view: 'Abd and Pel' },
             { fileName: 'Ultrasonography_Abd and Pel_FEMALEOLD.dot', title: 'SONOGRAPHY - ABDOMEN & PELVIS (FEMALE OLD)', category: 'Ultrasonography', view: 'Abd and Pel' },
             { fileName: 'Ultrasonography_Abd and Pel_MaleNK.dot', title: 'SONOGRAPHY - ABDOMEN & PELVIS (MALE)', category: 'Ultrasonography', view: 'Abd and Pel' },
@@ -836,6 +823,55 @@
 
         function escapeHtml(str) { return str ? String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;') : ''; }
 
+        function getTodayIsoDate() {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getTodayDisplayDate() {
+            const d = new Date();
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        function applyDefaultDatesEverywhere() {
+            const todayIso = getTodayIsoDate();
+            const todayMonth = todayIso.slice(0, 7);
+            const todayDisplay = getTodayDisplayDate();
+
+            const dateInputIds = [
+                'auditDateInput', 'pcpndtLMP', 'editPcpndtLmp', 
+                'repStartDate', 'repEndDate', 'busStartDate', 'busEndDate'
+            ];
+            dateInputIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.value) el.value = todayIso;
+            });
+
+            if (document.getElementById('repMonth') && !document.getElementById('repMonth').value) {
+                document.getElementById('repMonth').value = todayMonth;
+            }
+            if (document.getElementById('busMonth') && !document.getElementById('busMonth').value) {
+                document.getElementById('busMonth').value = todayMonth;
+            }
+
+            const fldDate = document.getElementById('fld_Date1');
+            if (fldDate && (!fldDate.value || fldDate.value === '')) {
+                fldDate.value = todayDisplay;
+            }
+
+            const spanDateIds = ['prtDate', 'docDeclDate', 'docProcDate', 'docConveyDate', 'docSignDate'];
+            spanDateIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = todayDisplay;
+            });
+        }
+
         async function apiFetch(url, options = {}) {
             options.headers = options.headers || {};
             if (!(options.body instanceof FormData)) options.headers['Content-Type'] = 'application/json';
@@ -845,7 +881,10 @@
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
+            applyDefaultDatesEverywhere();
             renderDesktopTemplatesList(desktopTemplateCatalog);
+            await loadTemplateCatalogFromDB();
+
             try {
                 await loadCentres();
                 await loadDoctors();
@@ -854,6 +893,32 @@
                 console.warn('Operating in offline fallback mode.');
             }
         });
+
+        async function loadTemplateCatalogFromDB() {
+            try {
+                const res = await apiFetch('/api/imaging/templates');
+                const json = await res.json();
+                if (json.data && json.data.length > 0) {
+                    json.data.forEach(t => {
+                        const fName = t.template_name || `${t.title.replace(/\s+/g, '_')}.dot`;
+                        const exists = desktopTemplateCatalog.some(c => c.fileName.toLowerCase() === fName.toLowerCase());
+                        if (!exists) {
+                            desktopTemplateCatalog.push({
+                                fileName: fName,
+                                title: t.title || fName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+                                category: t.category || 'Ultrasonography',
+                                view: 'All',
+                                body: t.template_body || '',
+                                impression: t.default_impression || ''
+                            });
+                        }
+                    });
+                    filterTemplatesByUI();
+                }
+            } catch (e) {
+                console.error('Error fetching templates:', e);
+            }
+        }
 
         async function loadCentres() {
             try {
@@ -968,7 +1033,8 @@
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
             btn.classList.add('active');
-            if (tabId === 'tab-imaging-reports') { loadImagingVisitsDropdown(); }
+            applyDefaultDatesEverywhere();
+            if (tabId === 'tab-imaging-reports') loadImagingVisitsDropdown();
             if (tabId === 'tab-pcpndt-register') loadPcpndtRegister();
             if (tabId === 'tab-reports') loadReports();
             if (tabId === 'tab-business') loadBusiness();
@@ -1077,6 +1143,7 @@
             document.getElementById('patientEmail').value = '';
             document.getElementById('patientAddress').value = '';
             document.getElementById('loadedPatientBanner').style.display = 'none';
+            applyDefaultDatesEverywhere();
         }
 
         async function deleteLoadedPatientRecord() {
@@ -1210,7 +1277,7 @@
             formData.append('isPcpndt', isPcpndt);
             if (isPcpndt) {
                 formData.append('relativeName', document.getElementById('pcpndtRelativeName').value.trim());
-                formData.append('lmpDate', document.getElementById('pcpndtLMP').value);
+                formData.append('lmpDate', document.getElementById('pcpndtLMP').value || getTodayIsoDate());
                 formData.append('weeksOfPreg', document.getElementById('pcpndtWeeks').value.trim());
                 formData.append('noOfSons', document.getElementById('pcpndtNoOfSons').value || 0);
                 formData.append('sonsAge', document.getElementById('pcpndtSonsAge').value.trim());
@@ -1239,6 +1306,7 @@
         }
 
         async function printSingleInvoice(visitId) {
+            if (!visitId) return alert('No visit loaded to print.');
             const res = await apiFetch(`/api/invoice/${visitId}`);
             const json = await res.json();
             if (!json.success) return;
@@ -1251,7 +1319,7 @@
             document.getElementById('prtPatMeta').textContent = `${v.age || 'N/A'} Yrs / ${v.gender || '-'}`;
             document.getElementById('prtDocName').textContent = v.doctor_name || 'Direct OPD';
             document.getElementById('prtInvNo').textContent = v.invoice_number;
-            document.getElementById('prtDate').textContent = new Date(v.created_at).toLocaleDateString('en-GB');
+            document.getElementById('prtDate').textContent = new Date(v.created_at || Date.now()).toLocaleDateString('en-GB');
 
             const tbody = document.getElementById('prtItemsBody');
             tbody.innerHTML = '';
@@ -1493,7 +1561,6 @@
             loadPatientsDirectory();
         }
 
-        /* PCPNDT FORM F REGISTER & EDIT */
         async function loadPcpndtRegister() {
             const res = await apiFetch('/api/pcpndt');
             const json = await res.json();
@@ -1526,7 +1593,7 @@
                 if (!f) return alert('Form F record not found.');
                 document.getElementById('editPcpndtId').value = String(f.id);
                 document.getElementById('editPcpndtRelative').value = f.relative_name || '';
-                document.getElementById('editPcpndtLmp').value = f.lmp_date || '';
+                document.getElementById('editPcpndtLmp').value = f.lmp_date || getTodayIsoDate();
                 document.getElementById('editPcpndtWeeks').value = f.weeks_of_preg || '';
                 document.getElementById('editPcpndtSonsCount').value = f.no_of_sons || 0;
                 document.getElementById('editPcpndtSonsAge').value = f.sons_age || '';
@@ -1549,7 +1616,7 @@
             const formId = document.getElementById('editPcpndtId').value;
             const payload = {
                 relativeName: document.getElementById('editPcpndtRelative').value.trim(),
-                lmpDate: document.getElementById('editPcpndtLmp').value,
+                lmpDate: document.getElementById('editPcpndtLmp').value || getTodayIsoDate(),
                 weeksOfPreg: document.getElementById('editPcpndtWeeks').value.trim(),
                 noOfSons: parseInt(document.getElementById('editPcpndtSonsCount').value, 10) || 0,
                 sonsAge: document.getElementById('editPcpndtSonsAge').value.trim(),
@@ -1582,7 +1649,6 @@
             loadPcpndtRegister();
         }
 
-        /* MANAGE PATIENTS DIRECTORY (WITH EDIT PATIENT) */
         async function loadPatientsDirectory() {
             const q = document.getElementById('patientDirectorySearch')?.value || '';
             const res = await apiFetch(`/api/patients${q ? `?search=${encodeURIComponent(q)}` : ''}`);
@@ -1771,16 +1837,21 @@
 
             const filtered = desktopTemplateCatalog.filter(t => {
                 let match = true;
-                if (filterInvest && investVal && t.category !== investVal) match = false;
-                if (filterView && viewVal && t.view !== viewVal) match = false;
+                if (filterInvest && investVal && t.category && t.category !== investVal && t.category !== 'All') {
+                    match = false;
+                }
+                if (filterView && viewVal && t.view && t.view !== viewVal && t.view !== 'All') {
+                    match = false;
+                }
                 return match;
             });
-            renderDesktopTemplatesList(filtered);
+
+            renderDesktopTemplatesList(filtered.length > 0 ? filtered : desktopTemplateCatalog);
         }
 
         function mergeFieldsIntoPreview() {
             const ptName = document.getElementById('fld_Pt_Name1').value || 'PATIENT NAME';
-            const dateStr = document.getElementById('fld_Date1').value || new Date().toLocaleDateString('en-GB');
+            const dateStr = document.getElementById('fld_Date1').value || getTodayDisplayDate();
             const age = document.getElementById('fld_Age').value || 'N/A';
             const sex = document.getElementById('fld_Sex').value || 'F';
             const refDoc = document.getElementById('fld_Ref1').value || 'Direct OPD';
@@ -1815,10 +1886,24 @@
             drawer.style.display = isHidden ? 'block' : 'none';
         }
 
-        /* WORD EXPORT: CALIBRI 12PT WITH 8PT SPACING BETWEEN HEADINGS */
+        function printReportStudio() {
+            mergeFieldsIntoPreview();
+            const drawer = document.getElementById('liveReportPreviewDrawer');
+            const isPreprinted = document.getElementById('chkPreprintedLetterhead').checked;
+            
+            if (isPreprinted) {
+                drawer.classList.add('with-55mm-margin');
+            } else {
+                drawer.classList.remove('with-55mm-margin');
+            }
+            
+            drawer.style.display = 'block';
+            window.print();
+        }
+
         async function openReportInExternalWord() {
             const ptName = (document.getElementById('fld_Pt_Name1').value || 'Patient').toUpperCase();
-            const dateStr = document.getElementById('fld_Date1').value || new Date().toLocaleDateString('en-GB');
+            const dateStr = document.getElementById('fld_Date1').value || getTodayDisplayDate();
             const age = document.getElementById('fld_Age').value || 'N/A';
             const sex = (document.getElementById('fld_Sex').value || 'FEMALE').toUpperCase();
             const refDoc = document.getElementById('fld_Ref1').value || 'Dr. Self / Direct OPD';
@@ -1842,10 +1927,10 @@
                     <meta charset="utf-8">
                     <title>${title}</title>
                     <style>
-                        @page Section1 { size: 210mm 297mm; margin: ${isPreprinted ? '45mm' : '15mm'} 15mm 15mm 15mm; }
+                        @page Section1 { size: 210mm 297mm; margin: ${isPreprinted ? '55mm' : '15mm'} 15mm 15mm 15mm; }
                         div.Section1 { page: Section1; }
                         body { font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; font-size: 12pt; line-height: 1.4; color: #000; }
-                        .patient-box-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; font-size: 11pt; border: 1.5px solid #000; }
+                        .patient-box-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; font-size: 11pt; border: 1.5px solid #000; font-family: 'Calibri', sans-serif; }
                         .patient-box-table td { padding: 4px 8px; border: 1px solid #000; vertical-align: middle; }
                         .report-heading { text-align: center; font-size: 13pt; font-weight: bold; color: #004b87; text-decoration: underline; margin-top: 8pt; margin-bottom: 8pt; text-transform: uppercase; font-family: 'Calibri', sans-serif; }
                         .organ-row { margin-top: 8pt; margin-bottom: 8pt; font-size: 12pt; }
@@ -1935,7 +2020,6 @@
             }
         }
 
-        /* BULK UPLOAD TEMPLATES */
         async function uploadTemplatesFiles(files) {
             if (!files || !files.length) return;
             const formData = new FormData();
@@ -1949,13 +2033,12 @@
                 });
                 const json = await res.json();
                 alert(json.message || 'Templates uploaded successfully!');
-                filterTemplatesByUI();
+                await loadTemplateCatalogFromDB();
             } catch (e) {
                 alert('Error uploading template files: ' + e.message);
             }
         }
 
-        /* MASTER CRUD: TESTS & BULK IMPORT */
         async function loadTests() {
             const res = await apiFetch('/api/tests');
             const json = await res.json();
@@ -2039,8 +2122,7 @@
         function closeBulkTestModal() { document.getElementById('bulkTestModal').style.display = 'none'; }
 
         async function submitBulkTests() {
-            const text = document.getElementById('bulkTestText').value;
-            const lines = text.split('\n');
+            const lines = document.getElementById('bulkTestText').value.split('\n');
             const tests = [];
             lines.forEach(line => {
                 const parts = line.split(',');
@@ -2054,18 +2136,17 @@
                     });
                 }
             });
-            if (!tests.length) return alert('No valid test rows found. Use: Name, Category, Price, Cut%');
+            if (!tests.length) return alert('No valid test rows found.');
             const res = await apiFetch('/api/tests/bulk-import', {
                 method: 'POST',
                 body: JSON.stringify({ tests })
             });
             const json = await res.json();
-            alert(json.message || 'Tests imported successfully!');
+            alert(json.message || 'Tests imported!');
             closeBulkTestModal();
             loadTests();
         }
 
-        /* MASTER CRUD: DOCTORS & BULK IMPORT */
         async function loadDoctors() {
             const res = await apiFetch('/api/doctors');
             const json = await res.json();
@@ -2167,8 +2248,7 @@
         function closeBulkDocModal() { document.getElementById('bulkDocModal').style.display = 'none'; }
 
         async function submitBulkDoctors() {
-            const text = document.getElementById('bulkDocText').value;
-            const lines = text.split('\n');
+            const lines = document.getElementById('bulkDocText').value.split('\n');
             const doctors = [];
             lines.forEach(line => {
                 const parts = line.split(',');
@@ -2181,18 +2261,17 @@
                     });
                 }
             });
-            if (!doctors.length) return alert('No doctor rows found. Use: Name, Hospital, Cut%');
+            if (!doctors.length) return alert('No valid doctor rows found.');
             const res = await apiFetch('/api/doctors/bulk-import', {
                 method: 'POST',
                 body: JSON.stringify({ doctors })
             });
             const json = await res.json();
-            alert(json.message || 'Doctors imported successfully!');
+            alert(json.message || 'Doctors imported!');
             closeBulkDocModal();
             loadDoctors();
         }
 
-        /* DOCTOR BUSINESS (EXACT 30% CALCULATION & EDIT) */
         async function loadBusiness() {
             const docId = document.getElementById('busDocSelect')?.value || '';
             const start = document.getElementById('busStartDate')?.value || '';
@@ -2215,7 +2294,6 @@
             tbody.innerHTML = '';
             data.forEach(b => {
                 const biz = parseFloat(b.total_amount || 0);
-                // Exact 30% calculation: 1500 -> 450, 1400 -> 420
                 const cut = (b.doctor_commission !== null && b.doctor_commission !== undefined && parseFloat(b.doctor_commission) > 0)
                     ? parseFloat(b.doctor_commission)
                     : (biz * 0.30);
@@ -2237,37 +2315,30 @@
                     </tr>
                 `;
             });
-            document.getElementById('busSummaryBanner').innerHTML = `Gross Business: <strong>₹${totalBiz.toFixed(2)}</strong> | Total Cuts (30%): <strong style="color:#7c3aed;">₹${totalCut.toFixed(2)}</strong> | Total Referrals: <strong>${data.length}</strong>`;
+            document.getElementById('busSummaryBanner').innerHTML = `Gross Business: <strong>₹${totalBiz.toFixed(2)}</strong> | Total Cuts: <strong style="color:#7c3aed;">₹${totalCut.toFixed(2)}</strong> | Total Referrals: <strong>${data.length}</strong>`;
         }
 
         async function editSingleDoctorCut(visitId, docName, currentCut) {
-            const entered = prompt(`Edit Referral Cut for ${docName} (₹):`, currentCut !== undefined && currentCut !== null ? currentCut : '0');
+            const entered = prompt(`Edit Referral Cut for ${docName} (₹):`, currentCut || '0');
             if (entered === null) return;
-            const trimmed = entered.trim();
-            if (trimmed === '') return alert('Cut value cannot be empty.');
-            const newCut = parseFloat(trimmed);
+            const newCut = parseFloat(entered.trim());
             if (isNaN(newCut)) return alert('Please enter a valid number.');
 
-            try {
-                const res = await apiFetch(`/api/visits/${visitId}/cut`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ doctor_commission: newCut })
-                });
-                const json = await res.json();
-                if (json.success) {
-                    alert('Doctor cut updated successfully!');
-                    loadBusiness();
-                } else {
-                    alert('Error: ' + (json.error || 'Failed to update cut'));
-                }
-            } catch (e) {
-                alert('Network error updating doctor cut: ' + e.message);
+            const res = await apiFetch(`/api/visits/${visitId}/cut`, {
+                method: 'PUT',
+                body: JSON.stringify({ doctor_commission: newCut })
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert('Doctor cut updated!');
+                loadBusiness();
+            } else {
+                alert('Error updating cut: ' + json.error);
             }
         }
 
         async function loadDailyAudit() {
-            const auditDate = document.getElementById('auditDateInput').value || new Date().toISOString().slice(0, 10);
-            document.getElementById('auditDateInput').value = auditDate;
+            const auditDate = document.getElementById('auditDateInput').value || getTodayIsoDate();
             const res = await apiFetch(`/api/reports/executive-daily?date=${auditDate}`);
             const json = await res.json();
             const tbody = document.getElementById('auditTableBody');

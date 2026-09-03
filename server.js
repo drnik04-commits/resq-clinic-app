@@ -1,4 +1,3 @@
-// server.js
 require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
@@ -66,7 +65,7 @@ let memoryAdminPassword = 'admin123';
 const pool = new Pool({
   connectionString: cleanDbUrl,
   ssl: cleanDbUrl.includes('localhost') || cleanDbUrl.includes('127.0.0.1') ? false : { rejectUnauthorized: false },
-  connectionTimeoutMillis: 3000,
+  connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 10000
 });
 
@@ -123,7 +122,6 @@ function getTenantCentreId(req) {
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// Calculate test cut as final; deduct concession/discount from the final total
 function calculateCommission(testArray, validDoctorId = null, docInfo = null, concession = 0) {
   let totalTestCut = 0;
   for (const t of testArray) {
@@ -136,7 +134,7 @@ function calculateCommission(testArray, validDoctorId = null, docInfo = null, co
     if (isNaN(cutVal) || cutVal <= 0) {
       if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || cat === 'imaging' || cat === 'obstetrics') {
         cutType = 'percentage';
-        cutVal = 30; // 30% of 1500 = 450, 1400 = 420
+        cutVal = 30;
       } else if (testName.includes('x-ray') || testName.includes('xray')) {
         cutType = 'fixed';
         cutVal = 100;
@@ -269,10 +267,6 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    try {
-      await pool.query(`ALTER TABLE patients ALTER COLUMN age DROP NOT NULL;`);
-      await pool.query(`ALTER TABLE patients ALTER COLUMN age SET DEFAULT 0;`);
-    } catch (e) {}
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS visits (
@@ -332,7 +326,7 @@ async function initDB() {
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         template_name VARCHAR(255) UNIQUE NOT NULL,
         title VARCHAR(255) NOT NULL,
-        category VARCHAR(100) DEFAULT 'Imaging',
+        category VARCHAR(100) DEFAULT 'Ultrasonography',
         default_impression TEXT,
         template_body TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -450,7 +444,6 @@ app.get('/api/centres', async (req, res) => {
   res.status(200).json({ success: true, data: FALLBACK_CENTRES });
 });
 
-// Patients CRUD
 app.get('/api/patients', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -582,7 +575,6 @@ app.get('/api/imaging/patients-dropdown', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Doctor Cut Update Route
 app.put('/api/visits/:id/cut', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -601,7 +593,6 @@ app.put('/api/visits/:id/cut', async (req, res) => {
   }
 });
 
-// Update Visit
 app.put('/api/visits/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -678,7 +669,6 @@ app.put('/api/visits/:id', async (req, res) => {
   }
 });
 
-// Register Visit
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -803,7 +793,7 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Master Tests CRUD & Bulk Import
+// Master Tests CRUD
 app.get('/api/tests', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM test_master ORDER BY test_name ASC');
@@ -861,7 +851,7 @@ app.delete('/api/tests/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Master Doctors CRUD & Bulk Import
+// Master Doctors CRUD
 app.get('/api/doctors', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM referring_doctors ORDER BY doctor_name ASC');
@@ -919,12 +909,41 @@ app.delete('/api/doctors/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Templates Bulk Upload & Reports
+// Templates Engine: Merges DB Templates with Disk Report_Templates folder
 app.get('/api/imaging/templates', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM imaging_templates ORDER BY title ASC');
-    res.status(200).json({ success: true, data: result.rows });
-  } catch (err) {}
+    let dbTemplates = [];
+    if (isDbConnected) {
+      const result = await pool.query('SELECT * FROM imaging_templates ORDER BY title ASC');
+      dbTemplates = result.rows;
+    }
+
+    const diskFiles = fs.existsSync(TEMPLATES_DIR) ? fs.readdirSync(TEMPLATES_DIR) : [];
+    const diskTemplates = diskFiles
+      .filter(f => /\.(doc|dot|docx|txt)$/i.test(f))
+      .map(f => {
+        const base = path.basename(f, path.extname(f)).replace(/_/g, ' ');
+        return {
+          id: f,
+          template_name: f,
+          title: base.toUpperCase(),
+          category: 'Ultrasonography',
+          default_impression: '',
+          template_body: ''
+        };
+      });
+
+    const merged = [...dbTemplates];
+    diskTemplates.forEach(dt => {
+      if (!merged.some(m => (m.template_name || '').toLowerCase() === dt.template_name.toLowerCase())) {
+        merged.push(dt);
+      }
+    });
+
+    res.status(200).json({ success: true, data: merged });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), async (req, res) => {
@@ -935,18 +954,31 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
       const baseName = path.basename(f.originalname, path.extname(f.originalname));
       const cleanTitle = baseName.replace(/_/g, ' ').toUpperCase();
       let content = '';
-      try { content = fs.readFileSync(f.path, 'utf8'); } catch (e) { content = `FINDINGS FOR ${cleanTitle}:\n\n- Completed.`; }
-      await pool.query(
-        `INSERT INTO imaging_templates (template_name, title, category, template_body)
-         VALUES ($1, $2, 'Imaging', $3)
-         ON CONFLICT (template_name) DO UPDATE SET template_body = EXCLUDED.template_body`,
-        [f.originalname, cleanTitle, content]
-      );
+      try { 
+        content = fs.readFileSync(f.path, 'utf8'); 
+      } catch (e) { 
+        content = `FINDINGS FOR ${cleanTitle}:\n\n- Completed.`; 
+      }
+
+      if (isDbConnected) {
+        await pool.query(
+          `INSERT INTO imaging_templates (template_name, title, category, template_body)
+           VALUES ($1, $2, 'Ultrasonography', $3)
+           ON CONFLICT (template_name) DO UPDATE 
+           SET title = EXCLUDED.title, template_body = EXCLUDED.template_body`,
+          [f.originalname, cleanTitle, content]
+        );
+      }
       count++;
     }
-    const all = await pool.query('SELECT * FROM imaging_templates ORDER BY title ASC');
-    res.status(200).json({ success: true, message: `Successfully uploaded ${count} templates.`, data: all.rows });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+
+    const all = isDbConnected 
+      ? (await pool.query('SELECT * FROM imaging_templates ORDER BY title ASC')).rows 
+      : [];
+    res.status(200).json({ success: true, message: `Successfully uploaded ${count} template(s).`, data: all });
+  } catch (err) { 
+    res.status(500).json({ success: false, error: err.message }); 
+  }
 });
 
 app.post('/api/imaging/reports', async (req, res) => {
@@ -974,7 +1006,6 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Collections Report
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1035,7 +1066,6 @@ app.get('/api/reports/collection', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Doctor Cuts Report
 app.get('/api/reports/doctor-detailed', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1108,7 +1138,6 @@ app.get('/api/reports/executive-daily', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PCPNDT Form F Management & Update Route
 app.get('/api/pcpndt', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1172,7 +1201,6 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Robust Cloud Sync with Safe Age handling
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
 
@@ -1187,7 +1215,7 @@ app.post('/api/sync/cloud', async (req, res) => {
     cloudClient = await cloudPool.connect();
   } catch (err) {
     localClient.release();
-    return res.status(503).json({ success: false, error: 'Cannot connect to Cloud DB. Please verify internet connection: ' + err.message });
+    return res.status(503).json({ success: false, error: 'Cannot connect to Cloud DB: ' + err.message });
   }
 
   try {
@@ -1203,14 +1231,9 @@ app.post('/api/sync/cloud', async (req, res) => {
       CREATE TABLE IF NOT EXISTS visits (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, patient_id UUID REFERENCES patients(id) ON DELETE CASCADE, referring_doctor_id UUID, total_amount DECIMAL(10,2) DEFAULT 0.00, concession DECIMAL(10,2) DEFAULT 0.00, paid_amount DECIMAL(10,2) DEFAULT 0.00, balance_amount DECIMAL(10,2) DEFAULT 0.00, payment_status VARCHAR(50) DEFAULT 'Pending', payment_mode VARCHAR(50) DEFAULT 'Cash', invoice_number VARCHAR(100), doctor_commission DECIMAL(10,2) DEFAULT 0.00, report_file VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS patient_investigations (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, test_id UUID, barcode VARCHAR(100), status VARCHAR(50) DEFAULT 'Registered', price DECIMAL(10, 2), cut_type VARCHAR(20) DEFAULT 'fixed', test_cut DECIMAL(10, 2) DEFAULT 0.00);
       CREATE TABLE IF NOT EXISTS pcpndt_forms (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, centre_id UUID, relative_name VARCHAR(255), no_of_sons INT DEFAULT 0, sons_age VARCHAR(100), no_of_daughters INT DEFAULT 0, daughters_age VARCHAR(100), lmp_date VARCHAR(50), weeks_of_preg VARCHAR(50), indications TEXT, scan_result TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', clinic_reg_no VARCHAR(100) DEFAULT 'RC197', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE IF NOT EXISTS imaging_templates (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, template_name VARCHAR(255) UNIQUE NOT NULL, title VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Imaging', default_impression TEXT, template_body TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS imaging_templates (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, template_name VARCHAR(255) UNIQUE NOT NULL, title VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Ultrasonography', default_impression TEXT, template_body TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS imaging_reports (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, patient_id UUID, centre_id UUID, template_id UUID, template_name VARCHAR(255), report_text TEXT NOT NULL, impression TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
     `);
-
-    try {
-      await cloudClient.query(`ALTER TABLE patients ALTER COLUMN age DROP NOT NULL;`);
-      await cloudClient.query(`ALTER TABLE patients ALTER COLUMN age SET DEFAULT 0;`);
-    } catch (e) {}
 
     // Auth & Centres
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
@@ -1267,7 +1290,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       }
     }
 
-    // Patients (Ensures age is never passed as null)
+    // Patients
     const validCloudPatientIds = new Set();
     const patients = await localClient.query('SELECT * FROM patients');
     for (const p of patients.rows) {
@@ -1320,7 +1343,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [pi.id, pi.visit_id, pi.test_id, safeBarcode, pi.status, pi.price, pi.cut_type || 'percentage', pi.test_cut]);
     }
 
-    // Form F & Reports
+    // PCPNDT forms & Reports
     const forms = await localClient.query('SELECT * FROM pcpndt_forms');
     for (const f of forms.rows) {
       if (!validCloudVisitIds.has(String(f.visit_id))) continue;
