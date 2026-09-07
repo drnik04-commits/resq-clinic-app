@@ -434,6 +434,7 @@ app.post('/api/auth/verify-centre', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Clinic Centres CRUD
 app.get('/api/centres', async (req, res) => {
   try {
     if (isDbConnected) {
@@ -444,10 +445,86 @@ app.get('/api/centres', async (req, res) => {
   res.status(200).json({ success: true, data: FALLBACK_CENTRES });
 });
 
+app.post('/api/centres', async (req, res) => {
+  try {
+    const { centreName, tagline, address, phone, regNo, email, centrePassword } = req.body;
+    if (!centreName || !centreName.trim()) {
+      return res.status(400).json({ success: false, error: 'Centre name is required.' });
+    }
+
+    if (isDbConnected) {
+      const result = await pool.query(
+        `INSERT INTO clinic_centres (centre_name, tagline, address, phone, reg_no, email, centre_password)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [centreName.trim(), tagline || '', address || '', phone || '', regNo || 'RC197', email || '', centrePassword || '1234']
+      );
+      return res.status(201).json({ success: true, data: result.rows[0] });
+    }
+
+    const newCentre = {
+      id: 'c' + Date.now(),
+      centre_name: centreName.trim(),
+      tagline: tagline || '',
+      address: address || '',
+      phone: phone || '',
+      reg_no: regNo || 'RC197',
+      email: email || '',
+      centre_password: centrePassword || '1234'
+    };
+    FALLBACK_CENTRES.push(newCentre);
+    res.status(201).json({ success: true, data: newCentre });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/centres/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    const { centreName, tagline, address, phone, regNo, email, centrePassword } = req.body;
+
+    if (isDbConnected) {
+      const result = await pool.query(
+        `UPDATE clinic_centres 
+         SET centre_name = $1, tagline = $2, address = $3, phone = $4, reg_no = $5, email = $6, centre_password = $7
+         WHERE id::text = $8::text RETURNING *`,
+        [centreName.trim(), tagline || '', address || '', phone || '', regNo || 'RC197', email || '', centrePassword || '1234', validId]
+      );
+      return res.status(200).json({ success: true, data: result.rows[0] });
+    }
+
+    const idx = FALLBACK_CENTRES.findIndex(c => String(c.id) === String(validId));
+    if (idx !== -1) {
+      FALLBACK_CENTRES[idx] = { 
+        ...FALLBACK_CENTRES[idx], 
+        centre_name: centreName, tagline, address, phone, reg_no: regNo, email, centre_password: centrePassword 
+      };
+    }
+    res.status(200).json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/centres/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    if (isDbConnected) {
+      await pool.query('DELETE FROM clinic_centres WHERE id::text = $1::text', [validId]);
+    }
+    const idx = FALLBACK_CENTRES.findIndex(c => String(c.id) === String(validId));
+    if (idx !== -1) FALLBACK_CENTRES.splice(idx, 1);
+    res.status(200).json({ success: true, message: 'Centre deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Patients CRUD with Global Search support
 app.get('/api/patients', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
-    const { search } = req.query;
+    const { search, global: isGlobal } = req.query;
 
     let query = `
       SELECT p.*,
@@ -462,7 +539,7 @@ app.get('/api/patients', async (req, res) => {
       WHERE 1=1
     `;
     let params = [];
-    if (centreId) {
+    if (centreId && isGlobal !== 'true' && (!search || !search.trim())) {
       params.push(String(centreId));
       query += ` AND (p.centre_id::text = $${params.length}::text OR p.id::text IN (SELECT patient_id::text FROM visits WHERE centre_id::text = $${params.length}::text))`;
     }
@@ -909,7 +986,7 @@ app.delete('/api/doctors/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Templates Engine: Merges DB with Disk Folder
+// Templates Engine: Merges DB with Disk Report_Templates folder
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     let dbTemplates = [];
@@ -981,7 +1058,6 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
   }
 });
 
-// Update Template Body / Impression / Title
 app.put('/api/imaging/templates/:name', async (req, res) => {
   try {
     const { title, templateBody, defaultImpression, category } = req.body;
@@ -1010,7 +1086,6 @@ app.put('/api/imaging/templates/:name', async (req, res) => {
   }
 });
 
-// Delete Template from DB and Disk
 app.delete('/api/imaging/templates/:name', async (req, res) => {
   try {
     const templateName = req.params.name;
@@ -1054,6 +1129,7 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Reports & Collections
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1249,7 +1325,7 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Cloud Sync with Exact Column-Value Matching on pcpndt_forms
+// Cloud Sync (Fixed 16-column pcpndt_forms statement)
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
 
@@ -1284,12 +1360,13 @@ app.post('/api/sync/cloud', async (req, res) => {
       CREATE TABLE IF NOT EXISTS imaging_reports (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, patient_id UUID, centre_id UUID, template_id UUID, template_name VARCHAR(255), report_text TEXT NOT NULL, impression TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
     `);
 
-    // Auth & Centres
+    // Auth
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
     if (auths.rows.length > 0) {
       await cloudClient.query(`INSERT INTO app_auth (id, role, password) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password`, [auths.rows[0].id, auths.rows[0].role, auths.rows[0].password]);
     }
 
+    // Centres
     const centres = await localClient.query('SELECT * FROM clinic_centres');
     for (const c of centres.rows) {
       await cloudClient.query(`
@@ -1392,7 +1469,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [pi.id, pi.visit_id, pi.test_id, safeBarcode, pi.status, pi.price, pi.cut_type || 'percentage', pi.test_cut]);
     }
 
-    // PCPNDT Forms (Matches 16 target columns to 16 input parameters)
+    // Form F (Exact 16 placeholders matching 16 columns)
     const forms = await localClient.query('SELECT * FROM pcpndt_forms');
     for (const f of forms.rows) {
       if (!validCloudVisitIds.has(String(f.visit_id))) continue;

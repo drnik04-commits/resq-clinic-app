@@ -31,7 +31,7 @@
         .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
         .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 4px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
         .card-title { font-size: 1.1rem; font-weight: 700; color: #1a365d; margin-bottom: 14px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
-        .search-row { display: flex; gap: 8px; margin-bottom: 14px; }
+        .search-row { display: flex; gap: 8px; margin-bottom: 14px; position: relative; }
         .search-row input { flex: 1; padding: 8px 12px; border: 1px solid #90caf9; border-radius: 4px; outline: none; }
         .btn-search { background-color: #00c853; color: white; border: none; padding: 8px 18px; border-radius: 4px; font-weight: bold; cursor: pointer; }
         .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -148,8 +148,9 @@
                 </div>
 
                 <div class="search-row">
-                    <input type="text" id="lookupSearch" placeholder="🔍 Quick Lookup Patient by Phone, Name, or ID...">
+                    <input type="text" id="lookupSearch" placeholder="🔍 Quick Lookup Patient by Phone, Name, or ID (Press Enter)..." onkeydown="if(event.key==='Enter') lookupPatient()">
                     <button type="button" class="btn-search" onclick="lookupPatient()">Search</button>
+                    <div id="patientLookupResultsBox" class="live-search-box"></div>
                 </div>
 
                 <div id="loadedPatientBanner" style="display: none; background: #e0f2fe; border: 1.5px solid #0284c7; padding: 10px 14px; border-radius: 4px; margin-bottom: 12px; justify-content: space-between; align-items: center;">
@@ -299,7 +300,6 @@
                     </div>
 
                     <div class="cw-split-grid">
-                        <!-- LEFT PANE: TEMPLATES LIST & ACTIONS -->
                         <div class="cw-left-pane">
                             <div class="cw-filter-box">
                                 <span>Filter Templates by :</span>
@@ -323,7 +323,6 @@
                             </div>
                         </div>
 
-                        <!-- RIGHT PANE: PATIENT BAR & FULL MANUAL TEXT EDITOR -->
                         <div class="cw-right-pane" style="padding: 10px; display:flex; flex-direction:column; gap:10px; background:#f8fafc;">
                             <div style="display:grid; grid-template-columns: 2fr 1fr 1fr 1fr 2fr; gap:8px; background:#e2ecf6; padding:8px 10px; border-radius:4px; border:1px solid #cbd5e1;">
                                 <div>
@@ -367,7 +366,6 @@
                         </div>
                     </div>
 
-                    <!-- Live Merged Preview Drawer -->
                     <div id="liveReportPreviewDrawer" style="display: none; background: #ffffff; border: 1.5px solid #64748b; border-radius: 4px; padding: 16px; margin-top: 12px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 10px;">
                             <strong style="color: #1e3a8a;">Merged Diagnostic Report Preview</strong>
@@ -653,26 +651,82 @@
         </div>
     </div>
 
-    <!-- MODAL 7: ADMIN SETTINGS -->
+    <!-- MODAL 7: ADMIN SETTINGS & MULTI-CENTRE MANAGER -->
     <div id="adminModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h3>⚙️ Admin Settings & Multi-Centre Manager</h3><button type="button" onclick="closeAdminModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
+        <div class="modal-content" style="max-width: 850px;">
+            <div class="modal-header">
+                <h3>⚙️ Admin Settings & Multi-Centre Manager</h3>
+                <button type="button" onclick="closeAdminModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
             <div id="adminAuthSection">
                 <div class="form-group"><label>Master Admin Password:</label><input type="password" id="adminPasswordInput" placeholder="Password (default: admin123)" onkeydown="if(event.key==='Enter') verifyAdmin()"></div>
                 <button type="button" class="btn-act btn-act-bills" style="margin-top: 10px; width: 100%; padding: 10px; justify-content: center;" onclick="verifyAdmin()">Login to Settings</button>
             </div>
             <div id="adminPanelSection" style="display: none;">
-                <div class="card" style="background: #fdf6ec; border: 1.5px solid #fed7aa; margin-bottom: 16px;">
+                <!-- 1. ADD / EDIT CENTRE FORM -->
+                <div class="card" style="background: #f0fdf4; border: 1.5px solid #86efac; margin-bottom: 16px;">
+                    <div class="card-title" id="centreFormTitle" style="color: #166534;">🏢 Add New Clinic Branch / Centre</div>
+                    <input type="hidden" id="editCentreId">
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label>Centre Name *:</label>
+                            <input type="text" id="centreNameInput" placeholder="e.g. RESQ HEART CLINIC (Branch 3)">
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Tagline / Subtitle:</label>
+                            <input type="text" id="centreTaglineInput" placeholder="e.g. Advanced Diagnostic Imaging & Cardiac Care">
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Full Address:</label>
+                            <input type="text" id="centreAddressInput" placeholder="Shop / Building, Road, Area, City">
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Phone / Mobile:</label>
+                            <input type="text" id="centrePhoneInput" placeholder="+91 8433838285">
+                        </div>
+                        <div class="form-group">
+                            <label>Statutory PCPNDT Reg No:</label>
+                            <input type="text" id="centreRegNoInput" value="RC197">
+                        </div>
+                        <div class="form-group">
+                            <label>Email ID:</label>
+                            <input type="email" id="centreEmailInput" placeholder="branch@resqclinic.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Branch PIN / Password (Default: 1234):</label>
+                            <input type="text" id="centrePinInput" value="1234">
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; gap: 8px;">
+                        <button type="button" class="btn-complete-reg" id="btnSaveCentre" style="max-width: 200px;" onclick="saveCentre()">Save Centre</button>
+                        <button type="button" class="btn-act btn-act-del" id="btnCancelCentreEdit" style="display: none;" onclick="cancelCentreEdit()">Cancel</button>
+                    </div>
+                </div>
+
+                <!-- 2. CONFIGURED CENTRES TABLE -->
+                <div class="card">
+                    <div class="card-title">Configured Clinic Centres</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Centre Name</th>
+                                <th>Contact / Reg No</th>
+                                <th>PIN</th>
+                                <th style="width: 150px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminCentresListBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- 3. MASTER PASSWORD UPDATE -->
+                <div class="card" style="background: #fdf6ec; border: 1.5px solid #fed7aa; margin-top: 16px;">
                     <div class="card-title" style="color: #9a3412;">🔐 Change Master Admin Password</div>
                     <div class="form-grid">
                         <div class="form-group"><label>Current Password:</label><input type="password" id="curAdminPass"></div>
                         <div class="form-group"><label>New Password:</label><input type="password" id="newAdminPass"></div>
                     </div>
                     <button type="button" class="btn-complete-reg" style="margin-top: 10px; background: #ea580c; max-width: 250px;" onclick="changeMasterAdminPassword()">Update Admin Password</button>
-                </div>
-                <div class="card">
-                    <div class="card-title">Configured Clinic Centres</div>
-                    <table><thead><tr><th>Centre Name</th><th>Contact / Reg No</th><th>PIN</th><th style="width: 140px;">Actions</th></tr></thead><tbody id="adminCentresListBody"></tbody></table>
                 </div>
             </div>
         </div>
@@ -698,7 +752,7 @@
                     </select>
                 </div>
                 <div class="form-group full-width">
-                    <label>Findings / Organ Values (Free Text):</label>
+                    <label>Findings / Observations Content (Free Text):</label>
                     <textarea id="editTmplBody" rows="10" style="font-family: Consolas, monospace; padding: 8px;"></textarea>
                 </div>
                 <div class="form-group full-width">
@@ -1245,17 +1299,105 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
 
         function renderAdminCentres() {
             const tbody = document.getElementById('adminCentresListBody');
+            if (!tbody) return;
             tbody.innerHTML = '';
             centresList.forEach(c => {
-                tbody.innerHTML += `<tr><td><strong>${escapeHtml(c.centre_name)}</strong></td><td>${c.phone || '-'} | Reg: ${c.reg_no || 'RC197'}</td><td><code>${c.centre_password || '1234'}</code></td><td><button type="button" class="btn-act btn-act-del" onclick="deleteCentre('${c.id}')">✕ Delete</button></td></tr>`;
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <strong>${escapeHtml(c.centre_name)}</strong>
+                            <br><small style="color:#64748b;">${escapeHtml(c.address || '')}</small>
+                        </td>
+                        <td>${c.phone || '-'}<br><small>Reg: ${c.reg_no || 'RC197'}</small></td>
+                        <td><code>${c.centre_password || '1234'}</code></td>
+                        <td>
+                            <button type="button" class="btn-act btn-act-edit" onclick="startEditCentre('${c.id}')">✏️ Edit</button>
+                            <button type="button" class="btn-act btn-act-del" onclick="deleteCentre('${c.id}')">✕ Delete</button>
+                        </td>
+                    </tr>
+                `;
             });
         }
 
+        function startEditCentre(id) {
+            const c = centresList.find(x => String(x.id) === String(id));
+            if (!c) return;
+            document.getElementById('editCentreId').value = String(c.id);
+            document.getElementById('centreNameInput').value = c.centre_name || '';
+            document.getElementById('centreTaglineInput').value = c.tagline || '';
+            document.getElementById('centreAddressInput').value = c.address || '';
+            document.getElementById('centrePhoneInput').value = c.phone || '';
+            document.getElementById('centreRegNoInput').value = c.reg_no || 'RC197';
+            document.getElementById('centreEmailInput').value = c.email || '';
+            document.getElementById('centrePinInput').value = c.centre_password || '1234';
+
+            document.getElementById('centreFormTitle').textContent = '✏️ Edit Clinic Branch / Centre';
+            document.getElementById('btnSaveCentre').textContent = 'Update Centre';
+            document.getElementById('btnCancelCentreEdit').style.display = 'inline-block';
+            document.getElementById('centreNameInput').focus();
+        }
+
+        function cancelCentreEdit() {
+            document.getElementById('editCentreId').value = '';
+            document.getElementById('centreNameInput').value = '';
+            document.getElementById('centreTaglineInput').value = '';
+            document.getElementById('centreAddressInput').value = '';
+            document.getElementById('centrePhoneInput').value = '';
+            document.getElementById('centreRegNoInput').value = 'RC197';
+            document.getElementById('centreEmailInput').value = '';
+            document.getElementById('centrePinInput').value = '1234';
+
+            document.getElementById('centreFormTitle').textContent = '🏢 Add New Clinic Branch / Centre';
+            document.getElementById('btnSaveCentre').textContent = 'Save Centre';
+            document.getElementById('btnCancelCentreEdit').style.display = 'none';
+        }
+
+        async function saveCentre() {
+            const editId = document.getElementById('editCentreId').value.trim();
+            const payload = {
+                centreName: document.getElementById('centreNameInput').value.trim(),
+                tagline: document.getElementById('centreTaglineInput').value.trim(),
+                address: document.getElementById('centreAddressInput').value.trim(),
+                phone: document.getElementById('centrePhoneInput').value.trim(),
+                regNo: document.getElementById('centreRegNoInput').value.trim() || 'RC197',
+                email: document.getElementById('centreEmailInput').value.trim(),
+                centrePassword: document.getElementById('centrePinInput').value.trim() || '1234'
+            };
+
+            if (!payload.centreName) return alert('Centre name is required.');
+
+            const url = editId ? `/api/centres/${editId}` : '/api/centres';
+            const method = editId ? 'PUT' : 'POST';
+
+            const res = await apiFetch(url, {
+                method: method,
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert(editId ? 'Centre updated successfully!' : 'New centre added successfully!');
+                cancelCentreEdit();
+                await loadCentres();
+                renderAdminCentres();
+            } else {
+                alert('Error saving centre: ' + json.error);
+            }
+        }
+
         async function deleteCentre(id) {
-            if (!confirm('Delete centre?')) return;
-            await apiFetch(`/api/centres/${id}`, { method: 'DELETE' });
-            await loadCentres();
-            renderAdminCentres();
+            if (centresList.length <= 1) {
+                return alert('You must have at least one active centre.');
+            }
+            if (!confirm('Are you sure you want to permanently delete this clinic centre?')) return;
+            const res = await apiFetch(`/api/centres/${id}`, { method: 'DELETE' });
+            const json = await res.json();
+            if (json.success) {
+                alert('Centre deleted.');
+                await loadCentres();
+                renderAdminCentres();
+            } else {
+                alert('Error: ' + json.error);
+            }
         }
 
         function togglePCPNDT(show) { document.getElementById('pcpndtFields').style.display = show ? 'block' : 'none'; }
@@ -1265,25 +1407,65 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             document.getElementById('pcpndtContainer').scrollIntoView({ behavior: 'smooth' });
         }
 
+        // Corrected Patient Search with Multi-match Dropdown
         async function lookupPatient() {
             const q = document.getElementById('lookupSearch').value.trim();
-            if (!q) return alert('Enter name or phone to search.');
-            const res = await apiFetch(`/api/patients?search=${encodeURIComponent(q)}`);
-            const json = await res.json();
-            if (json.success && json.data.length > 0) {
-                const p = json.data[0];
-                document.getElementById('existingPatientId').value = String(p.id);
-                document.getElementById('patientCode').value = p.patient_code || '';
-                document.getElementById('patientFullName').value = p.full_name || '';
-                document.getElementById('patientAge').value = p.age || '';
-                document.getElementById('patientGender').value = p.gender || 'Female';
-                document.getElementById('patientMobile').value = p.phone || '';
-                document.getElementById('patientEmail').value = p.email || '';
-                document.getElementById('patientAddress').value = p.address || '';
-                const banner = document.getElementById('loadedPatientBanner');
-                document.getElementById('loadedPatientTitle').textContent = `[${p.patient_code || 'ID'}] ${p.full_name} (${p.phone || ''})`;
-                banner.style.display = 'flex';
-            } else { alert('No patient found in this branch.'); }
+            const box = document.getElementById('patientLookupResultsBox');
+            box.style.display = 'none';
+            box.innerHTML = '';
+
+            if (!q) return alert('Enter name, phone, or patient ID to search.');
+
+            try {
+                const res = await apiFetch(`/api/patients?search=${encodeURIComponent(q)}&global=true`);
+                const json = await res.json();
+                const patients = json.data || [];
+
+                if (!patients.length) {
+                    return alert(`No patient found matching "${q}".`);
+                }
+
+                if (patients.length === 1) {
+                    populatePatientRegistrationForm(patients[0]);
+                } else {
+                    box.innerHTML = '';
+                    patients.forEach(p => {
+                        const item = document.createElement('div');
+                        item.className = 'live-search-item';
+                        item.innerHTML = `
+                            <div>
+                                <strong>${escapeHtml(p.full_name)}</strong> 
+                                <span style="font-size:0.75rem; color:#64748b;">[${p.patient_code || 'ID'}] - ${p.age || '0'} Yrs / ${p.gender || '-'}</span>
+                            </div>
+                            <div style="font-weight:bold; color:#0369a1;">📞 ${p.phone || '-'}</div>
+                        `;
+                        item.onclick = () => {
+                            populatePatientRegistrationForm(p);
+                            box.style.display = 'none';
+                        };
+                        box.appendChild(item);
+                    });
+                    box.style.display = 'block';
+                }
+            } catch (err) {
+                alert('Search error: ' + err.message);
+            }
+        }
+
+        function populatePatientRegistrationForm(p) {
+            document.getElementById('existingPatientId').value = String(p.id);
+            document.getElementById('patientCode').value = p.patient_code || '';
+            document.getElementById('patientFullName').value = p.full_name || '';
+            document.getElementById('patientAge').value = p.age || '';
+            document.getElementById('patientGender').value = p.gender || 'Female';
+            document.getElementById('patientMobile').value = p.phone || '';
+            document.getElementById('patientEmail').value = p.email || '';
+            document.getElementById('patientAddress').value = p.address || '';
+            const banner = document.getElementById('loadedPatientBanner');
+            document.getElementById('loadedPatientTitle').textContent = `[${p.patient_code || 'ID'}] ${p.full_name} (Phone: ${p.phone || 'N/A'})`;
+            banner.style.display = 'flex';
+            document.getElementById('lookupSearch').value = '';
+            document.getElementById('patientLookupResultsBox').style.display = 'none';
         }
 
         function clearPatientRegistrationForm() {
@@ -1295,6 +1477,7 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             document.getElementById('patientEmail').value = '';
             document.getElementById('patientAddress').value = '';
             document.getElementById('loadedPatientBanner').style.display = 'none';
+            document.getElementById('patientLookupResultsBox').style.display = 'none';
             applyDefaultDatesEverywhere();
         }
 
