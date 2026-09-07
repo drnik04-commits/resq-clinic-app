@@ -514,10 +514,12 @@ app.post('/api/auth/change-owner-password', async (req, res) => {
 app.get('/api/centres', async (req, res) => {
   try {
     if (isDbConnected) {
-      const result = await pool.query('SELECT id, centre_name, tagline, address, phone, reg_no, email, is_private, created_at FROM clinic_centres ORDER BY created_at ASC');
+      const result = await pool.query('SELECT * FROM clinic_centres ORDER BY created_at ASC');
       if (result.rows.length > 0) return res.status(200).json({ success: true, data: result.rows });
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error('Centres fetch error:', err.message);
+  }
   res.status(200).json({ success: true, data: FALLBACK_CENTRES });
 });
 
@@ -1689,4 +1691,4 @@ app.get('*', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   initDB();
-});
+});/centre
