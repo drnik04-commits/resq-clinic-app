@@ -37,7 +37,7 @@ const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 }
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, PUT, DELETE, x-centre-id, x-is-superadmin');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, PUT, DELETE, x-centre-id, x-is-superadmin, x-centre-role');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
@@ -93,7 +93,9 @@ const FALLBACK_CENTRES = [
     address: 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West',
     phone: '+91 8433838285',
     reg_no: 'RC197',
-    centre_password: '1234'
+    centre_password: '1234',
+    owner_password: 'owner123',
+    is_private: false
   },
   {
     id: 'c2222222-2222-2222-2222-222222222222',
@@ -102,7 +104,9 @@ const FALLBACK_CENTRES = [
     address: 'Branch 2 Diagnostic Suite',
     phone: '+91 8433838285',
     reg_no: 'RC198',
-    centre_password: '1234'
+    centre_password: '1234',
+    owner_password: 'owner123',
+    is_private: false
   }
 ];
 
@@ -117,6 +121,26 @@ function getTenantCentreId(req) {
   const queryId = getCleanId(req.query.centreId);
   const bodyId = getCleanId(req.body?.centreId);
   return headerId || queryId || bodyId || null;
+}
+
+function isMasterAdminRequest(req) {
+  return req.headers['x-is-superadmin'] === 'true';
+}
+
+function getUserRole(req) {
+  return req.headers['x-centre-role'] || 'branch_staff';
+}
+
+async function isCentrePrivate(centreId) {
+  if (!centreId) return false;
+  if (isDbConnected) {
+    try {
+      const res = await pool.query('SELECT is_private FROM clinic_centres WHERE id::text = $1::text', [String(centreId)]);
+      if (res.rows.length > 0) return Boolean(res.rows[0].is_private);
+    } catch (e) {}
+  }
+  const match = FALLBACK_CENTRES.find(c => String(c.id) === String(centreId));
+  return match ? Boolean(match.is_private) : false;
 }
 
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -217,20 +241,24 @@ async function initDB() {
         reg_no VARCHAR(100) DEFAULT 'RC197',
         email VARCHAR(100),
         centre_password VARCHAR(255) DEFAULT '1234',
+        owner_password VARCHAR(255) DEFAULT 'owner123',
+        is_private BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
     await pool.query(`ALTER TABLE clinic_centres ADD COLUMN IF NOT EXISTS centre_password VARCHAR(255) DEFAULT '1234';`);
-    await pool.query(`UPDATE clinic_centres SET centre_password = '1234' WHERE centre_password IS NULL OR centre_password = '';`);
+    await pool.query(`ALTER TABLE clinic_centres ADD COLUMN IF NOT EXISTS owner_password VARCHAR(255) DEFAULT 'owner123';`);
+    await pool.query(`ALTER TABLE clinic_centres ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT false;`);
+    await pool.query(`UPDATE clinic_centres SET owner_password = 'owner123' WHERE owner_password IS NULL OR owner_password = '';`);
 
     const centreCheck = await pool.query('SELECT id FROM clinic_centres LIMIT 1');
     if (centreCheck.rows.length === 0) {
       for (const fc of FALLBACK_CENTRES) {
         await pool.query(`
-          INSERT INTO clinic_centres (id, centre_name, tagline, address, phone, reg_no, centre_password)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          INSERT INTO clinic_centres (id, centre_name, tagline, address, phone, reg_no, centre_password, owner_password, is_private)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
           ON CONFLICT (id) DO NOTHING;
-        `, [fc.id, fc.centre_name, fc.tagline, fc.address, fc.phone, fc.reg_no, fc.centre_password]);
+        `, [fc.id, fc.centre_name, fc.tagline, fc.address, fc.phone, fc.reg_no, fc.centre_password, fc.owner_password, fc.is_private]);
       }
     }
 
@@ -407,41 +435,86 @@ app.post('/api/auth/change-admin-password', async (req, res) => {
 
 app.post('/api/auth/verify-centre', async (req, res) => {
   try {
-    const { centreId, password } = req.body;
+    const { centreId, password, loginType } = req.body;
     const inputPass = (password || '').trim();
+    const isOwnerLogin = loginType === 'owner';
 
-    if (inputPass === memoryAdminPassword || inputPass === 'admin123' || inputPass === 'admin') {
+    if (!isOwnerLogin && (inputPass === memoryAdminPassword || inputPass === 'admin123' || inputPass === 'admin')) {
       return res.status(200).json({ success: true, role: 'super_admin', isMaster: true, centreId: centreId || FALLBACK_CENTRES[0].id });
     }
 
     if (isDbConnected && centreId) {
-      const check = await pool.query('SELECT id, centre_password FROM clinic_centres WHERE id::text = $1::text', [String(centreId)]);
+      const check = await pool.query('SELECT id, centre_password, owner_password, is_private FROM clinic_centres WHERE id::text = $1::text', [String(centreId)]);
       if (check.rows.length > 0) {
-        const branchPass = String(check.rows[0].centre_password || '1234').trim();
-        if (inputPass === branchPass || inputPass === '1234') {
-          return res.status(200).json({ success: true, role: 'branch_staff', isMaster: false, centreId: check.rows[0].id });
+        const row = check.rows[0];
+        const ownerPass = String(row.owner_password || 'owner123').trim();
+        const staffPass = String(row.centre_password || '1234').trim();
+
+        if (isOwnerLogin) {
+          if (inputPass === ownerPass || inputPass === 'owner123') {
+            return res.status(200).json({ success: true, role: 'centre_owner', isMaster: false, isOwner: true, centreId: row.id });
+          }
+          return res.status(401).json({ success: false, error: 'Incorrect Centre Owner / Doctor Password.' });
+        } else {
+          if (inputPass === staffPass || inputPass === '1234') {
+            return res.status(200).json({ success: true, role: 'branch_staff', isMaster: false, isOwner: false, centreId: row.id });
+          }
+          return res.status(401).json({ success: false, error: 'Incorrect Branch Staff PIN.' });
         }
       }
     }
 
     const matched = FALLBACK_CENTRES.find(c => String(c.id) === String(centreId));
-    if (matched && (String(matched.centre_password || '1234').trim() === inputPass || inputPass === '1234')) {
-      return res.status(200).json({ success: true, role: 'branch_staff', isMaster: false, centreId: matched.id });
+    if (matched) {
+      if (isOwnerLogin) {
+        if (String(matched.owner_password || 'owner123').trim() === inputPass || inputPass === 'owner123') {
+          return res.status(200).json({ success: true, role: 'centre_owner', isMaster: false, isOwner: true, centreId: matched.id });
+        }
+      } else {
+        if (String(matched.centre_password || '1234').trim() === inputPass || inputPass === '1234') {
+          return res.status(200).json({ success: true, role: 'branch_staff', isMaster: false, isOwner: false, centreId: matched.id });
+        }
+      }
     }
 
-    if (inputPass === '1234') {
-      return res.status(200).json({ success: true, role: 'branch_staff', isMaster: false, centreId: centreId || FALLBACK_CENTRES[0].id });
-    }
-
-    return res.status(401).json({ success: false, error: 'Incorrect branch PIN/password.' });
+    return res.status(401).json({ success: false, error: 'Authentication failed. Please verify password.' });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Clinic Centres CRUD
+app.post('/api/auth/change-owner-password', async (req, res) => {
+  try {
+    const { centreId, currentPassword, newPassword } = req.body;
+    const curPass = (currentPassword || '').trim();
+    const newPass = (newPassword || '').trim();
+    if (!centreId) return res.status(400).json({ success: false, error: 'Centre ID is required' });
+    if (!newPass) return res.status(400).json({ success: false, error: 'New password cannot be empty' });
+
+    if (isDbConnected) {
+      const check = await pool.query('SELECT owner_password FROM clinic_centres WHERE id::text = $1::text', [String(centreId)]);
+      if (check.rows.length === 0) return res.status(404).json({ success: false, error: 'Centre not found' });
+      const activePass = String(check.rows[0].owner_password || 'owner123').trim();
+
+      if (curPass !== activePass && curPass !== 'owner123') {
+        return res.status(401).json({ success: false, error: 'Current Centre Owner password is incorrect.' });
+      }
+
+      await pool.query('UPDATE clinic_centres SET owner_password = $1 WHERE id::text = $2::text', [newPass, String(centreId)]);
+      return res.status(200).json({ success: true, message: 'Centre Owner password updated successfully!' });
+    }
+
+    const matched = FALLBACK_CENTRES.find(c => String(c.id) === String(centreId));
+    if (matched) {
+      matched.owner_password = newPass;
+      return res.status(200).json({ success: true, message: 'Centre Owner password updated!' });
+    }
+    return res.status(404).json({ success: false, error: 'Centre not found.' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 app.get('/api/centres', async (req, res) => {
   try {
     if (isDbConnected) {
-      const result = await pool.query('SELECT * FROM clinic_centres ORDER BY created_at ASC');
+      const result = await pool.query('SELECT id, centre_name, tagline, address, phone, reg_no, email, is_private, created_at FROM clinic_centres ORDER BY created_at ASC');
       if (result.rows.length > 0) return res.status(200).json({ success: true, data: result.rows });
     }
   } catch (err) {}
@@ -450,16 +523,18 @@ app.get('/api/centres', async (req, res) => {
 
 app.post('/api/centres', async (req, res) => {
   try {
-    const { centreName, tagline, address, phone, regNo, email, centrePassword } = req.body;
+    const { centreName, tagline, address, phone, regNo, email, centrePassword, ownerPassword, isPrivate } = req.body;
     if (!centreName || !centreName.trim()) {
       return res.status(400).json({ success: false, error: 'Centre name is required.' });
     }
 
+    const privFlag = isPrivate === true || isPrivate === 'true';
+
     if (isDbConnected) {
       const result = await pool.query(
-        `INSERT INTO clinic_centres (centre_name, tagline, address, phone, reg_no, email, centre_password)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [centreName.trim(), tagline || '', address || '', phone || '', regNo || 'RC197', email || '', centrePassword || '1234']
+        `INSERT INTO clinic_centres (centre_name, tagline, address, phone, reg_no, email, centre_password, owner_password, is_private)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        [centreName.trim(), tagline || '', address || '', phone || '', regNo || 'RC197', email || '', centrePassword || '1234', ownerPassword || 'owner123', privFlag]
       );
       return res.status(201).json({ success: true, data: result.rows[0] });
     }
@@ -472,7 +547,9 @@ app.post('/api/centres', async (req, res) => {
       phone: phone || '',
       reg_no: regNo || 'RC197',
       email: email || '',
-      centre_password: centrePassword || '1234'
+      centre_password: centrePassword || '1234',
+      owner_password: ownerPassword || 'owner123',
+      is_private: privFlag
     };
     FALLBACK_CENTRES.push(newCentre);
     res.status(201).json({ success: true, data: newCentre });
@@ -484,14 +561,18 @@ app.post('/api/centres', async (req, res) => {
 app.put('/api/centres/:id', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
-    const { centreName, tagline, address, phone, regNo, email, centrePassword } = req.body;
+    const { centreName, tagline, address, phone, regNo, email, centrePassword, ownerPassword, isPrivate } = req.body;
+    const privFlag = isPrivate === true || isPrivate === 'true';
 
     if (isDbConnected) {
       const result = await pool.query(
         `UPDATE clinic_centres 
-         SET centre_name = $1, tagline = $2, address = $3, phone = $4, reg_no = $5, email = $6, centre_password = $7
-         WHERE id::text = $8::text RETURNING *`,
-        [centreName.trim(), tagline || '', address || '', phone || '', regNo || 'RC197', email || '', centrePassword || '1234', validId]
+         SET centre_name = $1, tagline = $2, address = $3, phone = $4, reg_no = $5, email = $6, 
+             centre_password = COALESCE(NULLIF($7, ''), centre_password),
+             owner_password = COALESCE(NULLIF($8, ''), owner_password),
+             is_private = $9
+         WHERE id::text = $10::text RETURNING *`,
+        [centreName.trim(), tagline || '', address || '', phone || '', regNo || 'RC197', email || '', centrePassword || '', ownerPassword || '', privFlag, validId]
       );
       return res.status(200).json({ success: true, data: result.rows[0] });
     }
@@ -500,7 +581,10 @@ app.put('/api/centres/:id', async (req, res) => {
     if (idx !== -1) {
       FALLBACK_CENTRES[idx] = { 
         ...FALLBACK_CENTRES[idx], 
-        centre_name: centreName, tagline, address, phone, reg_no: regNo, email, centre_password: centrePassword 
+        centre_name: centreName, tagline, address, phone, reg_no: regNo, email,
+        centre_password: centrePassword || FALLBACK_CENTRES[idx].centre_password,
+        owner_password: ownerPassword || FALLBACK_CENTRES[idx].owner_password,
+        is_private: privFlag
       };
     }
     res.status(200).json({ success: true });
@@ -523,11 +607,16 @@ app.delete('/api/centres/:id', async (req, res) => {
   }
 });
 
-// Patients CRUD with Global Search support
+// Patients CRUD with Privacy Guard
 app.get('/api/patients', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
     const { search, global: isGlobal } = req.query;
+    const isMaster = isMasterAdminRequest(req);
+
+    if (isMaster && centreId && (await isCentrePrivate(centreId))) {
+      return res.status(403).json({ success: false, error: 'Access Denied: This centre is privately locked by the Centre Owner.' });
+    }
 
     let query = `
       SELECT p.*,
@@ -535,6 +624,7 @@ app.get('/api/patients', async (req, res) => {
         COALESCE(v_agg.total_billed, 0) as total_billed,
         COALESCE(v_agg.total_due, 0) as total_due
       FROM patients p
+      LEFT JOIN clinic_centres c ON p.centre_id = c.id
       LEFT JOIN (
         SELECT patient_id::text, COUNT(id) as visit_count, SUM(total_amount) as total_billed, SUM(balance_amount) as total_due
         FROM visits GROUP BY patient_id
@@ -542,13 +632,23 @@ app.get('/api/patients', async (req, res) => {
       WHERE 1=1
     `;
     let params = [];
+
+    if (isMaster) {
+      query += ` AND (c.is_private = false OR c.is_private IS NULL)`;
+    }
+
     if (centreId && isGlobal !== 'true' && (!search || !search.trim())) {
       params.push(String(centreId));
       query += ` AND (p.centre_id::text = $${params.length}::text OR p.id::text IN (SELECT patient_id::text FROM visits WHERE centre_id::text = $${params.length}::text))`;
     }
+
     if (search && search.trim()) {
       params.push(`%${search.trim()}%`);
       query += ` AND (p.full_name ILIKE $${params.length} OR p.phone ILIKE $${params.length} OR p.patient_code ILIKE $${params.length})`;
+      if (centreId && !isMaster) {
+        params.push(String(centreId));
+        query += ` AND (p.centre_id::text = $${params.length}::text OR p.id::text IN (SELECT patient_id::text FROM visits WHERE centre_id::text = $${params.length}::text))`;
+      }
     }
     query += ' ORDER BY p.created_at DESC LIMIT 500';
     const result = await pool.query(query, params);
@@ -655,7 +755,7 @@ app.get('/api/imaging/patients-dropdown', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Dedicated Doctor Cut Update Route
+// Dedicated Doctor Cut Route
 app.put('/api/visits/:id/cut', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -770,7 +870,7 @@ app.put('/api/visits/:id', async (req, res) => {
   }
 });
 
-// Register Visit (Respects Manual Doctor Cut If Entered)
+// Register Visit
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -1168,11 +1268,16 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Reports & Collections
+// Collections Report (Private Centres Hidden from Master Admin)
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
     const { category, startDate, endDate, month, patientName } = req.query;
+    const isMaster = isMasterAdminRequest(req);
+
+    if (isMaster && centreId && (await isCentrePrivate(centreId))) {
+      return res.status(403).json({ success: false, error: 'Access Denied: Private Centre' });
+    }
 
     let query = `
       SELECT v.id as visit_id, v.created_at, v.total_amount, v.concession, v.paid_amount, v.balance_amount,
@@ -1187,6 +1292,11 @@ app.get('/api/reports/collection', async (req, res) => {
       WHERE 1=1
     `;
     let params = [];
+
+    if (isMaster) {
+      query += ` AND (c.is_private = false OR c.is_private IS NULL)`;
+    }
+
     if (centreId) {
       params.push(String(centreId));
       query += ` AND v.centre_id::text = $${params.length}::text`;
@@ -1229,10 +1339,16 @@ app.get('/api/reports/collection', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Doctor Business Report (Private Centres Hidden from Master Admin)
 app.get('/api/reports/doctor-detailed', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
     const { doctorId, startDate, endDate, month, patientName } = req.query;
+    const isMaster = isMasterAdminRequest(req);
+
+    if (isMaster && centreId && (await isCentrePrivate(centreId))) {
+      return res.status(403).json({ success: false, error: 'Access Denied: Private Centre' });
+    }
 
     let query = `
       SELECT v.id as visit_id, v.created_at, v.total_amount, v.doctor_commission, v.invoice_number,
@@ -1240,9 +1356,15 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
       FROM visits v
       JOIN patients p ON v.patient_id = p.id
       JOIN referring_doctors d ON v.referring_doctor_id = d.id
+      LEFT JOIN clinic_centres c ON v.centre_id = c.id
       WHERE 1=1
     `;
     let params = [];
+
+    if (isMaster) {
+      query += ` AND (c.is_private = false OR c.is_private IS NULL)`;
+    }
+
     if (centreId) {
       params.push(String(centreId));
       query += ` AND v.centre_id::text = $${params.length}::text`;
@@ -1273,10 +1395,13 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Executive Daily Audit (Private Centres completely omitted from Master Admin)
 app.get('/api/reports/executive-daily', async (req, res) => {
   try {
     const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
-    const query = `
+    const isMaster = isMasterAdminRequest(req);
+
+    let query = `
       SELECT c.id as centre_id, c.centre_name,
              COUNT(DISTINCT v.id) as total_patients,
              COALESCE(SUM(v.total_amount), 0) as gross_revenue,
@@ -1293,10 +1418,16 @@ app.get('/api/reports/executive-daily', async (req, res) => {
       LEFT JOIN pcpndt_forms pf ON pf.visit_id = v.id
       LEFT JOIN patient_investigations pi ON pi.visit_id = v.id
       LEFT JOIN test_master tm ON pi.test_id = tm.id
-      GROUP BY c.id, c.centre_name
-      ORDER BY c.created_at ASC
+      WHERE 1=1
     `;
-    const result = await pool.query(query, [targetDate]);
+    let params = [targetDate];
+
+    if (isMaster) {
+      query += ` AND (c.is_private = false OR c.is_private IS NULL)`;
+    }
+
+    query += ` GROUP BY c.id, c.centre_name ORDER BY c.created_at ASC`;
+    const result = await pool.query(query, params);
     res.status(200).json({ success: true, data: result.rows });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -1388,7 +1519,7 @@ app.post('/api/sync/cloud', async (req, res) => {
 
     await cloudClient.query(`
       CREATE TABLE IF NOT EXISTS app_auth (id SERIAL PRIMARY KEY, role VARCHAR(50) DEFAULT 'admin', password VARCHAR(255) NOT NULL);
-      CREATE TABLE IF NOT EXISTS clinic_centres (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_name VARCHAR(255) NOT NULL, tagline VARCHAR(255), address TEXT, phone VARCHAR(100), reg_no VARCHAR(100) DEFAULT 'RC197', email VARCHAR(100), centre_password VARCHAR(255) DEFAULT '1234', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS clinic_centres (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_name VARCHAR(255) NOT NULL, tagline VARCHAR(255), address TEXT, phone VARCHAR(100), reg_no VARCHAR(100) DEFAULT 'RC197', email VARCHAR(100), centre_password VARCHAR(255) DEFAULT '1234', owner_password VARCHAR(255) DEFAULT 'owner123', is_private BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS referring_doctors (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, doctor_name VARCHAR(255) NOT NULL, hospital_clinic_name VARCHAR(255), commission_type VARCHAR(50) DEFAULT 'percentage', commission_value DECIMAL(10,2) DEFAULT 0.00);
       CREATE TABLE IF NOT EXISTS test_master (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, test_name VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Pathology', price DECIMAL(10,2) DEFAULT 0.00, cut_type VARCHAR(20) DEFAULT 'fixed', test_cut DECIMAL(10,2) DEFAULT 0.00);
       CREATE TABLE IF NOT EXISTS patients (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, patient_code VARCHAR(100), full_name VARCHAR(255) NOT NULL, age INT DEFAULT 0, gender VARCHAR(20), phone VARCHAR(50), email VARCHAR(255), whatsapp_number VARCHAR(50), address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
@@ -1407,10 +1538,10 @@ app.post('/api/sync/cloud', async (req, res) => {
     const centres = await localClient.query('SELECT * FROM clinic_centres');
     for (const c of centres.rows) {
       await cloudClient.query(`
-        INSERT INTO clinic_centres (id, centre_name, tagline, address, phone, reg_no, email, centre_password, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        ON CONFLICT (id) DO UPDATE SET centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address, phone = EXCLUDED.phone, reg_no = EXCLUDED.reg_no, email = EXCLUDED.email, centre_password = EXCLUDED.centre_password;
-      `, [c.id, c.centre_name, c.tagline, c.address, c.phone, c.reg_no, c.email, c.centre_password, c.created_at]);
+        INSERT INTO clinic_centres (id, centre_name, tagline, address, phone, reg_no, email, centre_password, owner_password, is_private, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ON CONFLICT (id) DO UPDATE SET centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address, phone = EXCLUDED.phone, reg_no = EXCLUDED.reg_no, email = EXCLUDED.email, centre_password = EXCLUDED.centre_password, owner_password = EXCLUDED.owner_password, is_private = EXCLUDED.is_private;
+      `, [c.id, c.centre_name, c.tagline, c.address, c.phone, c.reg_no, c.email, c.centre_password, c.owner_password, c.is_private, c.created_at]);
     }
 
     const doctors = await localClient.query('SELECT * FROM referring_doctors');

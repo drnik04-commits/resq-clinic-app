@@ -14,14 +14,15 @@
         body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
         #dbStatusBanner { display: none; background: #fee2e2; color: #991b1b; padding: 8px 16px; font-size: 0.85rem; font-weight: bold; border-bottom: 1px solid #f87171; text-align: center; }
         #appLockScreen { position: fixed; inset: 0; background: #123352; z-index: 99999; display: flex; justify-content: center; align-items: center; }
-        .lock-box { background: white; padding: 30px; border-radius: 6px; width: 90%; max-width: 380px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .lock-box input, .lock-box select { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 12px; outline: none; }
+        .lock-box { background: white; padding: 30px; border-radius: 6px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .lock-box input, .lock-box select { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 12px; outline: none; font-size: 0.9rem; }
         header { background-color: var(--primary); color: #ffffff; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
         .centre-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .centre-nav select { padding: 6px 10px; border-radius: 4px; border: none; font-weight: bold; background: #fff; color: var(--primary-dark); cursor: pointer; }
         .btn-sync-cloud { background-color: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.82rem; font-weight: bold; cursor: pointer; }
         .btn-gov-portal { background-color: #d97706; color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.82rem; font-weight: bold; }
         .btn-settings { background: #008080; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; font-weight: bold; }
+        .role-badge { padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; font-weight: bold; }
         .tab-nav { background-color: #bbdefb; display: flex; padding: 4px 16px 0; gap: 4px; border-bottom: 2px solid #90caf9; overflow-x: auto; }
         .tab-btn { background-color: var(--tab-inactive); color: #0d47a1; border: none; padding: 10px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border-radius: 4px 4px 0 0; white-space: nowrap; }
         .tab-btn.active { background-color: var(--tab-active); color: #ffffff; }
@@ -81,7 +82,6 @@
         .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 20px; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 14px; }
 
-        /* Exact Letterhead (55mm) Margin Formatting */
         @media print {
             body * { visibility: hidden; }
             #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc *, #liveReportPreviewDrawer, #liveReportPreviewDrawer * { visibility: visible; }
@@ -100,22 +100,36 @@
 
     <div id="dbStatusBanner">⚠️ Database Notice: Running in Local Offline Mode.</div>
 
+    <!-- LOCK SCREEN WITH MULTI-ROLE SELECTOR -->
     <div id="appLockScreen">
         <div class="lock-box">
             <h2>RESQ CLINIC SYSTEM</h2>
-            <p>Select clinic centre and enter PIN / password</p>
-            <select id="lockCentreSelect" style="margin-bottom:12px;">
+            <p style="font-size:0.85rem; color:#475569; margin:4px 0 12px;">Secure Multi-Tenant Healthcare Workspace</p>
+            
+            <label style="font-size:0.75rem; font-weight:bold; color:#1e3a8a; text-align:left; display:block; margin-bottom:2px;">Select Centre:</label>
+            <select id="lockCentreSelect">
                 <option value="c1111111-1111-1111-1111-111111111111">RESQ HEART CLINIC (Kandivali West)</option>
                 <option value="c2222222-2222-2222-2222-222222222222">RESQ DIAGNOSTIC (Branch 2)</option>
             </select>
-            <input type="password" id="lockInput" placeholder="PIN (default: 1234)" onkeydown="if(event.key==='Enter') unlockApp()">
+
+            <label style="font-size:0.75rem; font-weight:bold; color:#1e3a8a; text-align:left; display:block; margin-bottom:2px;">Login Role:</label>
+            <select id="lockRoleSelect" onchange="onLockRoleChanged(this.value)">
+                <option value="owner">👨‍⚕️ Centre Owner (Doctor Private Master)</option>
+                <option value="staff" selected>🏥 Branch Staff (Daily Counter Access)</option>
+                <option value="admin">⚙️ Master System Admin</option>
+            </select>
+
+            <input type="password" id="lockInput" placeholder="Password / PIN (default staff: 1234)" onkeydown="if(event.key==='Enter') unlockApp()">
             <button type="button" class="btn-complete-reg" style="width: 100%; padding: 10px;" onclick="unlockApp()">Unlock Workspace</button>
         </div>
     </div>
 
     <header>
         <div>
-            <h1 id="topCentreTitle">RESQ HEART CLINIC AND IMAGING CENTRE</h1>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <h1 id="topCentreTitle" style="display:inline-block;">RESQ HEART CLINIC AND IMAGING CENTRE</h1>
+                <span id="userRoleBadge" class="role-badge" style="background:#0284c7; color:white;">Staff Mode</span>
+            </div>
             <p id="topCentreTagline">Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging</p>
         </div>
         <div class="centre-nav">
@@ -220,6 +234,7 @@
                         <div>Gross Subtotal: <span id="dispGross">₹0.00</span></div>
                         <div>Concession / Discount: <span id="dispDiscount">- ₹0.00</span></div>
                         <div>Net Payable Amount: <span id="dispNet" style="color:#00897b;">₹0.00</span></div>
+                        <div>Doctor Referral Cut: <span id="dispDocCut" style="color:#7c3aed;">₹0.00</span></div>
                         <div>Balance Due: <span id="dispBalance" style="color:#d84315;">₹0.00</span></div>
                     </div>
                 </div>
@@ -227,6 +242,7 @@
                 <div class="form-grid" style="margin-top: 15px; border-top: 1px solid #edf2f7; padding-top: 14px;">
                     <div class="form-group full-width"><label>Attach Report / Document (PDF/Word):</label><input type="file" id="reportFileInput" accept=".pdf,.doc,.docx"></div>
                     <div class="form-group"><label>Concession / Discount (₹):</label><input type="number" id="inputDiscount" value="0" oninput="calculateFinancialTotals()"></div>
+                    <div class="form-group"><label>Doctor Referral Cut Override (₹):</label><input type="number" id="inputDoctorCut" placeholder="Auto-calculated (Type to override)" oninput="recalcDisplayTotalsOnly()"></div>
                     <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="inputPaid" value="0" oninput="calculateFinancialTotals()"></div>
                     <div class="form-group"><label>Payment Mode:</label><select id="inputPaymentMode"><option value="Cash">Cash</option><option value="Online / UPI">Online / UPI</option><option value="Card">Card</option></select></div>
                 </div>
@@ -619,7 +635,7 @@
         </div>
     </div>
 
-    <!-- MODAL 6: EDIT BILL -->
+    <!-- MODAL 6: EDIT BILL (WITH MANUAL REFERRAL CUT INPUT) -->
     <div id="editBillModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3>Edit Bill & Rate Details</h3><button type="button" onclick="closeEditBillModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
@@ -644,6 +660,7 @@
             </div>
             <div class="form-grid">
                 <div class="form-group"><label>Concession (₹):</label><input type="number" id="editBillDisc" oninput="recalcEditBillTotals()"></div>
+                <div class="form-group"><label>Doctor Referral Cut Override (₹):</label><input type="number" id="editBillDocCut" placeholder="Doctor cut amount"></div>
                 <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="editBillPaid" oninput="recalcEditBillTotals()"></div>
                 <div class="form-group"><label>Payment Mode:</label><select id="editBillPaymentMode"><option value="Cash">Cash</option><option value="Online / UPI">Online / UPI</option><option value="Card">Card</option></select></div>
             </div>
@@ -693,8 +710,18 @@
                             <input type="email" id="centreEmailInput" placeholder="branch@resqclinic.com">
                         </div>
                         <div class="form-group">
-                            <label>Branch PIN / Password (Default: 1234):</label>
+                            <label>Branch Staff PIN / Password (Default: 1234):</label>
                             <input type="text" id="centrePinInput" value="1234">
+                        </div>
+                        <div class="form-group">
+                            <label>Centre Owner / Doctor Password (Default: owner123):</label>
+                            <input type="text" id="centreOwnerPassInput" value="owner123">
+                        </div>
+                        <div class="form-group full-width">
+                            <label style="display:flex; align-items:center; gap:8px; font-weight:bold; color:#1e3a8a; cursor:pointer;">
+                                <input type="checkbox" id="centreIsPrivateCheck" checked>
+                                🔒 Lock as Private Centre (Hides all financial, cut & patient data from Master Admin)
+                            </label>
                         </div>
                     </div>
                     <div style="margin-top: 12px; display: flex; gap: 8px;">
@@ -711,7 +738,7 @@
                             <tr>
                                 <th>Centre Name</th>
                                 <th>Contact / Reg No</th>
-                                <th>PIN</th>
+                                <th>Privacy Status</th>
                                 <th style="width: 150px;">Actions</th>
                             </tr>
                         </thead>
@@ -719,7 +746,17 @@
                     </table>
                 </div>
 
-                <!-- 3. MASTER PASSWORD UPDATE -->
+                <!-- 3. CENTRE OWNER PASSWORD CHANGE -->
+                <div class="card" style="background: #f0f9ff; border: 1.5px solid #bae6fd; margin-top: 16px;">
+                    <div class="card-title" style="color: #0369a1;">👨‍⚕️ Change Active Centre Owner Password</div>
+                    <div class="form-grid">
+                        <div class="form-group"><label>Current Owner Password:</label><input type="password" id="curOwnerPass"></div>
+                        <div class="form-group"><label>New Owner Password:</label><input type="password" id="newOwnerPass"></div>
+                    </div>
+                    <button type="button" class="btn-complete-reg" style="margin-top: 10px; background: #0284c7; max-width: 250px;" onclick="changeCentreOwnerPassword()">Update Owner Password</button>
+                </div>
+
+                <!-- 4. MASTER PASSWORD UPDATE -->
                 <div class="card" style="background: #fdf6ec; border: 1.5px solid #fed7aa; margin-top: 16px;">
                     <div class="card-title" style="color: #9a3412;">🔐 Change Master Admin Password</div>
                     <div class="form-grid">
@@ -905,13 +942,13 @@
     <!-- CLIENT SCRIPT -->
     <script>
         const FALLBACK_CENTRES_CLIENT = [
-            { id: 'c1111111-1111-1111-1111-111111111111', centre_name: 'RESQ HEART CLINIC (Kandivali West)', tagline: 'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging', address: 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West', phone: '+91 8433838285', reg_no: 'RC197', centre_password: '1234' },
-            { id: 'c2222222-2222-2222-2222-222222222222', centre_name: 'RESQ DIAGNOSTIC (Branch 2)', tagline: 'Multi-Speciality Diagnostic Imaging Services', address: 'Branch 2 Diagnostic Suite', phone: '+91 8433838285', reg_no: 'RC198', centre_password: '1234' }
+            { id: 'c1111111-1111-1111-1111-111111111111', centre_name: 'RESQ HEART CLINIC (Kandivali West)', tagline: 'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging', address: 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West', phone: '+91 8433838285', reg_no: 'RC197', centre_password: '1234', owner_password: 'owner123', is_private: false },
+            { id: 'c2222222-2222-2222-2222-222222222222', centre_name: 'RESQ DIAGNOSTIC (Branch 2)', tagline: 'Multi-Speciality Diagnostic Imaging Services', address: 'Branch 2 Diagnostic Suite', phone: '+91 8433838285', reg_no: 'RC198', centre_password: '1234', owner_password: 'owner123', is_private: false }
         ];
 
         let testsList = [], doctorsList = [], centresList = [...FALLBACK_CENTRES_CLIENT], selectedBillTests = [];
         let activeCentre = FALLBACK_CENTRES_CLIENT[0], currentSelectedTemplate = null, currentSelectedVisit = null, dropdownPatientsList = [];
-        let isSuperAdmin = false, activeEditingBillTests = [];
+        let isSuperAdmin = false, isCentreOwner = false, currentUserRole = 'branch_staff', activeEditingBillTests = [];
 
         let desktopTemplateCatalog = [
             {
@@ -1083,6 +1120,7 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             if (!(options.body instanceof FormData)) options.headers['Content-Type'] = 'application/json';
             if (activeCentre?.id) options.headers['x-centre-id'] = String(activeCentre.id);
             if (isSuperAdmin) options.headers['x-is-superadmin'] = 'true';
+            options.headers['x-centre-role'] = currentUserRole;
             return fetch(url, options);
         }
 
@@ -1139,7 +1177,7 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
                     centresList.forEach(c => {
                         const opt = document.createElement('option');
                         opt.value = String(c.id);
-                        opt.textContent = c.centre_name;
+                        opt.textContent = c.centre_name + (c.is_private ? ' 🔒 (Private)' : '');
                         lockSel.appendChild(opt);
 
                         const opt2 = document.createElement('option');
@@ -1164,19 +1202,46 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             if (sel) sel.value = String(activeCentre.id);
         }
 
+        function onLockRoleChanged(role) {
+            const input = document.getElementById('lockInput');
+            if (role === 'owner') {
+                input.placeholder = 'Owner Password (default: owner123)';
+            } else if (role === 'admin') {
+                input.placeholder = 'Master Admin Password (default: admin123)';
+            } else {
+                input.placeholder = 'Staff PIN (default: 1234)';
+            }
+        }
+
         async function unlockApp() {
             const centreId = document.getElementById('lockCentreSelect').value;
             const password = document.getElementById('lockInput').value.trim();
+            const loginType = document.getElementById('lockRoleSelect').value;
 
             try {
                 const res = await fetch('/api/auth/verify-centre', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ centreId, password })
+                    body: JSON.stringify({ centreId, password, loginType })
                 });
                 const json = await res.json();
                 if (json.success) {
-                    isSuperAdmin = json.isMaster;
+                    isSuperAdmin = Boolean(json.isMaster);
+                    isCentreOwner = Boolean(json.isOwner);
+                    currentUserRole = json.role || 'branch_staff';
+
+                    const badge = document.getElementById('userRoleBadge');
+                    if (isCentreOwner) {
+                        badge.textContent = '👨‍⚕️ Centre Owner Access';
+                        badge.style.background = '#7c3aed';
+                    } else if (isSuperAdmin) {
+                        badge.textContent = '⚙️ Master Admin Access';
+                        badge.style.background = '#ea580c';
+                    } else {
+                        badge.textContent = '🏥 Branch Staff';
+                        badge.style.background = '#0284c7';
+                    }
+
                     const selectedObj = centresList.find(c => String(c.id) === String(json.centreId || centreId));
                     if (selectedObj) setActiveCentreObject(selectedObj);
                     document.getElementById('appLockScreen').style.display = 'none';
@@ -1184,16 +1249,24 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
                     return;
                 }
             } catch (err) {
-                if (password === '1234' || password === 'admin123' || password === 'admin') {
-                    isSuperAdmin = password === 'admin123' || password === 'admin';
-                    const selectedObj = centresList.find(c => String(c.id) === String(centreId)) || FALLBACK_CENTRES_CLIENT[0];
-                    setActiveCentreObject(selectedObj);
+                if (loginType === 'owner' && (password === 'owner123' || password === 'admin123')) {
+                    isCentreOwner = true;
+                    currentUserRole = 'centre_owner';
+                    document.getElementById('userRoleBadge').textContent = '👨‍⚕️ Centre Owner Access';
+                    document.getElementById('userRoleBadge').style.background = '#7c3aed';
+                    document.getElementById('appLockScreen').style.display = 'none';
+                    refreshAllCentreData();
+                    return;
+                } else if (loginType === 'staff' && (password === '1234' || password === 'admin123')) {
+                    currentUserRole = 'branch_staff';
+                    document.getElementById('userRoleBadge').textContent = '🏥 Branch Staff';
+                    document.getElementById('userRoleBadge').style.background = '#0284c7';
                     document.getElementById('appLockScreen').style.display = 'none';
                     refreshAllCentreData();
                     return;
                 }
             }
-            alert('Incorrect PIN or Password (default: 1234)');
+            alert('Authentication failed. Incorrect password for selected role.');
         }
 
         function refreshAllCentreData() {
@@ -1208,24 +1281,52 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             if (!targetCentreId) return;
             const targetObj = centresList.find(c => String(c.id) === String(targetCentreId));
             const targetName = targetObj ? targetObj.centre_name : 'Selected Centre';
-            if (isSuperAdmin) {
+            if (isSuperAdmin && !targetObj?.is_private) {
                 setActiveCentreObject(targetObj);
                 refreshAllCentreData();
                 return;
             }
-            const enteredPass = prompt(`🔒 Enter PIN for "${targetName}":`, '1234');
+
+            const promptMsg = targetObj?.is_private 
+                ? `🔒 "${targetName}" is private.\nEnter Centre Owner Password (or Staff PIN):` 
+                : `🔒 Enter Staff PIN for "${targetName}":`;
+
+            const enteredPass = prompt(promptMsg, '1234');
             if (!enteredPass) return;
+
             try {
-                const res = await fetch('/api/auth/verify-centre', {
+                let res = await fetch('/api/auth/verify-centre', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ centreId: targetCentreId, password: enteredPass })
+                    body: JSON.stringify({ centreId: targetCentreId, password: enteredPass, loginType: 'owner' })
                 });
-                const json = await res.json();
+                let json = await res.json();
                 if (json.success) {
+                    isCentreOwner = true;
+                    currentUserRole = 'centre_owner';
+                    document.getElementById('userRoleBadge').textContent = '👨‍⚕️ Centre Owner Access';
+                    document.getElementById('userRoleBadge').style.background = '#7c3aed';
                     setActiveCentreObject(targetObj);
                     refreshAllCentreData();
-                } else { alert('Access Denied'); }
+                    return;
+                }
+
+                res = await fetch('/api/auth/verify-centre', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ centreId: targetCentreId, password: enteredPass, loginType: 'staff' })
+                });
+                json = await res.json();
+                if (json.success) {
+                    isCentreOwner = false;
+                    currentUserRole = 'branch_staff';
+                    document.getElementById('userRoleBadge').textContent = '🏥 Branch Staff';
+                    document.getElementById('userRoleBadge').style.background = '#0284c7';
+                    setActiveCentreObject(targetObj);
+                    refreshAllCentreData();
+                    return;
+                }
+                alert('Access Denied: Incorrect PIN / Password.');
             } catch (err) {
                 if (enteredPass === '1234') {
                     setActiveCentreObject(targetObj);
@@ -1297,11 +1398,32 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             } else { alert('Error: ' + json.error); }
         }
 
+        async function changeCentreOwnerPassword() {
+            const currentPassword = document.getElementById('curOwnerPass').value.trim();
+            const newPassword = document.getElementById('newOwnerPass').value.trim();
+            if (!activeCentre?.id) return alert('No active centre selected.');
+            const res = await apiFetch('/api/auth/change-owner-password', {
+                method: 'POST',
+                body: JSON.stringify({ centreId: activeCentre.id, currentPassword, newPassword })
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert('Centre Owner password updated successfully!');
+                document.getElementById('curOwnerPass').value = '';
+                document.getElementById('newOwnerPass').value = '';
+            } else {
+                alert('Error: ' + json.error);
+            }
+        }
+
         function renderAdminCentres() {
             const tbody = document.getElementById('adminCentresListBody');
             if (!tbody) return;
             tbody.innerHTML = '';
             centresList.forEach(c => {
+                const privBadge = c.is_private 
+                    ? `<span style="background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:0.75rem;">🔒 Private (Locked)</span>` 
+                    : `<span style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:0.75rem;">🌐 Shared</span>`;
                 tbody.innerHTML += `
                     <tr>
                         <td>
@@ -1309,7 +1431,7 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
                             <br><small style="color:#64748b;">${escapeHtml(c.address || '')}</small>
                         </td>
                         <td>${c.phone || '-'}<br><small>Reg: ${c.reg_no || 'RC197'}</small></td>
-                        <td><code>${c.centre_password || '1234'}</code></td>
+                        <td>${privBadge}</td>
                         <td>
                             <button type="button" class="btn-act btn-act-edit" onclick="startEditCentre('${c.id}')">✏️ Edit</button>
                             <button type="button" class="btn-act btn-act-del" onclick="deleteCentre('${c.id}')">✕ Delete</button>
@@ -1330,6 +1452,8 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             document.getElementById('centreRegNoInput').value = c.reg_no || 'RC197';
             document.getElementById('centreEmailInput').value = c.email || '';
             document.getElementById('centrePinInput').value = c.centre_password || '1234';
+            document.getElementById('centreOwnerPassInput').value = c.owner_password || 'owner123';
+            document.getElementById('centreIsPrivateCheck').checked = Boolean(c.is_private);
 
             document.getElementById('centreFormTitle').textContent = '✏️ Edit Clinic Branch / Centre';
             document.getElementById('btnSaveCentre').textContent = 'Update Centre';
@@ -1346,6 +1470,8 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             document.getElementById('centreRegNoInput').value = 'RC197';
             document.getElementById('centreEmailInput').value = '';
             document.getElementById('centrePinInput').value = '1234';
+            document.getElementById('centreOwnerPassInput').value = 'owner123';
+            document.getElementById('centreIsPrivateCheck').checked = true;
 
             document.getElementById('centreFormTitle').textContent = '🏢 Add New Clinic Branch / Centre';
             document.getElementById('btnSaveCentre').textContent = 'Save Centre';
@@ -1361,7 +1487,9 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
                 phone: document.getElementById('centrePhoneInput').value.trim(),
                 regNo: document.getElementById('centreRegNoInput').value.trim() || 'RC197',
                 email: document.getElementById('centreEmailInput').value.trim(),
-                centrePassword: document.getElementById('centrePinInput').value.trim() || '1234'
+                centrePassword: document.getElementById('centrePinInput').value.trim() || '1234',
+                ownerPassword: document.getElementById('centreOwnerPassInput').value.trim() || 'owner123',
+                isPrivate: document.getElementById('centreIsPrivateCheck').checked
             };
 
             if (!payload.centreName) return alert('Centre name is required.');
@@ -1407,7 +1535,7 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             document.getElementById('pcpndtContainer').scrollIntoView({ behavior: 'smooth' });
         }
 
-        // Corrected Patient Search with Multi-match Dropdown
+        // Search with multi-match interactive dropdown
         async function lookupPatient() {
             const q = document.getElementById('lookupSearch').value.trim();
             const box = document.getElementById('patientLookupResultsBox');
@@ -1476,6 +1604,10 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             document.getElementById('patientMobile').value = '';
             document.getElementById('patientEmail').value = '';
             document.getElementById('patientAddress').value = '';
+            document.getElementById('inputDoctorCut').value = '';
+            if (document.getElementById('inputDoctorCut')) {
+                delete document.getElementById('inputDoctorCut').dataset.touched;
+            }
             document.getElementById('loadedPatientBanner').style.display = 'none';
             document.getElementById('patientLookupResultsBox').style.display = 'none';
             applyDefaultDatesEverywhere();
@@ -1583,10 +1715,45 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             const paid = parseFloat(document.getElementById('inputPaid').value) || 0;
             const bal = Math.max(0, net - paid);
 
+            let calcCut = 0;
+            const docId = document.getElementById('referringDoctorSelect').value;
+            const doc = doctorsList.find(d => String(d.id) === String(docId));
+
+            for (const t of selectedBillTests) {
+                const rate = parseFloat(t.price) || 0;
+                let cVal = parseFloat(t.test_cut);
+                let cType = t.cut_type || 'percentage';
+                if (isNaN(cVal)) { cVal = 30; cType = 'percentage'; }
+                calcCut += cType === 'percentage' ? (rate * cVal) / 100 : cVal;
+            }
+
+            if (calcCut === 0 && doc) {
+                const cVal = (doc.commission_value !== null && !isNaN(parseFloat(doc.commission_value))) ? parseFloat(doc.commission_value) : 30;
+                calcCut = doc.commission_type === 'percentage' ? (gross * cVal) / 100 : cVal;
+            }
+
+            const finalCut = Math.max(0, Math.round(calcCut - discount));
+            const cutOverrideInput = document.getElementById('inputDoctorCut');
+            if (cutOverrideInput && (!cutOverrideInput.value || cutOverrideInput.dataset.touched !== 'true')) {
+                cutOverrideInput.value = finalCut;
+            }
+
+            const activeCutVal = cutOverrideInput && cutOverrideInput.value !== '' && !isNaN(parseFloat(cutOverrideInput.value)) 
+                ? parseFloat(cutOverrideInput.value) 
+                : finalCut;
+
             document.getElementById('dispGross').textContent = `₹${gross.toFixed(2)}`;
             document.getElementById('dispDiscount').textContent = `- ₹${discount.toFixed(2)}`;
             document.getElementById('dispNet').textContent = `₹${net.toFixed(2)}`;
+            document.getElementById('dispDocCut').textContent = `₹${activeCutVal.toFixed(2)}`;
             document.getElementById('dispBalance').textContent = `₹${bal.toFixed(2)}`;
+        }
+
+        function recalcDisplayTotalsOnly() {
+            const cutOverrideInput = document.getElementById('inputDoctorCut');
+            if (cutOverrideInput) cutOverrideInput.dataset.touched = 'true';
+            const cutVal = parseFloat(cutOverrideInput.value) || 0;
+            document.getElementById('dispDocCut').textContent = `₹${cutVal.toFixed(2)}`;
         }
 
         async function processVisit(printInv) {
@@ -1605,6 +1772,7 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             formData.append('referringDoctorId', document.getElementById('referringDoctorSelect').value);
             formData.append('tests', JSON.stringify(selectedBillTests));
             formData.append('concession', document.getElementById('inputDiscount').value || 0);
+            formData.append('doctorCommission', document.getElementById('inputDoctorCut').value || 0);
             formData.append('paidAmount', document.getElementById('inputPaid').value || 0);
             formData.append('paymentMode', document.getElementById('inputPaymentMode').value);
 
@@ -1805,6 +1973,7 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             document.getElementById('editBillRowId').value = String(v.id);
             document.getElementById('editBillDisc').value = v.concession || 0;
             document.getElementById('editBillPaid').value = v.paid_amount || 0;
+            document.getElementById('editBillDocCut').value = (v.doctor_commission !== null && v.doctor_commission !== undefined) ? v.doctor_commission : 0;
             document.getElementById('editBillPaymentMode').value = v.payment_mode || 'Cash';
 
             const docSel = document.getElementById('editBillDocSelect');
@@ -1877,6 +2046,7 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
                     referringDoctorId: document.getElementById('editBillDocSelect').value,
                     tests: activeEditingBillTests,
                     concession: parseFloat(document.getElementById('editBillDisc').value) || 0,
+                    doctorCommission: parseFloat(document.getElementById('editBillDocCut').value) || 0,
                     paidAmount: parseFloat(document.getElementById('editBillPaid').value) || 0,
                     paymentMode: document.getElementById('editBillPaymentMode').value
                 })
@@ -2686,7 +2856,7 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             tbody.innerHTML = '';
             data.forEach(b => {
                 const biz = parseFloat(b.total_amount || 0);
-                const cut = (b.doctor_commission !== null && parseFloat(b.doctor_commission) > 0)
+                const cut = (b.doctor_commission !== null && b.doctor_commission !== undefined && !isNaN(parseFloat(b.doctor_commission)))
                     ? parseFloat(b.doctor_commission)
                     : (biz * 0.30);
 
