@@ -131,7 +131,7 @@ function calculateCommission(testArray, validDoctorId = null, docInfo = null, co
     let cutType = t.cut_type || 'percentage';
     let cutVal = parseFloat(t.test_cut);
 
-    if (isNaN(cutVal) || cutVal <= 0) {
+    if (isNaN(cutVal)) {
       if (testName.includes('usg') || testName.includes('ultra') || testName.includes('sono') || testName.includes('echo') || testName.includes('doppler') || cat === 'imaging' || cat === 'obstetrics') {
         cutType = 'percentage';
         cutVal = 30;
@@ -153,10 +153,13 @@ function calculateCommission(testArray, validDoctorId = null, docInfo = null, co
 
   if (totalTestCut === 0 && validDoctorId && docInfo) {
     const gross = testArray.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
+    const docVal = (docInfo.commission_value !== null && !isNaN(parseFloat(docInfo.commission_value))) 
+      ? parseFloat(docInfo.commission_value) 
+      : 30;
     if (docInfo.commission_type === 'percentage') {
-      totalTestCut = (gross * parseFloat(docInfo.commission_value || 30)) / 100;
+      totalTestCut = (gross * docVal) / 100;
     } else {
-      totalTestCut = parseFloat(docInfo.commission_value || 0);
+      totalTestCut = docVal;
     }
   }
 
@@ -652,24 +655,35 @@ app.get('/api/imaging/patients-dropdown', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Dedicated Doctor Cut Update Route
 app.put('/api/visits/:id/cut', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
-    const { doctor_commission } = req.body;
+    const { doctor_commission, doctorCommission } = req.body;
     if (!validId) return res.status(400).json({ success: false, error: 'Invalid visit ID' });
 
-    const result = await pool.query(
-      'UPDATE visits SET doctor_commission = $1 WHERE id::text = $2::text RETURNING id, doctor_commission',
-      [parseFloat(doctor_commission) || 0, validId]
-    );
+    const rawCut = doctor_commission !== undefined ? doctor_commission : doctorCommission;
+    if (rawCut === undefined || rawCut === null || isNaN(parseFloat(rawCut))) {
+      return res.status(400).json({ success: false, error: 'Valid doctor cut amount required' });
+    }
+    const cutVal = Math.max(0, parseFloat(rawCut));
 
-    if (result.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit record not found' });
-    res.status(200).json({ success: true, message: 'Doctor cut updated successfully', data: result.rows[0] });
+    if (isDbConnected) {
+      const result = await pool.query(
+        'UPDATE visits SET doctor_commission = $1 WHERE id::text = $2::text RETURNING id, doctor_commission',
+        [cutVal, validId]
+      );
+      if (result.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit record not found' });
+      return res.status(200).json({ success: true, message: 'Doctor cut updated successfully', data: result.rows[0] });
+    }
+
+    res.status(200).json({ success: true, message: 'Doctor cut updated' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
+// Update Visit (Respects Manual Doctor Cut If Provided)
 app.put('/api/visits/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -677,7 +691,10 @@ app.put('/api/visits/:id', async (req, res) => {
     if (!validVisitId) return res.status(400).json({ success: false, error: 'Invalid Visit ID' });
 
     await client.query('BEGIN');
-    const { referringDoctorId, tests, concession, paidAmount, paymentMode, isPcpndt, relativeName, lmpDate, weeksOfPreg, pcpndtIndications, scanResult } = req.body;
+    const { 
+      referringDoctorId, tests, concession, paidAmount, paymentMode, 
+      doctorCommission, doctor_commission, isPcpndt, relativeName, lmpDate, weeksOfPreg, pcpndtIndications, scanResult 
+    } = req.body;
 
     let testArray = [];
     if (Array.isArray(tests)) {
@@ -700,7 +717,13 @@ app.put('/api/visits/:id', async (req, res) => {
       if (docRes.rows.length > 0) docInfo = docRes.rows[0];
     }
 
-    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo, disc);
+    const manualCut = doctorCommission !== undefined ? doctorCommission : doctor_commission;
+    let totalCommission;
+    if (manualCut !== undefined && manualCut !== null && manualCut !== '' && !isNaN(parseFloat(manualCut))) {
+      totalCommission = Math.max(0, parseFloat(manualCut));
+    } else {
+      totalCommission = calculateCommission(testArray, validDoctorId, docInfo, disc);
+    }
 
     await client.query(
       `UPDATE visits 
@@ -711,9 +734,10 @@ app.put('/api/visits/:id', async (req, res) => {
 
     await client.query('DELETE FROM patient_investigations WHERE visit_id::text = $1::text', [validVisitId]);
     for (const t of testArray) {
+      const cutVal = (t.test_cut !== undefined && t.test_cut !== null && !isNaN(parseFloat(t.test_cut))) ? parseFloat(t.test_cut) : 30;
       await client.query(
         `INSERT INTO patient_investigations (visit_id, test_id, barcode, price, cut_type, test_cut) VALUES ($1, $2, $3, $4, $5, $6)`,
-        [validVisitId, getCleanId(t.id), generateBarcode(), parseFloat(t.price) || 0, t.cut_type || 'percentage', parseFloat(t.test_cut) || 30]
+        [validVisitId, getCleanId(t.id), generateBarcode(), parseFloat(t.price) || 0, t.cut_type || 'percentage', cutVal]
       );
     }
 
@@ -736,7 +760,7 @@ app.put('/api/visits/:id', async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Bill updated successfully',
-      data: { visitId: validVisitId, grossTotal, netTotal, paidAmount: paid, balanceAmount: balance }
+      data: { visitId: validVisitId, grossTotal, netTotal, paidAmount: paid, balanceAmount: balance, doctorCommission: totalCommission }
     });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -746,13 +770,14 @@ app.put('/api/visits/:id', async (req, res) => {
   }
 });
 
+// Register Visit (Respects Manual Doctor Cut If Entered)
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const {
       centreId, existingPatientId, patientCode, fullName, age, gender, phone, email, address,
-      referringDoctorId, tests, concession, paidAmount, paymentMode, isPcpndt,
+      referringDoctorId, tests, concession, paidAmount, paymentMode, doctorCommission, doctor_commission, isPcpndt,
       relativeName, lmpDate, weeksOfPreg, noOfSons, sonsAge, noOfDaughters, daughtersAge,
       pcpndtIndications, scanResult, doctorName, doctorRegNo, clinicRegNo
     } = req.body;
@@ -794,7 +819,14 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
       if (docRes.rows.length > 0) docInfo = docRes.rows[0];
     }
 
-    const totalCommission = calculateCommission(testArray, validDoctorId, docInfo, disc);
+    const manualCut = doctorCommission !== undefined ? doctorCommission : doctor_commission;
+    let totalCommission;
+    if (manualCut !== undefined && manualCut !== null && manualCut !== '' && !isNaN(parseFloat(manualCut))) {
+      totalCommission = Math.max(0, parseFloat(manualCut));
+    } else {
+      totalCommission = calculateCommission(testArray, validDoctorId, docInfo, disc);
+    }
+
     const invoiceNum = generateInvoiceNumber();
 
     const visitRes = await client.query(
@@ -805,9 +837,10 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     const visitId = visitRes.rows[0].id;
 
     for (const t of testArray) {
+      const cutVal = (t.test_cut !== undefined && t.test_cut !== null && !isNaN(parseFloat(t.test_cut))) ? parseFloat(t.test_cut) : 30;
       await client.query(
         `INSERT INTO patient_investigations (visit_id, test_id, barcode, price, cut_type, test_cut) VALUES ($1, $2, $3, $4, $5, $6)`,
-        [visitId, getCleanId(t.id), generateBarcode(), parseFloat(t.price) || 0, t.cut_type || 'percentage', parseFloat(t.test_cut) || 30]
+        [visitId, getCleanId(t.id), generateBarcode(), parseFloat(t.price) || 0, t.cut_type || 'percentage', cutVal]
       );
     }
 
@@ -881,9 +914,10 @@ app.get('/api/tests', async (req, res) => {
 app.post('/api/tests', async (req, res) => {
   try {
     const { testName, category, price, cutType, testCut } = req.body;
+    const parsedCut = (testCut !== undefined && testCut !== null && !isNaN(parseFloat(testCut))) ? parseFloat(testCut) : 30;
     const result = await pool.query(
       'INSERT INTO test_master (test_name, category, price, cut_type, test_cut) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [testName, category || 'Pathology', parseFloat(price) || 0, cutType || 'percentage', parseFloat(testCut) || 30]
+      [testName, category || 'Pathology', parseFloat(price) || 0, cutType || 'percentage', parsedCut]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -896,10 +930,11 @@ app.post('/api/tests/bulk-import', async (req, res) => {
     let count = 0;
     for (const t of tests) {
       if (t.testName) {
+        const parsedCut = (t.testCut !== undefined && t.testCut !== null && !isNaN(parseFloat(t.testCut))) ? parseFloat(t.testCut) : 30;
         await pool.query(
           `INSERT INTO test_master (test_name, category, price, cut_type, test_cut)
            VALUES ($1, $2, $3, $4, $5)`,
-          [t.testName.trim(), t.category || 'Imaging', parseFloat(t.price) || 0, t.cutType || 'percentage', parseFloat(t.testCut) || 30]
+          [t.testName.trim(), t.category || 'Imaging', parseFloat(t.price) || 0, t.cutType || 'percentage', parsedCut]
         );
         count++;
       }
@@ -912,9 +947,10 @@ app.put('/api/tests/:id', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
     const { testName, category, price, cutType, testCut } = req.body;
+    const parsedCut = (testCut !== undefined && testCut !== null && !isNaN(parseFloat(testCut))) ? parseFloat(testCut) : 30;
     const result = await pool.query(
       `UPDATE test_master SET test_name = $1, category = $2, price = $3, cut_type = $4, test_cut = $5 WHERE id::text = $6::text RETURNING *`,
-      [testName, category || 'Pathology', parseFloat(price) || 0, cutType || 'percentage', parseFloat(testCut) || 30, validId]
+      [testName, category || 'Pathology', parseFloat(price) || 0, cutType || 'percentage', parsedCut, validId]
     );
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -939,9 +975,10 @@ app.get('/api/doctors', async (req, res) => {
 app.post('/api/doctors', async (req, res) => {
   try {
     const { doctorName, hospitalClinicName, commissionType, commissionValue } = req.body;
+    const parsedVal = (commissionValue !== undefined && commissionValue !== null && !isNaN(parseFloat(commissionValue))) ? parseFloat(commissionValue) : 30;
     const result = await pool.query(
       'INSERT INTO referring_doctors (doctor_name, hospital_clinic_name, commission_type, commission_value) VALUES ($1, $2, $3, $4) RETURNING *',
-      [doctorName, hospitalClinicName, commissionType || 'percentage', parseFloat(commissionValue) || 30]
+      [doctorName, hospitalClinicName, commissionType || 'percentage', parsedVal]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -954,10 +991,11 @@ app.post('/api/doctors/bulk-import', async (req, res) => {
     let count = 0;
     for (const d of doctors) {
       if (d.doctorName) {
+        const parsedVal = (d.commissionValue !== undefined && d.commissionValue !== null && !isNaN(parseFloat(d.commissionValue))) ? parseFloat(d.commissionValue) : 30;
         await pool.query(
           `INSERT INTO referring_doctors (doctor_name, hospital_clinic_name, commission_type, commission_value)
            VALUES ($1, $2, $3, $4)`,
-          [d.doctorName.trim(), d.hospitalClinicName || '', d.commissionType || 'percentage', parseFloat(d.commissionValue) || 30]
+          [d.doctorName.trim(), d.hospitalClinicName || '', d.commissionType || 'percentage', parsedVal]
         );
         count++;
       }
@@ -970,9 +1008,10 @@ app.put('/api/doctors/:id', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
     const { doctorName, hospitalClinicName, commissionType, commissionValue } = req.body;
+    const parsedVal = (commissionValue !== undefined && commissionValue !== null && !isNaN(parseFloat(commissionValue))) ? parseFloat(commissionValue) : 30;
     const result = await pool.query(
       `UPDATE referring_doctors SET doctor_name = $1, hospital_clinic_name = $2, commission_type = $3, commission_value = $4 WHERE id::text = $5::text RETURNING *`,
-      [doctorName, hospitalClinicName, commissionType || 'percentage', parseFloat(commissionValue) || 30, validId]
+      [doctorName, hospitalClinicName, commissionType || 'percentage', parsedVal, validId]
     );
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -1325,7 +1364,7 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Cloud Sync (Fixed 16-column pcpndt_forms statement)
+// Cloud Sync (Exact 16 placeholders matching 16 columns)
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
 
@@ -1360,13 +1399,11 @@ app.post('/api/sync/cloud', async (req, res) => {
       CREATE TABLE IF NOT EXISTS imaging_reports (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, patient_id UUID, centre_id UUID, template_id UUID, template_name VARCHAR(255), report_text TEXT NOT NULL, impression TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
     `);
 
-    // Auth
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
     if (auths.rows.length > 0) {
       await cloudClient.query(`INSERT INTO app_auth (id, role, password) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password`, [auths.rows[0].id, auths.rows[0].role, auths.rows[0].password]);
     }
 
-    // Centres
     const centres = await localClient.query('SELECT * FROM clinic_centres');
     for (const c of centres.rows) {
       await cloudClient.query(`
@@ -1376,7 +1413,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [c.id, c.centre_name, c.tagline, c.address, c.phone, c.reg_no, c.email, c.centre_password, c.created_at]);
     }
 
-    // Doctors & Tests
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
     for (const d of doctors.rows) {
       await cloudClient.query(`
@@ -1395,7 +1431,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [t.id, t.test_name, t.category, t.price, t.cut_type || 'percentage', t.test_cut]);
     }
 
-    // Templates
     const templateIdMap = {};
     const templates = await localClient.query('SELECT * FROM imaging_templates');
     for (const t of templates.rows) {
@@ -1416,7 +1451,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       }
     }
 
-    // Patients
     const validCloudPatientIds = new Set();
     const patients = await localClient.query('SELECT * FROM patients');
     for (const p of patients.rows) {
@@ -1429,7 +1463,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       validCloudPatientIds.add(String(p.id));
     }
 
-    // Visits
     const validCloudVisitIds = new Set();
     const visits = await localClient.query('SELECT * FROM visits');
     for (const v of visits.rows) {
@@ -1457,7 +1490,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       validCloudVisitIds.add(String(v.id));
     }
 
-    // Investigations
     const investigations = await localClient.query('SELECT * FROM patient_investigations');
     for (const pi of investigations.rows) {
       if (!validCloudVisitIds.has(String(pi.visit_id))) continue;
@@ -1469,7 +1501,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       `, [pi.id, pi.visit_id, pi.test_id, safeBarcode, pi.status, pi.price, pi.cut_type || 'percentage', pi.test_cut]);
     }
 
-    // Form F (Exact 16 placeholders matching 16 columns)
     const forms = await localClient.query('SELECT * FROM pcpndt_forms');
     for (const f of forms.rows) {
       if (!validCloudVisitIds.has(String(f.visit_id))) continue;
@@ -1493,7 +1524,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       ]);
     }
 
-    // Reports
     const reports = await localClient.query('SELECT * FROM imaging_reports');
     for (const r of reports.rows) {
       if (!validCloudVisitIds.has(String(r.visit_id))) continue;

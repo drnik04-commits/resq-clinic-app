@@ -2686,7 +2686,7 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             tbody.innerHTML = '';
             data.forEach(b => {
                 const biz = parseFloat(b.total_amount || 0);
-                const cut = (b.doctor_commission !== null && b.doctor_commission !== undefined && parseFloat(b.doctor_commission) > 0)
+                const cut = (b.doctor_commission !== null && parseFloat(b.doctor_commission) > 0)
                     ? parseFloat(b.doctor_commission)
                     : (biz * 0.30);
 
