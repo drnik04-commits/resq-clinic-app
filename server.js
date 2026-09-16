@@ -4,6 +4,7 @@ const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const PDFDocument = require('pdfkit');
 
 const app = express();
 const PORT = parseInt(process.env.PORT, 10) || 10000;
@@ -123,26 +124,6 @@ function getTenantCentreId(req) {
   return headerId || queryId || bodyId || null;
 }
 
-function isMasterAdminRequest(req) {
-  return req.headers['x-is-superadmin'] === 'true';
-}
-
-function getUserRole(req) {
-  return req.headers['x-centre-role'] || 'branch_staff';
-}
-
-async function isCentrePrivate(centreId) {
-  if (!centreId) return false;
-  if (isDbConnected) {
-    try {
-      const res = await pool.query('SELECT is_private FROM clinic_centres WHERE id::text = $1::text', [String(centreId)]);
-      if (res.rows.length > 0) return Boolean(res.rows[0].is_private);
-    } catch (e) {}
-  }
-  const match = FALLBACK_CENTRES.find(c => String(c.id) === String(centreId));
-  return match ? Boolean(match.is_private) : false;
-}
-
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -246,10 +227,6 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    await pool.query(`ALTER TABLE clinic_centres ADD COLUMN IF NOT EXISTS centre_password VARCHAR(255) DEFAULT '1234';`);
-    await pool.query(`ALTER TABLE clinic_centres ADD COLUMN IF NOT EXISTS owner_password VARCHAR(255) DEFAULT 'owner123';`);
-    await pool.query(`ALTER TABLE clinic_centres ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT false;`);
-    await pool.query(`UPDATE clinic_centres SET owner_password = 'owner123' WHERE owner_password IS NULL OR owner_password = '';`);
 
     const centreCheck = await pool.query('SELECT id FROM clinic_centres LIMIT 1');
     if (centreCheck.rows.length === 0) {
@@ -514,12 +491,10 @@ app.post('/api/auth/change-owner-password', async (req, res) => {
 app.get('/api/centres', async (req, res) => {
   try {
     if (isDbConnected) {
-      const result = await pool.query('SELECT * FROM clinic_centres ORDER BY created_at ASC');
+      const result = await pool.query('SELECT id, centre_name, tagline, address, phone, reg_no, email, is_private, created_at FROM clinic_centres ORDER BY created_at ASC');
       if (result.rows.length > 0) return res.status(200).json({ success: true, data: result.rows });
     }
-  } catch (err) {
-    console.error('Centres fetch error:', err.message);
-  }
+  } catch (err) {}
   res.status(200).json({ success: true, data: FALLBACK_CENTRES });
 });
 
@@ -529,7 +504,6 @@ app.post('/api/centres', async (req, res) => {
     if (!centreName || !centreName.trim()) {
       return res.status(400).json({ success: false, error: 'Centre name is required.' });
     }
-
     const privFlag = isPrivate === true || isPrivate === 'true';
 
     if (isDbConnected) {
@@ -609,16 +583,10 @@ app.delete('/api/centres/:id', async (req, res) => {
   }
 });
 
-// Patients CRUD with Privacy Guard
 app.get('/api/patients', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
     const { search, global: isGlobal } = req.query;
-    const isMaster = isMasterAdminRequest(req);
-
-    if (isMaster && centreId && (await isCentrePrivate(centreId))) {
-      return res.status(403).json({ success: false, error: 'Access Denied: This centre is privately locked by the Centre Owner.' });
-    }
 
     let query = `
       SELECT p.*,
@@ -626,7 +594,6 @@ app.get('/api/patients', async (req, res) => {
         COALESCE(v_agg.total_billed, 0) as total_billed,
         COALESCE(v_agg.total_due, 0) as total_due
       FROM patients p
-      LEFT JOIN clinic_centres c ON p.centre_id = c.id
       LEFT JOIN (
         SELECT patient_id::text, COUNT(id) as visit_count, SUM(total_amount) as total_billed, SUM(balance_amount) as total_due
         FROM visits GROUP BY patient_id
@@ -634,10 +601,6 @@ app.get('/api/patients', async (req, res) => {
       WHERE 1=1
     `;
     let params = [];
-
-    if (isMaster) {
-      query += ` AND (c.is_private = false OR c.is_private IS NULL)`;
-    }
 
     if (centreId && isGlobal !== 'true' && (!search || !search.trim())) {
       params.push(String(centreId));
@@ -647,10 +610,6 @@ app.get('/api/patients', async (req, res) => {
     if (search && search.trim()) {
       params.push(`%${search.trim()}%`);
       query += ` AND (p.full_name ILIKE $${params.length} OR p.phone ILIKE $${params.length} OR p.patient_code ILIKE $${params.length})`;
-      if (centreId && !isMaster) {
-        params.push(String(centreId));
-        query += ` AND (p.centre_id::text = $${params.length}::text OR p.id::text IN (SELECT patient_id::text FROM visits WHERE centre_id::text = $${params.length}::text))`;
-      }
     }
     query += ' ORDER BY p.created_at DESC LIMIT 500';
     const result = await pool.query(query, params);
@@ -757,7 +716,6 @@ app.get('/api/imaging/patients-dropdown', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Dedicated Doctor Cut Route
 app.put('/api/visits/:id/cut', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -785,7 +743,6 @@ app.put('/api/visits/:id/cut', async (req, res) => {
   }
 });
 
-// Update Visit (Respects Manual Doctor Cut If Provided)
 app.put('/api/visits/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -872,7 +829,6 @@ app.put('/api/visits/:id', async (req, res) => {
   }
 });
 
-// Register Visit
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -1005,7 +961,110 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Master Tests CRUD
+// PDF Generation Route
+app.get('/api/invoice/:id/pdf', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    const visitRes = await pool.query(
+      `SELECT v.*, p.full_name, p.age, p.gender, p.phone, p.address, p.patient_code,
+              d.doctor_name, c.centre_name, c.tagline as centre_tagline, c.address as centre_address,
+              c.phone as centre_phone, c.reg_no as centre_reg_no
+       FROM visits v
+       JOIN patients p ON v.patient_id = p.id
+       LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
+       LEFT JOIN clinic_centres c ON v.centre_id = c.id
+       WHERE v.id::text = $1::text`,
+      [validId]
+    );
+    if (visitRes.rows.length === 0) return res.status(404).send('Invoice not found');
+
+    const v = visitRes.rows[0];
+    const invRes = await pool.query(
+      `SELECT pi.*, tm.test_name, tm.category FROM patient_investigations pi
+       LEFT JOIN test_master tm ON pi.test_id = tm.id WHERE pi.visit_id::text = $1::text`,
+      [validId]
+    );
+    const items = invRes.rows;
+
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const filename = `Invoice_${v.invoice_number || 'INV'}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    doc.pipe(res);
+
+    doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
+    if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
+    doc.fontSize(8).fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Phone: ${v.centre_phone || ''} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
+    doc.moveDown(0.6);
+    doc.strokeColor('#cccccc').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+    doc.moveDown(0.8);
+
+    const metaTop = doc.y;
+    doc.fontSize(9).font('Helvetica-Bold').fillColor('#000000');
+    doc.text(`Patient Name: `, 40, metaTop, { continued: true }).font('Helvetica').text(v.full_name);
+    doc.font('Helvetica-Bold').text(`Age / Gender: `, 40, doc.y + 2, { continued: true }).font('Helvetica').text(`${v.age || 0} Yrs / ${v.gender || 'N/A'}`);
+    doc.font('Helvetica-Bold').text(`Address: `, 40, doc.y + 2, { continued: true }).font('Helvetica').text(v.address || '-');
+
+    doc.font('Helvetica-Bold').text(`Invoice No: `, 330, metaTop, { continued: true }).font('Helvetica').text(v.invoice_number);
+    doc.font('Helvetica-Bold').text(`Date: `, 330, doc.y + 2, { continued: true }).font('Helvetica').text(new Date(v.created_at).toLocaleDateString('en-GB'));
+    doc.font('Helvetica-Bold').text(`Ref. Doctor: `, 330, doc.y + 2, { continued: true }).font('Helvetica').text(v.doctor_name || 'Direct OPD');
+    doc.moveDown(1.5);
+
+    const tableTop = doc.y;
+    doc.rect(40, tableTop, 515, 20).fill('#f1f5f9');
+    doc.fillColor('#1a365d').font('Helvetica-Bold').fontSize(9);
+    doc.text('Investigation / Service', 50, tableTop + 5);
+    doc.text('Category', 300, tableTop + 5);
+    doc.text('Amount (INR)', 450, tableTop + 5, { width: 95, align: 'right' });
+
+    let currentY = tableTop + 24;
+    doc.font('Helvetica').fillColor('#000000').fontSize(9);
+
+    for (const item of items) {
+      doc.text(item.test_name || 'Service', 50, currentY);
+      doc.text(item.category || 'General', 300, currentY);
+      doc.text(parseFloat(item.price || 0).toFixed(2), 450, currentY, { width: 95, align: 'right' });
+      currentY += 18;
+    }
+
+    doc.strokeColor('#e2e8f0').lineWidth(0.5).moveTo(40, currentY + 4).lineTo(555, currentY + 4).stroke();
+    currentY += 14;
+
+    const totalBoxX = 350;
+    doc.fontSize(9).font('Helvetica');
+    doc.text('Gross Total:', totalBoxX, currentY, { width: 100 });
+    doc.text(`INR ${parseFloat(v.total_amount || 0).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
+    currentY += 15;
+
+    doc.text('Concession:', totalBoxX, currentY, { width: 100 });
+    doc.text(`- INR ${parseFloat(v.concession || 0).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
+    currentY += 15;
+
+    doc.font('Helvetica-Bold').text('Net Payable:', totalBoxX, currentY, { width: 100 });
+    doc.text(`INR ${(parseFloat(v.total_amount || 0) - parseFloat(v.concession || 0)).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
+    currentY += 15;
+
+    doc.font('Helvetica').text('Paid Amount:', totalBoxX, currentY, { width: 100 });
+    doc.text(`INR ${parseFloat(v.paid_amount || 0).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
+    currentY += 15;
+
+    doc.font('Helvetica-Bold').fillColor('#c00000').text('Balance Due:', totalBoxX, currentY, { width: 100 });
+    doc.text(`INR ${parseFloat(v.balance_amount || 0).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
+
+    doc.fontSize(8).fillColor('#777777').font('Helvetica').text(
+      'This is an electronically generated diagnostic invoice and requires no signature.',
+      40,
+      760,
+      { align: 'center', width: 515 }
+    );
+
+    doc.end();
+  } catch (err) {
+    res.status(500).send('Error generating PDF: ' + err.message);
+  }
+});
+
 app.get('/api/tests', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM test_master ORDER BY test_name ASC');
@@ -1066,7 +1125,6 @@ app.delete('/api/tests/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Master Doctors CRUD
 app.get('/api/doctors', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM referring_doctors ORDER BY doctor_name ASC');
@@ -1127,7 +1185,6 @@ app.delete('/api/doctors/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Templates Engine: Merges DB with Disk Report_Templates folder
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     let dbTemplates = [];
@@ -1270,16 +1327,10 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Collections Report (Private Centres Hidden from Master Admin)
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
     const { category, startDate, endDate, month, patientName } = req.query;
-    const isMaster = isMasterAdminRequest(req);
-
-    if (isMaster && centreId && (await isCentrePrivate(centreId))) {
-      return res.status(403).json({ success: false, error: 'Access Denied: Private Centre' });
-    }
 
     let query = `
       SELECT v.id as visit_id, v.created_at, v.total_amount, v.concession, v.paid_amount, v.balance_amount,
@@ -1294,10 +1345,6 @@ app.get('/api/reports/collection', async (req, res) => {
       WHERE 1=1
     `;
     let params = [];
-
-    if (isMaster) {
-      query += ` AND (c.is_private = false OR c.is_private IS NULL)`;
-    }
 
     if (centreId) {
       params.push(String(centreId));
@@ -1341,16 +1388,10 @@ app.get('/api/reports/collection', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Doctor Business Report (Private Centres Hidden from Master Admin)
 app.get('/api/reports/doctor-detailed', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
     const { doctorId, startDate, endDate, month, patientName } = req.query;
-    const isMaster = isMasterAdminRequest(req);
-
-    if (isMaster && centreId && (await isCentrePrivate(centreId))) {
-      return res.status(403).json({ success: false, error: 'Access Denied: Private Centre' });
-    }
 
     let query = `
       SELECT v.id as visit_id, v.created_at, v.total_amount, v.doctor_commission, v.invoice_number,
@@ -1362,10 +1403,6 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
       WHERE 1=1
     `;
     let params = [];
-
-    if (isMaster) {
-      query += ` AND (c.is_private = false OR c.is_private IS NULL)`;
-    }
 
     if (centreId) {
       params.push(String(centreId));
@@ -1397,11 +1434,9 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Executive Daily Audit (Private Centres completely omitted from Master Admin)
 app.get('/api/reports/executive-daily', async (req, res) => {
   try {
     const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
-    const isMaster = isMasterAdminRequest(req);
 
     let query = `
       SELECT c.id as centre_id, c.centre_name,
@@ -1420,16 +1455,10 @@ app.get('/api/reports/executive-daily', async (req, res) => {
       LEFT JOIN pcpndt_forms pf ON pf.visit_id = v.id
       LEFT JOIN patient_investigations pi ON pi.visit_id = v.id
       LEFT JOIN test_master tm ON pi.test_id = tm.id
-      WHERE 1=1
+      GROUP BY c.id, c.centre_name
+      ORDER BY c.created_at ASC
     `;
-    let params = [targetDate];
-
-    if (isMaster) {
-      query += ` AND (c.is_private = false OR c.is_private IS NULL)`;
-    }
-
-    query += ` GROUP BY c.id, c.centre_name ORDER BY c.created_at ASC`;
-    const result = await pool.query(query, params);
+    const result = await pool.query(query, [targetDate]);
     res.status(200).json({ success: true, data: result.rows });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -1497,7 +1526,7 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Cloud Sync (Exact 16 placeholders matching 16 columns)
+// CLOUD SYNC ROUTE WITH INVOICE NUMBER DEDUPLICATION
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
 
@@ -1505,7 +1534,7 @@ app.post('/api/sync/cloud', async (req, res) => {
   try {
     localClient = await pool.connect();
   } catch (err) {
-    return res.status(500).json({ success: false, error: 'Local DB starting: ' + err.message });
+    return res.status(500).json({ success: false, error: 'Local DB error: ' + err.message });
   }
 
   try {
@@ -1540,10 +1569,10 @@ app.post('/api/sync/cloud', async (req, res) => {
     const centres = await localClient.query('SELECT * FROM clinic_centres');
     for (const c of centres.rows) {
       await cloudClient.query(`
-        INSERT INTO clinic_centres (id, centre_name, tagline, address, phone, reg_no, email, centre_password, owner_password, is_private, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        ON CONFLICT (id) DO UPDATE SET centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address, phone = EXCLUDED.phone, reg_no = EXCLUDED.reg_no, email = EXCLUDED.email, centre_password = EXCLUDED.centre_password, owner_password = EXCLUDED.owner_password, is_private = EXCLUDED.is_private;
-      `, [c.id, c.centre_name, c.tagline, c.address, c.phone, c.reg_no, c.email, c.centre_password, c.owner_password, c.is_private, c.created_at]);
+        INSERT INTO clinic_centres (id, centre_name, tagline, address, phone, reg_no, email, centre_password, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ON CONFLICT (id) DO UPDATE SET centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address, phone = EXCLUDED.phone, reg_no = EXCLUDED.reg_no, email = EXCLUDED.email, centre_password = EXCLUDED.centre_password;
+      `, [c.id, c.centre_name, c.tagline, c.address, c.phone, c.reg_no, c.email, c.centre_password, c.created_at]);
     }
 
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
@@ -1596,7 +1625,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       validCloudPatientIds.add(String(p.id));
     }
 
-    const validCloudVisitIds = new Set();
+    const visitIdMap = {};
     const visits = await localClient.query('SELECT * FROM visits');
     for (const v of visits.rows) {
       if (!v.patient_id) continue;
@@ -1615,28 +1644,60 @@ app.post('/api/sync/cloud', async (req, res) => {
         if (docCheck.rows.length === 0) safeDoctorId = null;
       }
 
-      await cloudClient.query(`
-        INSERT INTO visits (id, centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, payment_mode, invoice_number, doctor_commission, report_file, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-        ON CONFLICT (id) DO UPDATE SET total_amount = EXCLUDED.total_amount, concession = EXCLUDED.concession, paid_amount = EXCLUDED.paid_amount, balance_amount = EXCLUDED.balance_amount, payment_status = EXCLUDED.payment_status, payment_mode = EXCLUDED.payment_mode, doctor_commission = EXCLUDED.doctor_commission, referring_doctor_id = EXCLUDED.referring_doctor_id;
-      `, [v.id, v.centre_id, v.patient_id, safeDoctorId, v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, v.payment_mode, v.invoice_number, v.doctor_commission, v.report_file, v.created_at]);
-      validCloudVisitIds.add(String(v.id));
+      const existingVisit = await cloudClient.query(
+        `SELECT id FROM visits WHERE id::text = $1 OR (invoice_number IS NOT NULL AND invoice_number = $2) LIMIT 1`,
+        [String(v.id), v.invoice_number]
+      );
+
+      let targetVisitId = v.id;
+      if (existingVisit.rows.length > 0) {
+        targetVisitId = existingVisit.rows[0].id;
+        await cloudClient.query(`
+          UPDATE visits SET 
+            centre_id = $1, patient_id = $2, referring_doctor_id = $3, total_amount = $4,
+            concession = $5, paid_amount = $6, balance_amount = $7, payment_status = $8,
+            payment_mode = $9, invoice_number = $10, doctor_commission = $11, 
+            report_file = $12, created_at = $13
+          WHERE id = $14
+        `, [
+          v.centre_id, v.patient_id, safeDoctorId, v.total_amount,
+          v.concession, v.paid_amount, v.balance_amount, v.payment_status,
+          v.payment_mode, v.invoice_number, v.doctor_commission,
+          v.report_file, v.created_at, targetVisitId
+        ]);
+      } else {
+        await cloudClient.query(`
+          INSERT INTO visits (
+            id, centre_id, patient_id, referring_doctor_id, total_amount, concession,
+            paid_amount, balance_amount, payment_status, payment_mode, invoice_number,
+            doctor_commission, report_file, created_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        `, [
+          v.id, v.centre_id, v.patient_id, safeDoctorId, v.total_amount, v.concession,
+          v.paid_amount, v.balance_amount, v.payment_status, v.payment_mode, v.invoice_number,
+          v.doctor_commission, v.report_file, v.created_at
+        ]);
+      }
+      visitIdMap[String(v.id)] = targetVisitId;
     }
 
     const investigations = await localClient.query('SELECT * FROM patient_investigations');
     for (const pi of investigations.rows) {
-      if (!validCloudVisitIds.has(String(pi.visit_id))) continue;
+      const cloudVisitId = visitIdMap[String(pi.visit_id)];
+      if (!cloudVisitId) continue;
       let safeBarcode = pi.barcode || `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
       await cloudClient.query(`
         INSERT INTO patient_investigations (id, visit_id, test_id, barcode, status, price, cut_type, test_cut)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (id) DO UPDATE SET price = EXCLUDED.price, status = EXCLUDED.status, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut;
-      `, [pi.id, pi.visit_id, pi.test_id, safeBarcode, pi.status, pi.price, pi.cut_type || 'percentage', pi.test_cut]);
+      `, [pi.id, cloudVisitId, pi.test_id, safeBarcode, pi.status, pi.price, pi.cut_type || 'percentage', pi.test_cut]);
     }
 
     const forms = await localClient.query('SELECT * FROM pcpndt_forms');
     for (const f of forms.rows) {
-      if (!validCloudVisitIds.has(String(f.visit_id))) continue;
+      const cloudVisitId = visitIdMap[String(f.visit_id)];
+      if (!cloudVisitId) continue;
       await cloudClient.query(`
         INSERT INTO pcpndt_forms (
           id, visit_id, centre_id, relative_name, no_of_sons, sons_age,
@@ -1651,7 +1712,7 @@ app.post('/api/sync/cloud', async (req, res) => {
           indications = EXCLUDED.indications,
           scan_result = EXCLUDED.scan_result;
       `, [
-        f.id, f.visit_id, f.centre_id, f.relative_name, f.no_of_sons, f.sons_age,
+        f.id, cloudVisitId, f.centre_id, f.relative_name, f.no_of_sons, f.sons_age,
         f.no_of_daughters, f.daughters_age, f.lmp_date, f.weeks_of_preg,
         f.indications, f.scan_result, f.doctor_name, f.doctor_reg_no, f.clinic_reg_no, f.created_at
       ]);
@@ -1659,13 +1720,14 @@ app.post('/api/sync/cloud', async (req, res) => {
 
     const reports = await localClient.query('SELECT * FROM imaging_reports');
     for (const r of reports.rows) {
-      if (!validCloudVisitIds.has(String(r.visit_id))) continue;
+      const cloudVisitId = visitIdMap[String(r.visit_id)];
+      if (!cloudVisitId) continue;
       const safeTemplateId = r.template_id ? (templateIdMap[String(r.template_id)] || null) : null;
       await cloudClient.query(`
         INSERT INTO imaging_reports (id, visit_id, patient_id, centre_id, template_id, template_name, report_text, impression, doctor_name, doctor_reg_no, created_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ON CONFLICT (id) DO UPDATE SET template_id = EXCLUDED.template_id, template_name = EXCLUDED.template_name, report_text = EXCLUDED.report_text, impression = EXCLUDED.impression;
-      `, [r.id, r.visit_id, r.patient_id, r.centre_id, safeTemplateId, r.template_name, r.report_text, r.impression, r.doctor_name, r.doctor_reg_no, r.created_at]);
+      `, [r.id, cloudVisitId, r.patient_id, r.centre_id, safeTemplateId, r.template_name, r.report_text, r.impression, r.doctor_name, r.doctor_reg_no, r.created_at]);
     }
 
     await cloudClient.query('COMMIT');
@@ -1691,4 +1753,4 @@ app.get('*', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   initDB();
-});/centre
+});

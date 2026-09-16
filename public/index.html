@@ -57,6 +57,7 @@
         .btn-act-edit { background-color: #f59e0b; color: white; }
         .btn-act-bills { background-color: #1976d2; color: white; }
         .btn-act-bill-prt { background-color: #0284c7; color: white; }
+        .btn-act-pdf { background-color: #047857; color: white; }
         .btn-act-wa { background-color: #25d366; color: white; }
         .btn-act-formf { background-color: #ca8a04; color: white; }
         .btn-act-del { background-color: #dc3545; color: white; }
@@ -519,7 +520,7 @@
                     </div>
                 </div>
 
-                <table><thead><tr><th>Date</th><th>Centre</th><th>Patient Name</th><th>Services</th><th>Payment Mode</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th style="width: 290px;">Actions</th></tr></thead><tbody id="reportsTableBody"></tbody></table>
+                <table><thead><tr><th>Date</th><th>Centre</th><th>Patient Name</th><th>Services</th><th>Payment Mode</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th style="width: 330px;">Actions</th></tr></thead><tbody id="reportsTableBody"></tbody></table>
             </div>
         </div>
 
@@ -630,7 +631,7 @@
     <div id="patientBillsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3 id="patientBillsTitle">Bills History</h3><button type="button" onclick="closePatientBillsModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
-            <table><thead><tr><th>Invoice No</th><th>Date</th><th>Centre</th><th>Total</th><th>Paid</th><th>Balance</th><th style="width: 200px;">Actions</th></tr></thead><tbody id="patientBillsTableBody"></tbody></table>
+            <table><thead><tr><th>Invoice No</th><th>Date</th><th>Centre</th><th>Total</th><th>Paid</th><th>Balance</th><th style="width: 260px;">Actions</th></tr></thead><tbody id="patientBillsTableBody"></tbody></table>
             <button type="button" class="btn-act btn-act-del" style="margin-top: 14px;" onclick="closePatientBillsModal()">Close</button>
         </div>
     </div>
@@ -1882,10 +1883,38 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
             printEl.classList.remove('print-active');
         }
 
-        function shareWhatsAppInvoice(phone, patName, invNo, net, bal, centreName) {
-            if (!phone) return alert('Mobile number missing.');
-            const num = phone.replace(/[^0-9]/g, '').length === 10 ? `91${phone.replace(/[^0-9]/g, '')}` : phone.replace(/[^0-9]/g, '');
-            const msg = `Dear ${patName},\nThank you for visiting ${centreName || 'RESQ Diagnostics'}.\n\nInvoice No: ${invNo}\nNet: ₹${net}\nBalance: ₹${bal}`;
+        async function shareWhatsAppInvoice(phone, patName, invNo, net, bal, centreName, visitId) {
+            if (!phone) return alert('Mobile number missing for this patient.');
+            
+            const cleanDigits = phone.replace(/[^0-9]/g, '');
+            const num = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
+            const pdfUrl = `${window.location.origin}/api/invoice/${visitId}/pdf`;
+
+            if (navigator.canShare) {
+                try {
+                    const blobRes = await fetch(pdfUrl);
+                    const blob = await blobRes.blob();
+                    const file = new File([blob], `Invoice_${invNo}.pdf`, { type: 'application/pdf' });
+
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: `Invoice ${invNo}`,
+                            text: `Dear ${patName},\nHere is your official diagnostic invoice ${invNo} from ${centreName}.\nNet: ₹${net} | Balance: ₹${bal}`
+                        });
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Web Share not used, falling back to direct WhatsApp link.');
+                }
+            }
+
+            const msg = `Dear *${patName}*,\nThank you for visiting *${centreName || 'RESQ Diagnostics'}*.\n\n` +
+                        `📋 *Invoice No:* ${invNo}\n` +
+                        `💵 *Net Amount:* ₹${net}\n` +
+                        `⏳ *Balance Due:* ₹${bal}\n\n` +
+                        `📄 *View / Download Your Official PDF Invoice:* \n${pdfUrl}`;
+
             window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
@@ -1944,7 +1973,8 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
                         <td>${v.payment_status === 'Paid' ? '<span style="color:#2e7d32;font-weight:bold;">Paid</span>' : '<span style="color:#c62828;font-weight:bold;">Pending</span>'}</td>
                         <td>
                             <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${v.visit_id}')">🖨️ Bill</button>
-                            <button type="button" class="btn-act btn-act-wa" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}')">📱 WA</button>
+                            <a href="/api/invoice/${v.visit_id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 PDF</a>
+                            <button type="button" class="btn-act btn-act-wa" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}', '${v.visit_id}')">📱 WA</button>
                             ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.visit_id}')">📝 Form F</button>` : ''}
                             <button type="button" class="btn-act btn-act-edit" onclick="openEditBillModal('${v.visit_id}')">✏️ Edit Bill</button>
                             <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.visit_id}')">✕ Delete</button>
@@ -2250,6 +2280,7 @@ TUNICA VAGINALIS :- No hydrocele, pyocele or hematocele noted. Scrotal skin thic
                             <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
                             <td>
                                 <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${v.id}')">🖨️ Bill</button>
+                                <a href="/api/invoice/${v.id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 PDF</a>
                                 ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.id}')">📝 Form F</button>` : ''}
                                 <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.id}')">✕ Delete</button>
                             </td>
