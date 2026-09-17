@@ -127,7 +127,6 @@ function getTenantCentreId(req) {
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// --- SMS DISPATCH HELPER ---
 async function dispatchSMS(phone, message) {
   if (!phone) return false;
   const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
@@ -996,7 +995,6 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PDF Generation Route
 app.get('/api/invoice/:id/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1100,7 +1098,6 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
   }
 });
 
-// --- SMS TRIGGER ENDPOINTS ---
 app.post('/api/visits/:id/send-bill-sms', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1332,6 +1329,7 @@ app.get('/api/imaging/templates', async (req, res) => {
   }
 });
 
+// ROBUST CLEAN TEMPLATE PARSER (STRIPS BINARY HEADERS & FOOTERS)
 app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), async (req, res) => {
   try {
     const files = req.files || [];
@@ -1340,8 +1338,20 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
       const baseName = path.basename(f.originalname, path.extname(f.originalname));
       const cleanTitle = baseName.replace(/_/g, ' ').toUpperCase();
       let content = '';
-      try { 
-        content = fs.readFileSync(f.path, 'utf8'); 
+
+      try {
+        const buffer = fs.readFileSync(f.path);
+        const rawString = buffer.toString('latin1');
+        
+        let cleanText = rawString
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '')
+          .replace(/^[\s\S]*?NAME/i, 'NAME')
+          .replace(/\[Content_Types\]\.xml[\s\S]*/i, '')
+          .replace(/theme\/theme\/[\s\S]*/i, '')
+          .replace(/\r\n/g, '\n')
+          .trim();
+
+        content = cleanText.length > 40 ? cleanText : fs.readFileSync(f.path, 'utf8');
       } catch (e) { 
         content = `FINDINGS FOR ${cleanTitle}:\n\n- Completed.`; 
       }
