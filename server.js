@@ -127,6 +127,41 @@ function getTenantCentreId(req) {
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+// --- SMS DISPATCH HELPER ---
+async function dispatchSMS(phone, message) {
+  if (!phone) return false;
+  const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
+  if (cleanPhone.length !== 10) return false;
+
+  const apiKey = process.env.FAST2SMS_API_KEY;
+  if (!apiKey) {
+    console.log(`[SMS Log to ${cleanPhone}]: ${message}`);
+    return true;
+  }
+
+  try {
+    const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+      method: 'POST',
+      headers: {
+        'authorization': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        route: 'q',
+        message: message,
+        language: 'english',
+        flash: 0,
+        numbers: cleanPhone
+      })
+    });
+    const data = await response.json();
+    return data.return === true;
+  } catch (err) {
+    console.error('SMS Gateway Error:', err.message);
+    return false;
+  }
+}
+
 function calculateCommission(testArray, validDoctorId = null, docInfo = null, concession = 0) {
   let totalTestCut = 0;
   for (const t of testArray) {
@@ -1065,6 +1100,82 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
   }
 });
 
+// --- SMS TRIGGER ENDPOINTS ---
+app.post('/api/visits/:id/send-bill-sms', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    const visitRes = await pool.query(
+      `SELECT v.*, p.full_name, p.phone, c.centre_name 
+       FROM visits v 
+       JOIN patients p ON v.patient_id = p.id 
+       LEFT JOIN clinic_centres c ON v.centre_id = c.id 
+       WHERE v.id::text = $1::text`,
+      [validId]
+    );
+    if (!visitRes.rows.length) return res.status(404).json({ success: false, error: 'Visit not found' });
+
+    const v = visitRes.rows[0];
+    const net = (parseFloat(v.total_amount) - parseFloat(v.concession || 0)).toFixed(2);
+    const pdfUrl = `https://resq-clinic-app.onrender.com/api/invoice/${validId}/pdf`;
+    
+    const msg = `Dear ${v.full_name}, your bill for ${v.centre_name || 'RESQ Clinic'} is ready. Inv: ${v.invoice_number}, Net: Rs.${net}, Balance: Rs.${parseFloat(v.balance_amount).toFixed(2)}. Download Bill: ${pdfUrl}`;
+
+    const sent = await dispatchSMS(v.phone, msg);
+    res.json({ success: true, message: sent ? 'Bill SMS sent successfully!' : 'Bill SMS logged.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/visits/:id/send-report-sms', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    const visitRes = await pool.query(
+      `SELECT v.*, p.full_name, p.phone, c.centre_name 
+       FROM visits v 
+       JOIN patients p ON v.patient_id = p.id 
+       LEFT JOIN clinic_centres c ON v.centre_id = c.id 
+       WHERE v.id::text = $1::text`,
+      [validId]
+    );
+    if (!visitRes.rows.length) return res.status(404).json({ success: false, error: 'Visit not found' });
+
+    const v = visitRes.rows[0];
+    if (parseFloat(v.balance_amount) > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Cannot send report: Outstanding balance of Rs.${parseFloat(v.balance_amount).toFixed(2)} remaining.` 
+      });
+    }
+
+    const reportUrl = v.report_file 
+      ? `https://resq-clinic-app.onrender.com/${v.report_file.replace(/\\/g, '/')}`
+      : `https://resq-clinic-app.onrender.com/api/imaging/report/${validId}/download`;
+
+    const msg = `Dear ${v.full_name}, your diagnostic report from ${v.centre_name || 'RESQ Clinic'} is ready. View/Download: ${reportUrl}`;
+
+    const sent = await dispatchSMS(v.phone, msg);
+    res.json({ success: true, message: sent ? 'Report SMS sent successfully!' : 'Report SMS logged.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/imaging/report/:visitId/download', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.visitId);
+    const rRes = await pool.query(`SELECT * FROM imaging_reports WHERE visit_id::text = $1::text LIMIT 1`, [validId]);
+    if (!rRes.rows.length) return res.status(404).send('Diagnostic report has not yet been saved in the system.');
+    
+    const r = rRes.rows[0];
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `inline; filename="Report_${validId}.txt"`);
+    res.send(`RESQ CLINIC & IMAGING CENTRE - DIAGNOSTIC REPORT\nDoctor: ${r.doctor_name}\n\nFINDINGS:\n${r.report_text}\n\nIMPRESSION:\n${r.impression}`);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
 app.get('/api/tests', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM test_master ORDER BY test_name ASC');
@@ -1526,7 +1637,6 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// CLOUD SYNC ROUTE WITH INVOICE NUMBER DEDUPLICATION
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
 
@@ -1674,9 +1784,10 @@ app.post('/api/sync/cloud', async (req, res) => {
           )
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         `, [
-          v.id, v.centre_id, v.patient_id, safeDoctorId, v.total_amount, v.concession,
-          v.paid_amount, v.balance_amount, v.payment_status, v.payment_mode, v.invoice_number,
-          v.doctor_commission, v.report_file, v.created_at
+          v.id, v.centre_id, v.patient_id, safeDoctorId, v.total_amount,
+          v.concession, v.paid_amount, v.balance_amount, v.payment_status,
+          v.payment_mode, v.invoice_number, v.doctor_commission,
+          v.report_file, v.created_at, targetVisitId
         ]);
       }
       visitIdMap[String(v.id)] = targetVisitId;
