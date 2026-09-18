@@ -32,7 +32,7 @@ const storage = multer.diskStorage({
       cb(null, './uploads/');
     }
   },
-  filename: (req, file, cb) => cb(null, file.originalname.replace(/\s+/g, '_'))
+  filename: (req, file, cb) => cb(null, `${Date.now()}_${file.originalname.replace(/\s+/g, '_')}`)
 });
 const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
@@ -127,6 +127,54 @@ function getTenantCentreId(req) {
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+// Extract clean text from Word .doc / .dot binary files and strip null bytes
+function extractTextFromUploadedFile(filePath) {
+  if (!fs.existsSync(filePath)) return { body: '', impression: '' };
+  try {
+    const rawBuffer = fs.readFileSync(filePath);
+    const asciiRuns = [];
+    let currentRun = '';
+
+    for (let i = 0; i < rawBuffer.length; i++) {
+      const byte = rawBuffer[i];
+      if ((byte >= 32 && byte <= 126) || byte === 10 || byte === 13 || byte === 9) {
+        currentRun += String.fromCharCode(byte);
+      } else {
+        if (currentRun.trim().length >= 3) asciiRuns.push(currentRun.trim());
+        currentRun = '';
+      }
+    }
+    if (currentRun.trim().length >= 3) asciiRuns.push(currentRun.trim());
+
+    const cleanLines = [];
+    for (const run of asciiRuns) {
+      if (/^(bjbj|theme|\[Content_Types\]|_rels|Microsoft|Normal\.dot|DocumentSummaryInformation|CompObj)/i.test(run)) continue;
+      if (/^<\?xml|<a:clrMap|<w:|<m:|<\/|<b:/i.test(run)) continue;
+      if (run.length > 2) cleanLines.push(run);
+    }
+
+    let textContent = cleanLines.join('\n\n')
+      .replace(/\0/g, ' ')
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+
+    let body = textContent;
+    let impression = 'NO SIGNIFICANT ABNORMALITY DETECTED.';
+    const impRegex = /(?:IMPRESSION|CONCLUSION|OPINION)\s*[:-]\s*([\s\S]*)/i;
+    const match = textContent.match(impRegex);
+    if (match) {
+      impression = match[1].trim();
+      body = textContent.substring(0, match.index).trim();
+    }
+
+    return {
+      body: body || 'FINDINGS:\n- Study completed within normal limits.',
+      impression: impression || 'NORMAL STUDY.'
+    };
+  } catch (err) {
+    return { body: 'FINDINGS:\n- Completed.', impression: 'NORMAL STUDY.' };
+  }
+}
+
 async function dispatchSMS(phone, message) {
   if (!phone) return false;
   const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
@@ -206,18 +254,6 @@ function calculateCommission(testArray, validDoctorId = null, docInfo = null, co
   return Math.max(0, Math.round(totalTestCut - finalDiscount));
 }
 
-const defaultTests = [
-  { testName: '2D Echocardiography (2D Echo)', category: 'Cardiology', price: 1800, cutType: 'percentage', testCut: 30 },
-  { testName: 'Color Doppler Scrotum', category: 'Imaging', price: 2200, cutType: 'percentage', testCut: 30 },
-  { testName: 'USG Abdomen & Pelvis (Female)', category: 'Imaging', price: 1600, cutType: 'percentage', testCut: 30 },
-  { testName: 'USG Abdomen & Pelvis (Male)', category: 'Imaging', price: 1600, cutType: 'percentage', testCut: 30 },
-  { testName: 'USG Early Pregnancy Viability', category: 'Obstetrics', price: 1200, cutType: 'percentage', testCut: 30 },
-  { testName: 'USG Follicular Study', category: 'Obstetrics', price: 1500, cutType: 'percentage', testCut: 30 },
-  { testName: 'Digital Chest X-Ray PA View', category: 'Imaging', price: 400, cutType: 'fixed', testCut: 100 },
-  { testName: 'Complete Blood Count (CBC)', category: 'Pathology', price: 280, cutType: 'percentage', testCut: 20 },
-  { testName: 'Doctor Consultation / OPD', category: 'Consulting', price: 800, cutType: 'fixed', testCut: 200 }
-];
-
 async function initDB() {
   if (!cleanDbUrl) {
     isDbConnected = false;
@@ -276,6 +312,7 @@ async function initDB() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS referring_doctors (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE,
         doctor_name VARCHAR(255) NOT NULL,
         hospital_clinic_name VARCHAR(255),
         commission_type VARCHAR(50) DEFAULT 'percentage',
@@ -286,6 +323,7 @@ async function initDB() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS test_master (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE,
         test_name VARCHAR(255) NOT NULL,
         category VARCHAR(100) DEFAULT 'Pathology',
         price DECIMAL(10,2) DEFAULT 0.00,
@@ -366,7 +404,8 @@ async function initDB() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS imaging_templates (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-        template_name VARCHAR(255) UNIQUE NOT NULL,
+        centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE,
+        template_name VARCHAR(255) NOT NULL,
         title VARCHAR(255) NOT NULL,
         category VARCHAR(100) DEFAULT 'Ultrasonography',
         default_impression TEXT,
@@ -391,15 +430,18 @@ async function initDB() {
       );
     `);
 
-    for (const t of defaultTests) {
-      const check = await pool.query('SELECT id FROM test_master WHERE test_name = $1', [t.testName]);
-      if (check.rows.length === 0) {
-        await pool.query('INSERT INTO test_master (test_name, category, price, cut_type, test_cut) VALUES ($1, $2, $3, $4, $5)', [t.testName, t.category, t.price, t.cutType, t.testCut]);
-      }
-    }
+    // Schema upgrades for multi-tenant isolation
+    await pool.query(`
+      ALTER TABLE referring_doctors ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
+      ALTER TABLE test_master ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
+      ALTER TABLE imaging_templates ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
+      ALTER TABLE imaging_templates DROP CONSTRAINT IF EXISTS imaging_templates_template_name_key;
+    `);
+
   } catch (err) {
     isDbConnected = false;
     dbErrorMessage = err.message;
+    console.error('initDB error:', err);
   }
 }
 
@@ -1173,20 +1215,30 @@ app.get('/api/imaging/report/:visitId/download', async (req, res) => {
   }
 });
 
+// Centre-specific tests endpoints
 app.get('/api/tests', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM test_master ORDER BY test_name ASC');
+    const centreId = getTenantCentreId(req);
+    let query = 'SELECT * FROM test_master WHERE 1=1';
+    const params = [];
+    if (centreId) {
+      params.push(String(centreId));
+      query += ` AND (centre_id::text = $${params.length}::text OR centre_id IS NULL)`;
+    }
+    query += ' ORDER BY test_name ASC';
+    const result = await pool.query(query, params);
     res.status(200).json({ success: true, data: result.rows });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/tests', async (req, res) => {
   try {
+    const centreId = getTenantCentreId(req);
     const { testName, category, price, cutType, testCut } = req.body;
     const parsedCut = (testCut !== undefined && testCut !== null && !isNaN(parseFloat(testCut))) ? parseFloat(testCut) : 30;
     const result = await pool.query(
-      'INSERT INTO test_master (test_name, category, price, cut_type, test_cut) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [testName, category || 'Pathology', parseFloat(price) || 0, cutType || 'percentage', parsedCut]
+      'INSERT INTO test_master (centre_id, test_name, category, price, cut_type, test_cut) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [centreId, testName, category || 'Pathology', parseFloat(price) || 0, cutType || 'percentage', parsedCut]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -1194,6 +1246,7 @@ app.post('/api/tests', async (req, res) => {
 
 app.post('/api/tests/bulk-import', async (req, res) => {
   try {
+    const centreId = getTenantCentreId(req);
     const { tests } = req.body;
     if (!Array.isArray(tests) || !tests.length) return res.status(400).json({ success: false, error: 'No test rows provided.' });
     let count = 0;
@@ -1201,9 +1254,9 @@ app.post('/api/tests/bulk-import', async (req, res) => {
       if (t.testName) {
         const parsedCut = (t.testCut !== undefined && t.testCut !== null && !isNaN(parseFloat(t.testCut))) ? parseFloat(t.testCut) : 30;
         await pool.query(
-          `INSERT INTO test_master (test_name, category, price, cut_type, test_cut)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [t.testName.trim(), t.category || 'Imaging', parseFloat(t.price) || 0, t.cutType || 'percentage', parsedCut]
+          `INSERT INTO test_master (centre_id, test_name, category, price, cut_type, test_cut)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [centreId, t.testName.trim(), t.category || 'Imaging', parseFloat(t.price) || 0, t.cutType || 'percentage', parsedCut]
         );
         count++;
       }
@@ -1233,20 +1286,30 @@ app.delete('/api/tests/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Centre-specific doctors endpoints
 app.get('/api/doctors', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM referring_doctors ORDER BY doctor_name ASC');
+    const centreId = getTenantCentreId(req);
+    let query = 'SELECT * FROM referring_doctors WHERE 1=1';
+    const params = [];
+    if (centreId) {
+      params.push(String(centreId));
+      query += ` AND (centre_id::text = $${params.length}::text OR centre_id IS NULL)`;
+    }
+    query += ' ORDER BY doctor_name ASC';
+    const result = await pool.query(query, params);
     res.status(200).json({ success: true, data: result.rows });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/doctors', async (req, res) => {
   try {
+    const centreId = getTenantCentreId(req);
     const { doctorName, hospitalClinicName, commissionType, commissionValue } = req.body;
     const parsedVal = (commissionValue !== undefined && commissionValue !== null && !isNaN(parseFloat(commissionValue))) ? parseFloat(commissionValue) : 30;
     const result = await pool.query(
-      'INSERT INTO referring_doctors (doctor_name, hospital_clinic_name, commission_type, commission_value) VALUES ($1, $2, $3, $4) RETURNING *',
-      [doctorName, hospitalClinicName, commissionType || 'percentage', parsedVal]
+      'INSERT INTO referring_doctors (centre_id, doctor_name, hospital_clinic_name, commission_type, commission_value) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [centreId, doctorName, hospitalClinicName, commissionType || 'percentage', parsedVal]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -1254,6 +1317,7 @@ app.post('/api/doctors', async (req, res) => {
 
 app.post('/api/doctors/bulk-import', async (req, res) => {
   try {
+    const centreId = getTenantCentreId(req);
     const { doctors } = req.body;
     if (!Array.isArray(doctors) || !doctors.length) return res.status(400).json({ success: false, error: 'No doctor rows provided.' });
     let count = 0;
@@ -1261,9 +1325,9 @@ app.post('/api/doctors/bulk-import', async (req, res) => {
       if (d.doctorName) {
         const parsedVal = (d.commissionValue !== undefined && d.commissionValue !== null && !isNaN(parseFloat(d.commissionValue))) ? parseFloat(d.commissionValue) : 30;
         await pool.query(
-          `INSERT INTO referring_doctors (doctor_name, hospital_clinic_name, commission_type, commission_value)
-           VALUES ($1, $2, $3, $4)`,
-          [d.doctorName.trim(), d.hospitalClinicName || '', d.commissionType || 'percentage', parsedVal]
+          `INSERT INTO referring_doctors (centre_id, doctor_name, hospital_clinic_name, commission_type, commission_value)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [centreId, d.doctorName.trim(), d.hospitalClinicName || '', d.commissionType || 'percentage', parsedVal]
         );
         count++;
       }
@@ -1293,94 +1357,78 @@ app.delete('/api/doctors/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Centre-specific templates endpoints
 app.get('/api/imaging/templates', async (req, res) => {
   try {
+    const centreId = getTenantCentreId(req);
     let dbTemplates = [];
     if (isDbConnected) {
-      const result = await pool.query('SELECT * FROM imaging_templates ORDER BY title ASC');
+      let query = 'SELECT * FROM imaging_templates WHERE 1=1';
+      const params = [];
+      if (centreId) {
+        params.push(String(centreId));
+        query += ` AND (centre_id::text = $${params.length}::text OR centre_id IS NULL)`;
+      }
+      query += ' ORDER BY title ASC';
+      const result = await pool.query(query, params);
       dbTemplates = result.rows;
     }
-
-    const diskFiles = fs.existsSync(TEMPLATES_DIR) ? fs.readdirSync(TEMPLATES_DIR) : [];
-    const diskTemplates = diskFiles
-      .filter(f => /\.(doc|dot|docx|txt)$/i.test(f))
-      .map(f => {
-        const base = path.basename(f, path.extname(f)).replace(/_/g, ' ');
-        return {
-          id: f,
-          template_name: f,
-          title: base.toUpperCase(),
-          category: 'Ultrasonography',
-          default_impression: '',
-          template_body: ''
-        };
-      });
-
-    const merged = [...dbTemplates];
-    diskTemplates.forEach(dt => {
-      if (!merged.some(m => (m.template_name || '').toLowerCase() === dt.template_name.toLowerCase())) {
-        merged.push(dt);
-      }
-    });
-
-    res.status(200).json({ success: true, data: merged });
+    res.status(200).json({ success: true, data: dbTemplates });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// ROBUST CLEAN TEMPLATE PARSER (STRIPS BINARY HEADERS & FOOTERS)
 app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), async (req, res) => {
   try {
+    const centreId = getTenantCentreId(req);
     const files = req.files || [];
     let count = 0;
+
     for (const f of files) {
       const baseName = path.basename(f.originalname, path.extname(f.originalname));
       const cleanTitle = baseName.replace(/_/g, ' ').toUpperCase();
-      let content = '';
+      const { body, impression } = extractTextFromUploadedFile(f.path);
 
-      try {
-        const buffer = fs.readFileSync(f.path);
-        const rawString = buffer.toString('latin1');
-        
-        let cleanText = rawString
-          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '')
-          .replace(/^[\s\S]*?NAME/i, 'NAME')
-          .replace(/\[Content_Types\]\.xml[\s\S]*/i, '')
-          .replace(/theme\/theme\/[\s\S]*/i, '')
-          .replace(/\r\n/g, '\n')
-          .trim();
-
-        content = cleanText.length > 40 ? cleanText : fs.readFileSync(f.path, 'utf8');
-      } catch (e) { 
-        content = `FINDINGS FOR ${cleanTitle}:\n\n- Completed.`; 
-      }
+      let category = 'Ultrasonography';
+      const low = f.originalname.toLowerCase();
+      if (low.includes('echo')) category = 'Echocardiography';
+      else if (low.includes('doppler')) category = 'Color Doppler';
+      else if (low.includes('x-ray') || low.includes('xray')) category = 'Digital X-Ray';
+      else if (low.includes('trimester') || low.includes('anomaly') || low.includes('obstetric') || low.includes('pregnancy')) category = 'Obstetrics';
 
       if (isDbConnected) {
-        await pool.query(
-          `INSERT INTO imaging_templates (template_name, title, category, template_body)
-           VALUES ($1, $2, 'Ultrasonography', $3)
-           ON CONFLICT (template_name) DO UPDATE 
-           SET title = EXCLUDED.title, template_body = EXCLUDED.template_body`,
-          [f.originalname, cleanTitle, content]
+        const existing = await pool.query(
+          `SELECT id FROM imaging_templates WHERE template_name = $1 AND (centre_id::text = $2::text OR ($2 IS NULL AND centre_id IS NULL)) LIMIT 1`,
+          [f.originalname, centreId]
         );
+        if (existing.rows.length > 0) {
+          await pool.query(
+            `UPDATE imaging_templates SET title = $1, category = $2, template_body = $3, default_impression = $4 WHERE id = $5`,
+            [cleanTitle, category, body, impression, existing.rows[0].id]
+          );
+        } else {
+          await pool.query(
+            `INSERT INTO imaging_templates (centre_id, template_name, title, category, template_body, default_impression)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [centreId, f.originalname, cleanTitle, category, body, impression]
+          );
+        }
       }
       count++;
     }
 
-    const all = isDbConnected 
-      ? (await pool.query('SELECT * FROM imaging_templates ORDER BY title ASC')).rows 
-      : [];
-    res.status(200).json({ success: true, message: `Successfully uploaded ${count} template(s).`, data: all });
-  } catch (err) { 
-    res.status(500).json({ success: false, error: err.message }); 
+    res.status(200).json({ success: true, message: `Successfully uploaded ${count} template(s).` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.put('/api/imaging/templates/:name', async (req, res) => {
+app.put('/api/imaging/templates/:identifier', async (req, res) => {
   try {
     const { title, templateBody, defaultImpression, category } = req.body;
-    const templateName = req.params.name;
+    const centreId = getTenantCentreId(req);
+    const identifier = req.params.identifier;
 
     if (isDbConnected) {
       await pool.query(
@@ -1389,34 +1437,29 @@ app.put('/api/imaging/templates/:name', async (req, res) => {
              template_body = COALESCE($2, template_body),
              default_impression = COALESCE($3, default_impression),
              category = COALESCE($4, category)
-         WHERE template_name = $5`,
-        [title, templateBody, defaultImpression, category, templateName]
+         WHERE (id::text = $5 OR template_name = $5)
+           AND (centre_id::text = $6::text OR $6 IS NULL)`,
+        [title, templateBody, defaultImpression, category, identifier, centreId]
       );
     }
-
-    const filePath = path.join(TEMPLATES_DIR, templateName);
-    if (fs.existsSync(filePath) && templateBody !== undefined) {
-      fs.writeFileSync(filePath, templateBody, 'utf8');
-    }
-
     res.status(200).json({ success: true, message: 'Template updated successfully!' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.delete('/api/imaging/templates/:name', async (req, res) => {
+app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   try {
-    const templateName = req.params.name;
+    const centreId = getTenantCentreId(req);
+    const identifier = req.params.identifier;
     if (isDbConnected) {
-      await pool.query('DELETE FROM imaging_templates WHERE template_name = $1', [templateName]);
+      await pool.query(
+        `DELETE FROM imaging_templates 
+         WHERE (id::text = $1 OR template_name = $1)
+           AND (centre_id::text = $2::text OR $2 IS NULL)`,
+        [identifier, centreId]
+      );
     }
-
-    const filePath = path.join(TEMPLATES_DIR, templateName);
-    if (fs.existsSync(filePath)) {
-      try { fs.unlinkSync(filePath); } catch (e) {}
-    }
-
     res.status(200).json({ success: true, message: 'Template deleted successfully!' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -1671,13 +1714,13 @@ app.post('/api/sync/cloud', async (req, res) => {
     await cloudClient.query(`
       CREATE TABLE IF NOT EXISTS app_auth (id SERIAL PRIMARY KEY, role VARCHAR(50) DEFAULT 'admin', password VARCHAR(255) NOT NULL);
       CREATE TABLE IF NOT EXISTS clinic_centres (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_name VARCHAR(255) NOT NULL, tagline VARCHAR(255), address TEXT, phone VARCHAR(100), reg_no VARCHAR(100) DEFAULT 'RC197', email VARCHAR(100), centre_password VARCHAR(255) DEFAULT '1234', owner_password VARCHAR(255) DEFAULT 'owner123', is_private BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE IF NOT EXISTS referring_doctors (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, doctor_name VARCHAR(255) NOT NULL, hospital_clinic_name VARCHAR(255), commission_type VARCHAR(50) DEFAULT 'percentage', commission_value DECIMAL(10,2) DEFAULT 0.00);
-      CREATE TABLE IF NOT EXISTS test_master (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, test_name VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Pathology', price DECIMAL(10,2) DEFAULT 0.00, cut_type VARCHAR(20) DEFAULT 'fixed', test_cut DECIMAL(10,2) DEFAULT 0.00);
+      CREATE TABLE IF NOT EXISTS referring_doctors (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, doctor_name VARCHAR(255) NOT NULL, hospital_clinic_name VARCHAR(255), commission_type VARCHAR(50) DEFAULT 'percentage', commission_value DECIMAL(10,2) DEFAULT 0.00);
+      CREATE TABLE IF NOT EXISTS test_master (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, test_name VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Pathology', price DECIMAL(10,2) DEFAULT 0.00, cut_type VARCHAR(20) DEFAULT 'fixed', test_cut DECIMAL(10,2) DEFAULT 0.00);
       CREATE TABLE IF NOT EXISTS patients (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, patient_code VARCHAR(100), full_name VARCHAR(255) NOT NULL, age INT DEFAULT 0, gender VARCHAR(20), phone VARCHAR(50), email VARCHAR(255), whatsapp_number VARCHAR(50), address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS visits (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, patient_id UUID REFERENCES patients(id) ON DELETE CASCADE, referring_doctor_id UUID, total_amount DECIMAL(10,2) DEFAULT 0.00, concession DECIMAL(10,2) DEFAULT 0.00, paid_amount DECIMAL(10,2) DEFAULT 0.00, balance_amount DECIMAL(10,2) DEFAULT 0.00, payment_status VARCHAR(50) DEFAULT 'Pending', payment_mode VARCHAR(50) DEFAULT 'Cash', invoice_number VARCHAR(100), doctor_commission DECIMAL(10,2) DEFAULT 0.00, report_file VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS patient_investigations (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, test_id UUID, barcode VARCHAR(100), status VARCHAR(50) DEFAULT 'Registered', price DECIMAL(10, 2), cut_type VARCHAR(20) DEFAULT 'fixed', test_cut DECIMAL(10, 2) DEFAULT 0.00);
       CREATE TABLE IF NOT EXISTS pcpndt_forms (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, centre_id UUID, relative_name VARCHAR(255), no_of_sons INT DEFAULT 0, sons_age VARCHAR(100), no_of_daughters INT DEFAULT 0, daughters_age VARCHAR(100), lmp_date VARCHAR(50), weeks_of_preg VARCHAR(50), indications TEXT, scan_result TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', clinic_reg_no VARCHAR(100) DEFAULT 'RC197', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE IF NOT EXISTS imaging_templates (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, template_name VARCHAR(255) UNIQUE NOT NULL, title VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Ultrasonography', default_impression TEXT, template_body TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS imaging_templates (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, template_name VARCHAR(255) NOT NULL, title VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Ultrasonography', default_impression TEXT, template_body TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS imaging_reports (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, patient_id UUID, centre_id UUID, template_id UUID, template_name VARCHAR(255), report_text TEXT NOT NULL, impression TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
     `);
 
@@ -1698,157 +1741,30 @@ app.post('/api/sync/cloud', async (req, res) => {
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
     for (const d of doctors.rows) {
       await cloudClient.query(`
-        INSERT INTO referring_doctors (id, doctor_name, hospital_clinic_name, commission_type, commission_value)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO referring_doctors (id, centre_id, doctor_name, hospital_clinic_name, commission_type, commission_value)
+        VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (id) DO UPDATE SET doctor_name = EXCLUDED.doctor_name, hospital_clinic_name = EXCLUDED.hospital_clinic_name, commission_type = EXCLUDED.commission_type, commission_value = EXCLUDED.commission_value;
-      `, [d.id, d.doctor_name, d.hospital_clinic_name, d.commission_type, d.commission_value]);
+      `, [d.id, d.centre_id, d.doctor_name, d.hospital_clinic_name, d.commission_type, d.commission_value]);
     }
 
     const tests = await localClient.query('SELECT * FROM test_master');
     for (const t of tests.rows) {
       await cloudClient.query(`
-        INSERT INTO test_master (id, test_name, category, price, cut_type, test_cut)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO test_master (id, centre_id, test_name, category, price, cut_type, test_cut)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (id) DO UPDATE SET test_name = EXCLUDED.test_name, category = EXCLUDED.category, price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut;
-      `, [t.id, t.test_name, t.category, t.price, t.cut_type || 'percentage', t.test_cut]);
+      `, [t.id, t.centre_id, t.test_name, t.category, t.price, t.cut_type || 'percentage', t.test_cut]);
     }
 
-    const templateIdMap = {};
     const templates = await localClient.query('SELECT * FROM imaging_templates');
     for (const t of templates.rows) {
-      const check = await cloudClient.query('SELECT id FROM imaging_templates WHERE template_name = $1', [t.template_name]);
-      if (check.rows.length > 0) {
-        await cloudClient.query(
-          `UPDATE imaging_templates SET title = $1, category = $2, default_impression = $3, template_body = $4 WHERE id = $5`,
-          [t.title, t.category, t.default_impression, t.template_body, check.rows[0].id]
-        );
-        templateIdMap[String(t.id)] = check.rows[0].id;
-      } else {
-        const ins = await cloudClient.query(
-          `INSERT INTO imaging_templates (template_name, title, category, default_impression, template_body)
-           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-          [t.template_name, t.title, t.category, t.default_impression, t.template_body]
-        );
-        templateIdMap[String(t.id)] = ins.rows[0].id;
-      }
-    }
-
-    const validCloudPatientIds = new Set();
-    const patients = await localClient.query('SELECT * FROM patients');
-    for (const p of patients.rows) {
-      const safeAge = p.age !== null && p.age !== undefined && !isNaN(parseInt(p.age, 10)) ? parseInt(p.age, 10) : 0;
-      await cloudClient.query(`
-        INSERT INTO patients (id, centre_id, patient_code, full_name, age, gender, phone, email, address, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender, phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address, centre_id = EXCLUDED.centre_id;
-      `, [p.id, p.centre_id, p.patient_code, p.full_name, safeAge, p.gender || 'Female', p.phone || '', p.email || '', p.address || '', p.created_at]);
-      validCloudPatientIds.add(String(p.id));
-    }
-
-    const visitIdMap = {};
-    const visits = await localClient.query('SELECT * FROM visits');
-    for (const v of visits.rows) {
-      if (!v.patient_id) continue;
-      const pid = String(v.patient_id);
-      if (!validCloudPatientIds.has(pid)) {
-        await cloudClient.query(`
-          INSERT INTO patients (id, full_name, patient_code, age, gender) VALUES ($1, 'Archived Patient', 'ARCHIVED', 0, 'Other')
-          ON CONFLICT (id) DO NOTHING;
-        `, [pid]);
-        validCloudPatientIds.add(pid);
-      }
-
-      let safeDoctorId = v.referring_doctor_id;
-      if (safeDoctorId) {
-        const docCheck = await cloudClient.query('SELECT id FROM referring_doctors WHERE id::text = $1', [String(safeDoctorId)]);
-        if (docCheck.rows.length === 0) safeDoctorId = null;
-      }
-
-      const existingVisit = await cloudClient.query(
-        `SELECT id FROM visits WHERE id::text = $1 OR (invoice_number IS NOT NULL AND invoice_number = $2) LIMIT 1`,
-        [String(v.id), v.invoice_number]
+      await cloudClient.query(
+        `INSERT INTO imaging_templates (id, centre_id, template_name, title, category, default_impression, template_body)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (id) DO UPDATE 
+         SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body`,
+        [t.id, t.centre_id, t.template_name, t.title, t.category, t.default_impression, t.template_body]
       );
-
-      let targetVisitId = v.id;
-      if (existingVisit.rows.length > 0) {
-        targetVisitId = existingVisit.rows[0].id;
-        await cloudClient.query(`
-          UPDATE visits SET 
-            centre_id = $1, patient_id = $2, referring_doctor_id = $3, total_amount = $4,
-            concession = $5, paid_amount = $6, balance_amount = $7, payment_status = $8,
-            payment_mode = $9, invoice_number = $10, doctor_commission = $11, 
-            report_file = $12, created_at = $13
-          WHERE id = $14
-        `, [
-          v.centre_id, v.patient_id, safeDoctorId, v.total_amount,
-          v.concession, v.paid_amount, v.balance_amount, v.payment_status,
-          v.payment_mode, v.invoice_number, v.doctor_commission,
-          v.report_file, v.created_at, targetVisitId
-        ]);
-      } else {
-        await cloudClient.query(`
-          INSERT INTO visits (
-            id, centre_id, patient_id, referring_doctor_id, total_amount, concession,
-            paid_amount, balance_amount, payment_status, payment_mode, invoice_number,
-            doctor_commission, report_file, created_at
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-        `, [
-          v.id, v.centre_id, v.patient_id, safeDoctorId, v.total_amount,
-          v.concession, v.paid_amount, v.balance_amount, v.payment_status,
-          v.payment_mode, v.invoice_number, v.doctor_commission,
-          v.report_file, v.created_at, targetVisitId
-        ]);
-      }
-      visitIdMap[String(v.id)] = targetVisitId;
-    }
-
-    const investigations = await localClient.query('SELECT * FROM patient_investigations');
-    for (const pi of investigations.rows) {
-      const cloudVisitId = visitIdMap[String(pi.visit_id)];
-      if (!cloudVisitId) continue;
-      let safeBarcode = pi.barcode || `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
-      await cloudClient.query(`
-        INSERT INTO patient_investigations (id, visit_id, test_id, barcode, status, price, cut_type, test_cut)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (id) DO UPDATE SET price = EXCLUDED.price, status = EXCLUDED.status, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut;
-      `, [pi.id, cloudVisitId, pi.test_id, safeBarcode, pi.status, pi.price, pi.cut_type || 'percentage', pi.test_cut]);
-    }
-
-    const forms = await localClient.query('SELECT * FROM pcpndt_forms');
-    for (const f of forms.rows) {
-      const cloudVisitId = visitIdMap[String(f.visit_id)];
-      if (!cloudVisitId) continue;
-      await cloudClient.query(`
-        INSERT INTO pcpndt_forms (
-          id, visit_id, centre_id, relative_name, no_of_sons, sons_age,
-          no_of_daughters, daughters_age, lmp_date, weeks_of_preg,
-          indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, created_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-        ON CONFLICT (id) DO UPDATE SET
-          relative_name = EXCLUDED.relative_name,
-          lmp_date = EXCLUDED.lmp_date,
-          weeks_of_preg = EXCLUDED.weeks_of_preg,
-          indications = EXCLUDED.indications,
-          scan_result = EXCLUDED.scan_result;
-      `, [
-        f.id, cloudVisitId, f.centre_id, f.relative_name, f.no_of_sons, f.sons_age,
-        f.no_of_daughters, f.daughters_age, f.lmp_date, f.weeks_of_preg,
-        f.indications, f.scan_result, f.doctor_name, f.doctor_reg_no, f.clinic_reg_no, f.created_at
-      ]);
-    }
-
-    const reports = await localClient.query('SELECT * FROM imaging_reports');
-    for (const r of reports.rows) {
-      const cloudVisitId = visitIdMap[String(r.visit_id)];
-      if (!cloudVisitId) continue;
-      const safeTemplateId = r.template_id ? (templateIdMap[String(r.template_id)] || null) : null;
-      await cloudClient.query(`
-        INSERT INTO imaging_reports (id, visit_id, patient_id, centre_id, template_id, template_name, report_text, impression, doctor_name, doctor_reg_no, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        ON CONFLICT (id) DO UPDATE SET template_id = EXCLUDED.template_id, template_name = EXCLUDED.template_name, report_text = EXCLUDED.report_text, impression = EXCLUDED.impression;
-      `, [r.id, cloudVisitId, r.patient_id, r.centre_id, safeTemplateId, r.template_name, r.report_text, r.impression, r.doctor_name, r.doctor_reg_no, r.created_at]);
     }
 
     await cloudClient.query('COMMIT');
