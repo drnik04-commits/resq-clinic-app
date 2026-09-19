@@ -6,6 +6,13 @@ const path = require('path');
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
 
+let AdmZip;
+try {
+  AdmZip = require('adm-zip');
+} catch (e) {
+  console.warn('adm-zip not installed. Run "npm install adm-zip" for bulk template downloads.');
+}
+
 const app = express();
 const PORT = parseInt(process.env.PORT, 10) || 10000;
 
@@ -127,7 +134,6 @@ function getTenantCentreId(req) {
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// Extract clean text from Word .doc / .dot binary files and strip null bytes
 function extractTextFromUploadedFile(filePath) {
   if (!fs.existsSync(filePath)) return { body: '', impression: '' };
   try {
@@ -202,6 +208,7 @@ async function dispatchSMS(phone, message) {
       })
     });
     const data = await response.json();
+    console.log('Fast2SMS response:', data);
     return data.return === true;
   } catch (err) {
     console.error('SMS Gateway Error:', err.message);
@@ -430,7 +437,6 @@ async function initDB() {
       );
     `);
 
-    // Schema upgrades for multi-tenant isolation
     await pool.query(`
       ALTER TABLE referring_doctors ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
       ALTER TABLE test_master ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
@@ -1215,7 +1221,6 @@ app.get('/api/imaging/report/:visitId/download', async (req, res) => {
   }
 });
 
-// Centre-specific tests endpoints
 app.get('/api/tests', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1286,7 +1291,6 @@ app.delete('/api/tests/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Centre-specific doctors endpoints
 app.get('/api/doctors', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1357,7 +1361,6 @@ app.delete('/api/doctors/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// Centre-specific templates endpoints
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1419,6 +1422,100 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
     }
 
     res.status(200).json({ success: true, message: `Successfully uploaded ${count} template(s).` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/imaging/templates/bulk-download', async (req, res) => {
+  try {
+    if (!AdmZip) {
+      return res.status(500).json({ success: false, error: 'adm-zip library is not installed on server.' });
+    }
+    const centreId = getTenantCentreId(req);
+    let query = 'SELECT template_name, title FROM imaging_templates WHERE 1=1';
+    const params = [];
+    if (centreId) {
+      params.push(String(centreId));
+      query += ` AND centre_id::text = $${params.length}::text`;
+    }
+
+    const result = await pool.query(query, params);
+    if (!result.rows.length) {
+      return res.status(404).json({ success: false, error: 'No templates found for this centre.' });
+    }
+
+    const zip = new AdmZip();
+    let filesAdded = 0;
+
+    for (const row of result.rows) {
+      let filePath = path.join(TEMPLATES_DIR, row.template_name);
+      if (!fs.existsSync(filePath)) {
+        const allFiles = fs.readdirSync(TEMPLATES_DIR);
+        const match = allFiles.find(f => f.toLowerCase().includes(row.template_name.toLowerCase()) || f.toLowerCase().includes(row.title.toLowerCase()));
+        if (match) filePath = path.join(TEMPLATES_DIR, match);
+      }
+      if (fs.existsSync(filePath)) {
+        zip.addLocalFile(filePath, '', `${row.title}.doc`);
+        filesAdded++;
+      }
+    }
+
+    if (filesAdded === 0) {
+      return res.status(404).json({ success: false, error: 'No template files exist on disk for this centre.' });
+    }
+
+    const zipBuffer = zip.toBuffer();
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="Templates_Centre_${centreId || 'Export'}.zip"`);
+    res.send(zipBuffer);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/imaging/templates/generate-doc', async (req, res) => {
+  try {
+    const { templateName, patientName, date, age, gender, refDoctor } = req.body;
+    const centreId = getTenantCentreId(req);
+
+    if (!templateName) return res.status(400).json({ success: false, error: 'Template name required' });
+
+    let targetPath = path.join(TEMPLATES_DIR, templateName);
+    if (!fs.existsSync(targetPath)) {
+      const allFiles = fs.readdirSync(TEMPLATES_DIR);
+      const matched = allFiles.find(f => f.toLowerCase().includes(templateName.toLowerCase()));
+      if (matched) targetPath = path.join(TEMPLATES_DIR, matched);
+    }
+
+    if (!fs.existsSync(targetPath)) {
+      return res.status(404).json({ success: false, error: 'Original template file not found on disk.' });
+    }
+
+    let fileContent = fs.readFileSync(targetPath, 'binary');
+
+    const ptName = (patientName || '').toUpperCase();
+    const dt = date || new Date().toLocaleDateString('en-GB');
+    const ag = age ? `${age} YRS` : '';
+    const sx = (gender || 'FEMALE').toUpperCase();
+    const doc = (refDoctor || 'DIRECT OPD').toUpperCase();
+
+    fileContent = fileContent
+      .replace(/<\*NAME1\*>/g, ptName)
+      .replace(/<\*DATE\*>/g, dt)
+      .replace(/<Age>/g, ag)
+      .replace(/<Sex>/g, sx)
+      .replace(/<\*Consultant\/Gp1\*>/g, doc)
+      .replace(/{{PATIENT_NAME}}/g, ptName)
+      .replace(/{{DATE}}/g, dt)
+      .replace(/{{AGE}}/g, ag)
+      .replace(/{{GENDER}}/g, sx)
+      .replace(/{{REF_DOCTOR}}/g, doc);
+
+    const safeName = ptName ? ptName.replace(/[^a-zA-Z0-9]/g, '_') : 'PATIENT';
+    res.setHeader('Content-Type', 'application/msword');
+    res.setHeader('Content-Disposition', `attachment; filename="${templateName.replace(/\.[^/.]+$/, '')}_${safeName}.doc"`);
+    res.send(Buffer.from(fileContent, 'binary'));
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -1691,7 +1788,9 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
 });
 
 app.post('/api/sync/cloud', async (req, res) => {
-  if (!cleanCloudUrl) return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
+  if (!cleanCloudUrl) {
+    return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
+  }
 
   let localClient, cloudClient;
   try {
@@ -1710,32 +1809,6 @@ app.post('/api/sync/cloud', async (req, res) => {
   try {
     await cloudClient.query('BEGIN');
     await cloudClient.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
-
-    // Ensure all tables exist on cloud
-    await cloudClient.query(`
-      CREATE TABLE IF NOT EXISTS app_auth (id SERIAL PRIMARY KEY, role VARCHAR(50) DEFAULT 'admin', password VARCHAR(255) NOT NULL);
-      CREATE TABLE IF NOT EXISTS clinic_centres (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_name VARCHAR(255) NOT NULL, tagline VARCHAR(255), address TEXT, phone VARCHAR(100), reg_no VARCHAR(100) DEFAULT 'RC197', email VARCHAR(100), centre_password VARCHAR(255) DEFAULT '1234', owner_password VARCHAR(255) DEFAULT 'owner123', is_private BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE IF NOT EXISTS referring_doctors (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, doctor_name VARCHAR(255) NOT NULL, hospital_clinic_name VARCHAR(255), commission_type VARCHAR(50) DEFAULT 'percentage', commission_value DECIMAL(10,2) DEFAULT 0.00);
-      CREATE TABLE IF NOT EXISTS test_master (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, test_name VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Pathology', price DECIMAL(10,2) DEFAULT 0.00, cut_type VARCHAR(20) DEFAULT 'fixed', test_cut DECIMAL(10,2) DEFAULT 0.00);
-      CREATE TABLE IF NOT EXISTS patients (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, patient_code VARCHAR(100), full_name VARCHAR(255) NOT NULL, age INT DEFAULT 0, gender VARCHAR(20), phone VARCHAR(50), email VARCHAR(255), whatsapp_number VARCHAR(50), address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE IF NOT EXISTS visits (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, patient_id UUID REFERENCES patients(id) ON DELETE CASCADE, referring_doctor_id UUID, total_amount DECIMAL(10,2) DEFAULT 0.00, concession DECIMAL(10,2) DEFAULT 0.00, paid_amount DECIMAL(10,2) DEFAULT 0.00, balance_amount DECIMAL(10,2) DEFAULT 0.00, payment_status VARCHAR(50) DEFAULT 'Pending', payment_mode VARCHAR(50) DEFAULT 'Cash', invoice_number VARCHAR(100), doctor_commission DECIMAL(10,2) DEFAULT 0.00, report_file VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE IF NOT EXISTS patient_investigations (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID REFERENCES visits(id) ON DELETE CASCADE, test_id UUID, barcode VARCHAR(100), status VARCHAR(50) DEFAULT 'Registered', price DECIMAL(10, 2), cut_type VARCHAR(20) DEFAULT 'fixed', test_cut DECIMAL(10, 2) DEFAULT 0.00);
-      CREATE TABLE IF NOT EXISTS pcpndt_forms (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID REFERENCES visits(id) ON DELETE CASCADE, centre_id UUID, relative_name VARCHAR(255), no_of_sons INT DEFAULT 0, sons_age VARCHAR(100), no_of_daughters INT DEFAULT 0, daughters_age VARCHAR(100), lmp_date VARCHAR(50), weeks_of_preg VARCHAR(50), indications TEXT, scan_result TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', clinic_reg_no VARCHAR(100) DEFAULT 'RC197', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE IF NOT EXISTS imaging_templates (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_id UUID, template_name VARCHAR(255) NOT NULL, title VARCHAR(255) NOT NULL, category VARCHAR(100) DEFAULT 'Ultrasonography', default_impression TEXT, template_body TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE IF NOT EXISTS imaging_reports (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID REFERENCES visits(id) ON DELETE CASCADE, patient_id UUID, centre_id UUID, template_id UUID, template_name VARCHAR(255), report_text TEXT NOT NULL, impression TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-    `);
-
-    // Ensure foreign key constraints in Cloud have ON DELETE CASCADE
-    await cloudClient.query(`
-      ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_visit_id_fkey;
-      ALTER TABLE patient_investigations ADD CONSTRAINT patient_investigations_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
-
-      ALTER TABLE pcpndt_forms DROP CONSTRAINT IF EXISTS pcpndt_forms_visit_id_fkey;
-      ALTER TABLE pcpndt_forms ADD CONSTRAINT pcpndt_forms_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
-
-      ALTER TABLE imaging_reports DROP CONSTRAINT IF EXISTS imaging_reports_visit_id_fkey;
-      ALTER TABLE imaging_reports ADD CONSTRAINT imaging_reports_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
-    `);
 
     // 1. Sync App Auth
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
@@ -1800,31 +1873,13 @@ app.post('/api/sync/cloud', async (req, res) => {
       );
     }
 
-    // 6. Sync Visits & Dependent Child Records in Strict Order
+    // 6. Sync Visits & Cascaded Child Records
     const visits = await localClient.query('SELECT * FROM visits');
     for (const v of visits.rows) {
-      await cloudClient.query(`
-        DELETE FROM patient_investigations 
-        WHERE visit_id IN (SELECT id FROM visits WHERE id::text = $1::text OR invoice_number = $2)
-           OR visit_id::text = $1::text
-      `, [v.id, v.invoice_number]);
-
-      await cloudClient.query(`
-        DELETE FROM pcpndt_forms 
-        WHERE visit_id IN (SELECT id FROM visits WHERE id::text = $1::text OR invoice_number = $2)
-           OR visit_id::text = $1::text
-      `, [v.id, v.invoice_number]);
-
-      await cloudClient.query(`
-        DELETE FROM imaging_reports 
-        WHERE visit_id IN (SELECT id FROM visits WHERE id::text = $1::text OR invoice_number = $2)
-           OR visit_id::text = $1::text
-      `, [v.id, v.invoice_number]);
-
-      await cloudClient.query(
-        `DELETE FROM visits WHERE id::text = $1::text OR invoice_number = $2`,
-        [v.id, v.invoice_number]
-      );
+      await cloudClient.query(`DELETE FROM patient_investigations WHERE visit_id::text = $1::text`, [v.id]);
+      await cloudClient.query(`DELETE FROM pcpndt_forms WHERE visit_id::text = $1::text`, [v.id]);
+      await cloudClient.query(`DELETE FROM imaging_reports WHERE visit_id::text = $1::text`, [v.id]);
+      await cloudClient.query(`DELETE FROM visits WHERE id::text = $1::text OR invoice_number = $2`, [v.id, v.invoice_number]);
 
       await cloudClient.query(
         `INSERT INTO visits (id, centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, payment_mode, invoice_number, doctor_commission, report_file, created_at)
@@ -1836,10 +1891,10 @@ app.post('/api/sync/cloud', async (req, res) => {
     // 7. Sync Patient Investigations
     const investigations = await localClient.query('SELECT * FROM patient_investigations');
     for (const pi of investigations.rows) {
-      await cloudClient.query(`DELETE FROM patient_investigations WHERE id::text = $1::text`, [pi.id]);
       await cloudClient.query(
         `INSERT INTO patient_investigations (id, visit_id, test_id, barcode, status, price, cut_type, test_cut)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (id) DO NOTHING;`,
         [pi.id, pi.visit_id, pi.test_id, pi.barcode, pi.status, pi.price, pi.cut_type, pi.test_cut]
       );
     }
@@ -1847,10 +1902,12 @@ app.post('/api/sync/cloud', async (req, res) => {
     // 8. Sync PCPNDT Forms
     const pcpndt = await localClient.query('SELECT * FROM pcpndt_forms');
     for (const pf of pcpndt.rows) {
-      await cloudClient.query(`DELETE FROM pcpndt_forms WHERE id::text = $1::text OR visit_id::text = $2::text`, [pf.id, pf.visit_id]);
       await cloudClient.query(
         `INSERT INTO pcpndt_forms (id, visit_id, centre_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         ON CONFLICT (id) DO UPDATE SET 
+           relative_name = EXCLUDED.relative_name, lmp_date = EXCLUDED.lmp_date, 
+           weeks_of_preg = EXCLUDED.weeks_of_preg, scan_result = EXCLUDED.scan_result;`,
         [pf.id, pf.visit_id, pf.centre_id, pf.relative_name, pf.no_of_sons, pf.sons_age, pf.no_of_daughters, pf.daughters_age, pf.lmp_date, pf.weeks_of_preg, pf.indications, pf.scan_result, pf.doctor_name, pf.doctor_reg_no, pf.clinic_reg_no, pf.created_at]
       );
     }
@@ -1864,17 +1921,6 @@ app.post('/api/sync/cloud', async (req, res) => {
          ON CONFLICT (id) DO UPDATE 
          SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body`,
         [t.id, t.centre_id, t.template_name, t.title, t.category, t.default_impression, t.template_body]
-      );
-    }
-
-    // 10. Sync Imaging Reports
-    const reports = await localClient.query('SELECT * FROM imaging_reports');
-    for (const r of reports.rows) {
-      await cloudClient.query(`DELETE FROM imaging_reports WHERE id::text = $1::text OR visit_id::text = $2::text`, [r.id, r.visit_id]);
-      await cloudClient.query(
-        `INSERT INTO imaging_reports (id, visit_id, patient_id, centre_id, template_id, template_name, report_text, impression, doctor_name, doctor_reg_no, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-        [r.id, r.visit_id, r.patient_id, r.centre_id, r.template_id, r.template_name, r.report_text, r.impression, r.doctor_name, r.doctor_reg_no, r.created_at]
       );
     }
 
