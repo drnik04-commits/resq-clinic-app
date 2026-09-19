@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
+const AdmZip = require('adm-zip');
 
 const app = express();
 const PORT = parseInt(process.env.PORT, 10) || 10000;
@@ -32,7 +33,14 @@ const storage = multer.diskStorage({
       cb(null, './uploads/');
     }
   },
-  filename: (req, file, cb) => cb(null, `${Date.now()}_${file.originalname.replace(/\s+/g, '_')}`)
+  filename: (req, file, cb) => {
+    // Keep original filename if uploading template to preserve name matching
+    if (file.fieldname === 'templateFiles') {
+      cb(null, file.originalname.replace(/\s+/g, '_'));
+    } else {
+      cb(null, `${Date.now()}_${file.originalname.replace(/\s+/g, '_')}`);
+    }
+  }
 });
 const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
@@ -127,7 +135,6 @@ function getTenantCentreId(req) {
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// Extract clean text from Word .doc / .dot binary files and strip null bytes
 function extractTextFromUploadedFile(filePath) {
   if (!fs.existsSync(filePath)) return { body: '', impression: '' };
   try {
@@ -202,6 +209,7 @@ async function dispatchSMS(phone, message) {
       })
     });
     const data = await response.json();
+    console.log('Fast2SMS response:', data);
     return data.return === true;
   } catch (err) {
     console.error('SMS Gateway Error:', err.message);
@@ -430,7 +438,6 @@ async function initDB() {
       );
     `);
 
-    // Schema upgrades for multi-tenant isolation
     await pool.query(`
       ALTER TABLE referring_doctors ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
       ALTER TABLE test_master ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
@@ -1155,7 +1162,7 @@ app.post('/api/visits/:id/send-bill-sms', async (req, res) => {
 
     const v = visitRes.rows[0];
     const net = (parseFloat(v.total_amount) - parseFloat(v.concession || 0)).toFixed(2);
-    const pdfUrl = `https://resq-clinic-app.onrender.com/api/invoice/${validId}/pdf`;
+    const pdfUrl = `${req.protocol}://${req.get('host')}/api/invoice/${validId}/pdf`;
     
     const msg = `Dear ${v.full_name}, your bill for ${v.centre_name || 'RESQ Clinic'} is ready. Inv: ${v.invoice_number}, Net: Rs.${net}, Balance: Rs.${parseFloat(v.balance_amount).toFixed(2)}. Download Bill: ${pdfUrl}`;
 
@@ -1187,10 +1194,7 @@ app.post('/api/visits/:id/send-report-sms', async (req, res) => {
       });
     }
 
-    const reportUrl = v.report_file 
-      ? `https://resq-clinic-app.onrender.com/${v.report_file.replace(/\\/g, '/')}`
-      : `https://resq-clinic-app.onrender.com/api/imaging/report/${validId}/download`;
-
+    const reportUrl = `${req.protocol}://${req.get('host')}/api/imaging/report/${validId}/download`;
     const msg = `Dear ${v.full_name}, your diagnostic report from ${v.centre_name || 'RESQ Clinic'} is ready. View/Download: ${reportUrl}`;
 
     const sent = await dispatchSMS(v.phone, msg);
@@ -1400,7 +1404,7 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
       if (isDbConnected) {
         const existing = await pool.query(
           `SELECT id FROM imaging_templates WHERE template_name = $1 AND (centre_id::text = $2::text OR ($2 IS NULL AND centre_id IS NULL)) LIMIT 1`,
-          [f.originalname, centreId]
+          [f.filename, centreId]
         );
         if (existing.rows.length > 0) {
           await pool.query(
@@ -1411,7 +1415,7 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
           await pool.query(
             `INSERT INTO imaging_templates (centre_id, template_name, title, category, template_body, default_impression)
              VALUES ($1, $2, $3, $4, $5, $6)`,
-            [centreId, f.originalname, cleanTitle, category, body, impression]
+            [centreId, f.filename, cleanTitle, category, body, impression]
           );
         }
       }
@@ -1419,6 +1423,93 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
     }
 
     res.status(200).json({ success: true, message: `Successfully uploaded ${count} template(s).` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// BULK DOWNLOAD: Downloads all templates belonging to active centre as ZIP
+app.get('/api/imaging/templates/bulk-download', async (req, res) => {
+  try {
+    const centreId = getTenantCentreId(req);
+    let query = 'SELECT template_name FROM imaging_templates WHERE 1=1';
+    const params = [];
+    if (centreId) {
+      params.push(String(centreId));
+      query += ` AND centre_id::text = $${params.length}::text`;
+    }
+
+    const result = await pool.query(query, params);
+    if (!result.rows.length) {
+      return res.status(404).json({ success: false, error: 'No templates uploaded for this centre.' });
+    }
+
+    const zip = new AdmZip();
+    let filesAdded = 0;
+
+    for (const row of result.rows) {
+      const filePath = path.join(TEMPLATES_DIR, row.template_name);
+      if (fs.existsSync(filePath)) {
+        zip.addLocalFile(filePath);
+        filesAdded++;
+      }
+    }
+
+    if (filesAdded === 0) {
+      return res.status(404).json({ success: false, error: 'Template files not found on disk.' });
+    }
+
+    const zipBuffer = zip.toBuffer();
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="Centre_Templates.zip"`);
+    res.send(zipBuffer);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DIRECT MERGE: Injects patient fields into original binary .doc without modifying document styles
+app.post('/api/imaging/templates/generate-doc', async (req, res) => {
+  try {
+    const { templateName, patientName, date, age, gender, refDoctor } = req.body;
+    if (!templateName) return res.status(400).json({ success: false, error: 'Template name required' });
+
+    let targetPath = path.join(TEMPLATES_DIR, templateName);
+    if (!fs.existsSync(targetPath)) {
+      const allFiles = fs.existsSync(TEMPLATES_DIR) ? fs.readdirSync(TEMPLATES_DIR) : [];
+      const matched = allFiles.find(f => f.toLowerCase() === templateName.toLowerCase() || f.toLowerCase().includes(templateName.toLowerCase()));
+      if (matched) targetPath = path.join(TEMPLATES_DIR, matched);
+    }
+
+    if (!fs.existsSync(targetPath)) {
+      return res.status(404).json({ success: false, error: 'Original template file not found on disk.' });
+    }
+
+    let fileContent = fs.readFileSync(targetPath, 'binary');
+
+    const ptName = (patientName || '').toUpperCase();
+    const dt = date || new Date().toLocaleDateString('en-GB');
+    const ag = age ? `${age}` : '';
+    const sx = (gender || 'FEMALE').toUpperCase();
+    const doc = (refDoctor || 'DIRECT OPD').toUpperCase();
+
+    // Replace both standard placeholders and legacy MedSys tags
+    fileContent = fileContent
+      .replace(/{{PATIENT_NAME}}/g, ptName)
+      .replace(/{{DATE}}/g, dt)
+      .replace(/{{AGE}}/g, ag)
+      .replace(/{{GENDER}}/g, sx)
+      .replace(/{{REF_DOCTOR}}/g, doc)
+      .replace(/<\*NAME1\*>/g, ptName)
+      .replace(/<\*DATE\*>/g, dt)
+      .replace(/<Age>/g, ag)
+      .replace(/<Sex>/g, sx)
+      .replace(/<\*Consultant\/Gp1\*>/g, doc);
+
+    const safeName = ptName ? ptName.replace(/[^a-zA-Z0-9]/g, '_') : 'PATIENT';
+    res.setHeader('Content-Type', 'application/msword');
+    res.setHeader('Content-Disposition', `attachment; filename="${templateName.replace(/\.[^/.]+$/, '')}_${safeName}.doc"`);
+    res.send(Buffer.from(fileContent, 'binary'));
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

@@ -308,6 +308,7 @@
                             </select>
                         </div>
                         <div style="margin-left: auto; display:flex; gap:8px; align-items:center;">
+                            <button type="button" class="btn-act btn-act-bills" style="background:#0284c7;" onclick="bulkDownloadCentreTemplates()">📥 Bulk Download Templates (ZIP)</button>
                             <button type="button" class="btn-act btn-act-bills" style="background:#475569;" onclick="document.getElementById('tmplUploadFileInput').click()">📁 Bulk Upload Templates</button>
                             <input type="file" id="tmplUploadFileInput" multiple accept=".dot,.doc,.docx" style="display:none;" onchange="uploadTemplatesFiles(this.files)">
                             <label style="font-size: 0.8rem; font-weight: bold; cursor: pointer;">
@@ -386,7 +387,7 @@
                             <strong style="color: #1e3a8a;">Merged Diagnostic Report Preview</strong>
                             <button type="button" class="cw-btn" style="padding: 2px 8px;" onclick="toggleReportLivePreview()">✕ Hide Preview</button>
                         </div>
-                        <div id="desktopPreviewContent" style="font-family: Calibri, sans-serif; font-size: 12pt; line-height: 1.45; white-space: pre-wrap; background:#fdfdfd; padding:15px; border:1px dashed #cbd5e1;"></div>
+                        <div id="desktopPreviewContent" style="font-family: Calibri, sans-serif; font-size: 11pt; line-height: 1.4; white-space: pre-wrap; background:#fdfdfd; padding:15px; border:1px dashed #cbd5e1;"></div>
                     </div>
                 </div>
             </div>
@@ -843,8 +844,6 @@
                 <div class="indication-row"><span class="ind-num">xvi.</span><span>Evaluation of previous Caesarean Section scars.</span></div>
                 <div class="indication-row"><span class="ind-num">xvii.</span><span>Evaluation of foetal growth parameters, foetal weight and foetal well being.</span></div>
                 <div class="indication-row"><span class="ind-num">xviii.</span><span>Colour flow mapping and duplex Doppler studies.</span></div>
-                <div class="indication-row"><span class="ind-num">xix.</span><span>Ultrasound guided procedures such as medical termination of pregnancy, external cephalic version etc. and their follow-up.</span></div>
-                <div class="indication-row"><span class="ind-num">xx.</span><span>Adjunct to diagnostic and therapeutic invasive interventions such as chorionic villus sampling (CVS), amniocenteses, etc.</span></div>
                 <div class="indication-row"><span class="ind-num">xxx.</span><span>Observation of intra-partum events.</span></div>
                 <div class="indication-row"><span class="ind-num">xxii.</span><span>Medical/surgical conditions complicating pregnancy.</span></div>
                 <div class="indication-row"><span class="ind-num">xxiii.</span><span>Research/scientific studies in recognised institutions.</span></div>
@@ -914,8 +913,6 @@
         let testsList = [], doctorsList = [], centresList = [...FALLBACK_CENTRES_CLIENT], selectedBillTests = [];
         let activeCentre = FALLBACK_CENTRES_CLIENT[0], currentSelectedTemplate = null, currentSelectedVisit = null, dropdownPatientsList = [];
         let isSuperAdmin = false, isCentreOwner = false, currentUserRole = 'branch_staff', activeEditingBillTests = [];
-
-        // Zero hardcoded templates - isolated by centre and loaded from DB or bulk upload
         let desktopTemplateCatalog = [];
 
         function escapeHtml(str) { return str ? String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;') : ''; }
@@ -1741,15 +1738,14 @@
 
         async function shareWhatsAppInvoice(phone, patName, invNo, net, bal, centreName, visitId) {
             if (!phone) return alert('Mobile number missing for this patient.');
-            const cleanDigits = phone.replace(/[^0-9]/g, '');
-            const num = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
+            const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
             const pdfUrl = `${window.location.origin}/api/invoice/${visitId}/pdf`;
             const msg = `Dear *${patName}*,\nThank you for visiting *${centreName || 'RESQ Diagnostics'}*.\n\n` +
                         `📋 *Invoice No:* ${invNo}\n` +
                         `💵 *Net Amount:* ₹${net}\n` +
                         `⏳ *Balance Due:* ₹${bal}\n\n` +
                         `📄 *View / Download Your Official PDF Invoice:* \n${pdfUrl}`;
-            window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
+            window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
         async function loadReports() {
@@ -2346,164 +2342,145 @@
             window.print();
         }
 
-        async function openReportInExternalWord() {
-            const ptName = (document.getElementById('fld_Pt_Name1').value || 'PATIENT NAME').toUpperCase();
-            const dateStr = document.getElementById('fld_Date1').value || getTodayDisplayDate();
-            const age = document.getElementById('fld_Age').value || '25 YRS';
-            const sex = (document.getElementById('fld_Sex').value || 'FEMALE').toUpperCase();
-            const refDoc = (document.getElementById('fld_Ref1').value || 'DR. DIRECT OPD').toUpperCase();
-            const title = currentSelectedTemplate ? currentSelectedTemplate.title : 'SONOGRAPHY - ABDOMEN & PELVIS';
-            const isPreprinted = document.getElementById('chkPreprintedLetterhead').checked;
-            const isObstetric = currentSelectedTemplate?.category === 'Obstetrics' || title.includes('PREGNANCY') || title.includes('ANOMALY') || title.includes('OBSTETRIC');
+        // 1. Bulk Download All Templates Belonging to the Active Centre (as ZIP)
+        async function bulkDownloadCentreTemplates() {
+            try {
+                const res = await apiFetch('/api/imaging/templates/bulk-download');
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ error: 'Download failed' }));
+                    return alert(err.error || 'Failed to download templates.');
+                }
+                const blob = await res.blob();
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${activeCentre?.centre_name ? activeCentre.centre_name.replace(/[^a-zA-Z0-9]/g, '_') : 'Centre'}_Templates.zip`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (e) {
+                alert('Download error: ' + e.message);
+            }
+        }
 
+        // 2. Open Selected Template in Word with Native Layout Preservation
+        async function openReportInExternalWord() {
+            if (!currentSelectedTemplate) {
+                return alert('Please select a template from the list first.');
+            }
+
+            const ptName = (document.getElementById('fld_Pt_Name1').value || '').trim().toUpperCase();
+            const dateStr = document.getElementById('fld_Date1').value || getTodayDisplayDate();
+            const age = (document.getElementById('fld_Age').value || '').trim();
+            const sex = (document.getElementById('fld_Sex').value || 'FEMALE').toUpperCase();
+            const refDoc = (document.getElementById('fld_Ref1').value || 'DIRECT OPD').trim().toUpperCase();
+            const title = (currentSelectedTemplate ? currentSelectedTemplate.title : 'SONOGRAPHY').toUpperCase();
+            const isPreprinted = document.getElementById('chkPreprintedLetterhead').checked;
+
+            // First attempt: Request direct binary merge from the uploaded Word template file
+            try {
+                const res = await apiFetch('/api/imaging/templates/generate-doc', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        templateName: currentSelectedTemplate.fileName,
+                        patientName: ptName,
+                        date: dateStr,
+                        age: age,
+                        gender: sex,
+                        refDoctor: refDoc
+                    })
+                });
+
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `${currentSelectedTemplate.fileName.replace(/\.[^/.]+$/, '')}_${(ptName || 'PATIENT').replace(/\s+/g, '_')}.doc`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    recordReportHistory(title);
+                    return;
+                }
+            } catch (e) {
+                console.warn('Direct server template merge fallback to client Calibri export.');
+            }
+
+            // Fallback generation: Pure Calibri layout matching your uploaded clinical formats
             const rawFindings = document.getElementById('manualReportFindingsText').value;
             const rawImpression = document.getElementById('manualReportImpressionText').value;
 
-            const findingsHTML = rawFindings
-                .split('\n\n')
-                .map(p => `<p style="margin: 0 0 7pt 0; text-align: justify;">${p.replace(/\n/g, '<br>')}</p>`)
+            const isObstetric = currentSelectedTemplate?.category === 'Obstetrics' || 
+                                title.includes('PREGNANCY') || 
+                                title.includes('ANOMALY') || 
+                                title.includes('OBSTETRIC') ||
+                                title.includes('TRIMESTER');
+
+            const formattedFindingsHTML = rawFindings
+                .split('\n')
+                .map(line => {
+                    const trimmed = line.trim();
+                    if (!trimmed) return '<p style="margin: 0 0 5pt 0; line-height: 1.25; font-family: Calibri, sans-serif;">&nbsp;</p>';
+                    const match = trimmed.match(/^([A-Z0-9\s&/()]+(?:\s*:-|:))\s*(.*)$/);
+                    if (match) {
+                        return `<p style="margin: 0 0 5pt 0; text-align: justify; line-height: 1.25; font-family: Calibri, sans-serif;"><b>${match[1]}</b> ${match[2]}</p>`;
+                    }
+                    return `<p style="margin: 0 0 5pt 0; text-align: justify; line-height: 1.25; font-family: Calibri, sans-serif;">${trimmed}</p>`;
+                })
                 .join('');
 
-            const impressionHTML = rawImpression.replace(/\n/g, '<br>');
+            const formattedImpressionHTML = rawImpression.replace(/\n/g, '<br>');
 
             const wordHTML = `
                 <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
                 <head>
                     <meta charset="utf-8">
                     <title>${title}</title>
-                    <!--[if gte mso 9]>
-                    <xml>
-                        <w:WordDocument>
-                            <w:View>Print</w:View>
-                            <w:Zoom>100</w:Zoom>
-                            <w:DoNotOptimizeForBrowser/>
-                        </w:WordDocument>
-                    </xml>
-                    <![endif]-->
                     <style>
                         @page Section1 {
                             size: 210mm 297mm;
-                            margin: ${isPreprinted ? '52mm' : '15mm'} 15mm 15mm 15mm;
+                            margin: ${isPreprinted ? '55mm' : '20mm'} 15mm 15mm 15mm;
                             mso-header-margin: 36pt;
                             mso-footer-margin: 36pt;
-                            mso-paper-source: 0;
                         }
                         div.Section1 { page: Section1; }
-                        body {
-                            font-family: 'Arial', 'Calibri', sans-serif;
-                            font-size: 10.5pt;
-                            line-height: 1.3;
-                            color: #000000;
-                        }
-                        table.patient-info-box {
-                            width: 100%;
-                            border-collapse: collapse;
-                            margin-bottom: 12pt;
-                            font-size: 10pt;
-                            border: 1.5pt solid #000;
-                        }
-                        table.patient-info-box td {
-                            border: 1pt solid #000;
-                            padding: 4.5pt 8pt;
-                            vertical-align: middle;
-                        }
-                        .report-title-box {
-                            text-align: center;
-                            font-size: 12.5pt;
-                            font-weight: bold;
-                            margin: 10pt 0 8pt 0;
-                            letter-spacing: 0.5pt;
-                            text-decoration: underline;
-                        }
-                        .findings-area {
-                            font-size: 10pt;
-                            line-height: 1.35;
-                        }
-                        .impression-container {
-                            margin-top: 14pt;
-                            border-top: 1pt solid #000;
-                            padding-top: 6pt;
-                        }
-                        .impression-title {
-                            font-weight: bold;
-                            font-size: 10.5pt;
-                            text-decoration: underline;
-                            margin-bottom: 4pt;
-                        }
-                        .impression-body {
-                            font-weight: bold;
-                            font-size: 10pt;
-                            line-height: 1.35;
-                        }
-                        .pndt-declaration {
-                            margin-top: 14pt;
-                            font-size: 8.5pt;
-                            font-style: italic;
-                            border-top: 0.5pt dashed #444;
-                            padding-top: 4pt;
-                        }
-                        table.sign-table {
-                            width: 100%;
-                            margin-top: 25pt;
-                            border: none;
-                            border-collapse: collapse;
-                        }
-                        table.sign-table td {
-                            border: none;
-                            padding: 0;
-                        }
+                        body { font-family: Calibri, sans-serif; font-size: 11pt; color: #000; }
+                        table.patient-header { width: 100%; border-collapse: collapse; margin-bottom: 12pt; font-family: Calibri, sans-serif; font-size: 11pt; }
+                        table.patient-header td { padding: 2pt 0; vertical-align: top; }
+                        .report-title { text-align: center; font-size: 11.5pt; font-weight: bold; text-decoration: underline; margin: 10pt 0 12pt 0; font-family: Calibri, sans-serif; }
+                        .findings-section { font-family: Calibri, sans-serif; font-size: 11pt; }
+                        .impression-box { margin-top: 14pt; font-family: Calibri, sans-serif; font-size: 11pt; }
+                        .pndt-decl { margin-top: 14pt; font-size: 9.5pt; font-style: italic; border-top: 0.5pt solid #888; padding-top: 5pt; font-family: Calibri, sans-serif; }
+                        table.sign-footer { width: 100%; margin-top: 25pt; border-collapse: collapse; font-family: Calibri, sans-serif; }
                     </style>
                 </head>
                 <body>
                     <div class="Section1">
-                        ${!isPreprinted ? `
-                            <div style="text-align: center; border-bottom: 2pt solid #19486a; padding-bottom: 4pt; margin-bottom: 12pt;">
-                                <h2 style="margin: 0; color: #19486a; font-size: 15pt; font-weight: bold;">${activeCentre?.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE'}</h2>
-                                <p style="margin: 2pt 0; font-size: 8.5pt;">${activeCentre?.address || 'Kandivali West, Mumbai'} | Phone: ${activeCentre?.phone || '+91 8433838285'}</p>
-                            </div>
-                        ` : ''}
-
-                        <table class="patient-info-box">
+                        <table class="patient-header">
                             <tr>
-                                <td style="width: 18%; font-weight: bold;">NAME</td>
-                                <td style="width: 44%; font-weight: bold;">${ptName}</td>
-                                <td style="width: 14%; font-weight: bold;">DATE</td>
-                                <td style="width: 24%;">${dateStr}</td>
+                                <td style="width: 65%;"><b>NAME :</b> ${ptName}</td>
+                                <td style="width: 35%; text-align: right;"><b>DATE :</b> ${dateStr}</td>
                             </tr>
                             <tr>
-                                <td style="font-weight: bold;">REF. BY DR.</td>
-                                <td>${refDoc}</td>
-                                <td style="font-weight: bold;">AGE / SEX</td>
-                                <td>${age} / ${sex}</td>
+                                <td><b>REF. BY DR. :</b> ${refDoc}</td>
+                                <td style="text-align: right;"><b>${age ? age + ' / ' : ''}${sex}</b></td>
                             </tr>
                         </table>
-
-                        <div class="report-title-box">${title}</div>
-
-                        <div class="findings-area">
-                            ${findingsHTML}
+                        <div class="report-title">${title}</div>
+                        <div class="findings-section">${formattedFindingsHTML}</div>
+                        <div class="impression-box">
+                            <p style="margin: 0 0 4pt 0; line-height: 1.25;"><b>IMPRESSION :-</b></p>
+                            <p style="margin: 0 0 8pt 0; font-weight: bold; line-height: 1.25;">${formattedImpressionHTML}</p>
                         </div>
-
-                        <div class="impression-container">
-                            <div class="impression-title">IMPRESSION :-</div>
-                            <div class="impression-body">${impressionHTML}</div>
-                        </div>
-
                         ${isObstetric ? `
-                            <div class="pndt-declaration">
-                                I Dr. NIKUNJ KOTHIA declare that while conducting sonography, I have neither detected nor disclosed the sex of the foetus to anybody in any manner.
-                            </div>
-                        ` : ''}
-
-                        <table class="sign-table">
+                        <div class="pndt-decl">
+                            I Dr. NIKUNJ KOTHIA declare that while conducting sonography, I have neither detected nor disclosed the sex of the foetus to anybody in any manner.
+                        </div>` : ''}
+                        <table class="sign-footer">
                             <tr>
-                                <td style="vertical-align: bottom; font-size: 9pt; font-weight: bold;">
-                                    REPORT WITH COMPLIMENTS.
-                                </td>
+                                <td style="vertical-align: bottom; font-size: 10pt; font-weight: bold;">REPORT WITH COMPLIMENTS.</td>
                                 <td style="text-align: right; vertical-align: bottom;">
-                                    <strong style="font-size: 10.5pt;">DR. NIKUNJ KOTHIA</strong><br>
-                                    <span style="font-size: 9.5pt;">Consultant Radiologist & Sonologist</span><br>
-                                    <span style="font-size: 8.5pt; color: #333;">Reg. No: 2009/09/3218</span>
+                                    <b>DR. NIKUNJ KOTHIA</b><br>
+                                    <span style="font-size: 10pt;">Consultant Radiologist & Sonologist</span>
                                 </td>
                             </tr>
                         </table>
@@ -2515,11 +2492,14 @@
             const blob = new Blob(['\ufeff', wordHTML], { type: 'application/msword;charset=utf-8' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${ptName.replace(/\s+/g, '_')}.doc`;
+            link.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${ptName ? ptName.replace(/\s+/g, '_') : 'PATIENT'}.doc`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            recordReportHistory(title);
+        }
 
+        async function recordReportHistory(title) {
             if (currentSelectedVisit?.visit_id) {
                 await apiFetch('/api/imaging/reports', {
                     method: 'POST',
@@ -2527,8 +2507,8 @@
                         visitId: currentSelectedVisit.visit_id,
                         patientId: currentSelectedVisit.patient_id,
                         templateName: title,
-                        reportText: rawFindings,
-                        impression: rawImpression,
+                        reportText: document.getElementById('manualReportFindingsText').value,
+                        impression: document.getElementById('manualReportImpressionText').value,
                         doctorName: 'Dr NIKUNJ KOTHIA',
                         doctorRegNo: '2009/09/3218'
                     })
