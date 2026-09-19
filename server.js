@@ -1802,6 +1802,7 @@ app.post('/api/sync/cloud', async (req, res) => {
     await cloudClient.query('BEGIN');
     await cloudClient.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
 
+    // Ensure all tables exist on cloud
     await cloudClient.query(`
       CREATE TABLE IF NOT EXISTS app_auth (id SERIAL PRIMARY KEY, role VARCHAR(50) DEFAULT 'admin', password VARCHAR(255) NOT NULL);
       CREATE TABLE IF NOT EXISTS clinic_centres (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, centre_name VARCHAR(255) NOT NULL, tagline VARCHAR(255), address TEXT, phone VARCHAR(100), reg_no VARCHAR(100) DEFAULT 'RC197', email VARCHAR(100), centre_password VARCHAR(255) DEFAULT '1234', owner_password VARCHAR(255) DEFAULT 'owner123', is_private BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
@@ -1815,38 +1816,109 @@ app.post('/api/sync/cloud', async (req, res) => {
       CREATE TABLE IF NOT EXISTS imaging_reports (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, visit_id UUID, patient_id UUID, centre_id UUID, template_id UUID, template_name VARCHAR(255), report_text TEXT NOT NULL, impression TEXT, doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA', doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
     `);
 
+    // 1. Sync App Auth
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
     if (auths.rows.length > 0) {
-      await cloudClient.query(`INSERT INTO app_auth (id, role, password) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password`, [auths.rows[0].id, auths.rows[0].role, auths.rows[0].password]);
+      await cloudClient.query(
+        `INSERT INTO app_auth (id, role, password) VALUES ($1, $2, $3)
+         ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password`,
+        [auths.rows[0].id, auths.rows[0].role, auths.rows[0].password]
+      );
     }
 
+    // 2. Sync Centres (with owner_password)
     const centres = await localClient.query('SELECT * FROM clinic_centres');
     for (const c of centres.rows) {
-      await cloudClient.query(`
-        INSERT INTO clinic_centres (id, centre_name, tagline, address, phone, reg_no, email, centre_password, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        ON CONFLICT (id) DO UPDATE SET centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address, phone = EXCLUDED.phone, reg_no = EXCLUDED.reg_no, email = EXCLUDED.email, centre_password = EXCLUDED.centre_password;
-      `, [c.id, c.centre_name, c.tagline, c.address, c.phone, c.reg_no, c.email, c.centre_password, c.created_at]);
+      await cloudClient.query(
+        `INSERT INTO clinic_centres (id, centre_name, tagline, address, phone, reg_no, email, centre_password, owner_password, is_private, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (id) DO UPDATE SET 
+           centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address,
+           phone = EXCLUDED.phone, reg_no = EXCLUDED.reg_no, email = EXCLUDED.email,
+           centre_password = EXCLUDED.centre_password, owner_password = EXCLUDED.owner_password, is_private = EXCLUDED.is_private;`,
+        [c.id, c.centre_name, c.tagline, c.address, c.phone, c.reg_no, c.email, c.centre_password, c.owner_password || 'owner123', c.is_private, c.created_at]
+      );
     }
 
+    // 3. Sync Doctors
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
     for (const d of doctors.rows) {
-      await cloudClient.query(`
-        INSERT INTO referring_doctors (id, centre_id, doctor_name, hospital_clinic_name, commission_type, commission_value)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (id) DO UPDATE SET doctor_name = EXCLUDED.doctor_name, hospital_clinic_name = EXCLUDED.hospital_clinic_name, commission_type = EXCLUDED.commission_type, commission_value = EXCLUDED.commission_value;
-      `, [d.id, d.centre_id, d.doctor_name, d.hospital_clinic_name, d.commission_type, d.commission_value]);
+      await cloudClient.query(
+        `INSERT INTO referring_doctors (id, centre_id, doctor_name, hospital_clinic_name, commission_type, commission_value)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (id) DO UPDATE SET 
+           doctor_name = EXCLUDED.doctor_name, hospital_clinic_name = EXCLUDED.hospital_clinic_name, 
+           commission_type = EXCLUDED.commission_type, commission_value = EXCLUDED.commission_value;`,
+        [d.id, d.centre_id, d.doctor_name, d.hospital_clinic_name, d.commission_type, d.commission_value]
+      );
     }
 
+    // 4. Sync Test Master
     const tests = await localClient.query('SELECT * FROM test_master');
     for (const t of tests.rows) {
-      await cloudClient.query(`
-        INSERT INTO test_master (id, centre_id, test_name, category, price, cut_type, test_cut)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (id) DO UPDATE SET test_name = EXCLUDED.test_name, category = EXCLUDED.category, price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut;
-      `, [t.id, t.centre_id, t.test_name, t.category, t.price, t.cut_type || 'percentage', t.test_cut]);
+      await cloudClient.query(
+        `INSERT INTO test_master (id, centre_id, test_name, category, price, cut_type, test_cut)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (id) DO UPDATE SET 
+           test_name = EXCLUDED.test_name, category = EXCLUDED.category, 
+           price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut;`,
+        [t.id, t.centre_id, t.test_name, t.category, t.price, t.cut_type || 'percentage', t.test_cut]
+      );
     }
 
+    // 5. Sync Patients
+    const patients = await localClient.query('SELECT * FROM patients');
+    for (const p of patients.rows) {
+      await cloudClient.query(
+        `INSERT INTO patients (id, centre_id, patient_code, full_name, age, gender, phone, email, address, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (id) DO UPDATE SET 
+           full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender,
+           phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address;`,
+        [p.id, p.centre_id, p.patient_code, p.full_name, p.age, p.gender, p.phone, p.email, p.address, p.created_at]
+      );
+    }
+
+    // 6. Sync Visits & Bills
+    const visits = await localClient.query('SELECT * FROM visits');
+    for (const v of visits.rows) {
+      await cloudClient.query(
+        `INSERT INTO visits (id, centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, payment_mode, invoice_number, doctor_commission, report_file, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         ON CONFLICT (id) DO UPDATE SET 
+           total_amount = EXCLUDED.total_amount, concession = EXCLUDED.concession, 
+           paid_amount = EXCLUDED.paid_amount, balance_amount = EXCLUDED.balance_amount, 
+           payment_status = EXCLUDED.payment_status, payment_mode = EXCLUDED.payment_mode, 
+           doctor_commission = EXCLUDED.doctor_commission;`,
+        [v.id, v.centre_id, v.patient_id, v.referring_doctor_id, v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, v.payment_mode, v.invoice_number, v.doctor_commission, v.report_file, v.created_at]
+      );
+    }
+
+    // 7. Sync Patient Investigations
+    const investigations = await localClient.query('SELECT * FROM patient_investigations');
+    for (const pi of investigations.rows) {
+      await cloudClient.query(
+        `INSERT INTO patient_investigations (id, visit_id, test_id, barcode, status, price, cut_type, test_cut)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (id) DO NOTHING;`,
+        [pi.id, pi.visit_id, pi.test_id, pi.barcode, pi.status, pi.price, pi.cut_type, pi.test_cut]
+      );
+    }
+
+    // 8. Sync PCPNDT Forms
+    const pcpndt = await localClient.query('SELECT * FROM pcpndt_forms');
+    for (const pf of pcpndt.rows) {
+      await cloudClient.query(
+        `INSERT INTO pcpndt_forms (id, visit_id, centre_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         ON CONFLICT (id) DO UPDATE SET 
+           relative_name = EXCLUDED.relative_name, lmp_date = EXCLUDED.lmp_date, 
+           weeks_of_preg = EXCLUDED.weeks_of_preg, scan_result = EXCLUDED.scan_result;`,
+        [pf.id, pf.visit_id, pf.centre_id, pf.relative_name, pf.no_of_sons, pf.sons_age, pf.no_of_daughters, pf.daughters_age, pf.lmp_date, pf.weeks_of_preg, pf.indications, pf.scan_result, pf.doctor_name, pf.doctor_reg_no, pf.clinic_reg_no, pf.created_at]
+      );
+    }
+
+    // 9. Sync Imaging Templates
     const templates = await localClient.query('SELECT * FROM imaging_templates');
     for (const t of templates.rows) {
       await cloudClient.query(
@@ -1859,7 +1931,7 @@ app.post('/api/sync/cloud', async (req, res) => {
     }
 
     await cloudClient.query('COMMIT');
-    res.status(200).json({ success: true, message: 'Cloud Sync Successful!' });
+    res.status(200).json({ success: true, message: 'Cloud Sync Successful! All patients and bills transferred.' });
   } catch (err) {
     try { await cloudClient.query('ROLLBACK'); } catch (rb) {}
     res.status(500).json({ success: false, error: 'Cloud Sync Failed: ' + err.message });
@@ -1867,8 +1939,8 @@ app.post('/api/sync/cloud', async (req, res) => {
     if (localClient) localClient.release();
     if (cloudClient) cloudClient.release();
   }
-});
-
+}); 
+  
 app.get('*', (req, res) => {
   const publicIndex = path.join(__dirname, 'public', 'index.html');
   const rootIndex = path.join(__dirname, 'index.html');

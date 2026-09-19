@@ -372,12 +372,12 @@
                                     <label style="font-weight:bold; font-size:0.82rem; color:#0f172a;">REPORT FINDINGS & OBSERVATIONS (EDIT MANUALLY):</label>
                                     <span style="font-size:0.75rem; color:#64748b;">Selected Template Content Loaded</span>
                                 </div>
-                                <textarea id="manualReportFindingsText" rows="14" style="width:100%; font-family: Calibri, 'Segoe UI', sans-serif; font-size:11pt; line-height:1.4; padding:10px; border:1.5px solid #94a3b8; border-radius:4px; outline:none; resize:vertical; background:#ffffff;"></textarea>
+                                <textarea id="manualReportFindingsText" rows="14" style="width:100%; font-family: Calibri, 'Segoe UI', sans-serif; font-size:12pt; line-height:1.4; padding:10px; border:1.5px solid #94a3b8; border-radius:4px; outline:none; resize:vertical; background:#ffffff;"></textarea>
                             </div>
 
                             <div style="display:flex; flex-direction:column;">
                                 <label style="font-weight:bold; font-size:0.82rem; color:#991b1b; margin-bottom:4px;">IMPRESSION :-</label>
-                                <textarea id="manualReportImpressionText" rows="3" style="width:100%; font-family: Calibri, 'Segoe UI', sans-serif; font-size:11pt; font-weight:bold; color:#991b1b; line-height:1.3; padding:8px 10px; border:1.5px solid #f87171; border-radius:4px; outline:none; background:#fffaf0;"></textarea>
+                                <textarea id="manualReportImpressionText" rows="3" style="width:100%; font-family: Calibri, 'Segoe UI', sans-serif; font-size:12pt; font-weight:bold; color:#991b1b; line-height:1.3; padding:8px 10px; border:1.5px solid #f87171; border-radius:4px; outline:none; background:#fffaf0;"></textarea>
                             </div>
                         </div>
                     </div>
@@ -387,7 +387,7 @@
                             <strong style="color: #1e3a8a;">Merged Diagnostic Report Preview</strong>
                             <button type="button" class="cw-btn" style="padding: 2px 8px;" onclick="toggleReportLivePreview()">✕ Hide Preview</button>
                         </div>
-                        <div id="desktopPreviewContent" style="font-family: Calibri, sans-serif; font-size: 11pt; line-height: 1.4; white-space: pre-wrap; background:#fdfdfd; padding:15px; border:1px dashed #cbd5e1;"></div>
+                        <div id="desktopPreviewContent" style="font-family: Calibri, sans-serif; font-size: 12pt; line-height: 1.4; white-space: pre-wrap; background:#fdfdfd; padding:15px; border:1px dashed #cbd5e1;"></div>
                     </div>
                 </div>
             </div>
@@ -844,6 +844,8 @@
                 <div class="indication-row"><span class="ind-num">xvi.</span><span>Evaluation of previous Caesarean Section scars.</span></div>
                 <div class="indication-row"><span class="ind-num">xvii.</span><span>Evaluation of foetal growth parameters, foetal weight and foetal well being.</span></div>
                 <div class="indication-row"><span class="ind-num">xviii.</span><span>Colour flow mapping and duplex Doppler studies.</span></div>
+                <div class="indication-row"><span class="ind-num">xix.</span><span>Ultrasound guided procedures such as medical termination of pregnancy, external cephalic version etc. and their follow-up.</span></div>
+                <div class="indication-row"><span class="ind-num">xx.</span><span>Adjunct to diagnostic and therapeutic invasive interventions such as chorionic villus sampling (CVS), amniocenteses, etc.</span></div>
                 <div class="indication-row"><span class="ind-num">xxx.</span><span>Observation of intra-partum events.</span></div>
                 <div class="indication-row"><span class="ind-num">xxii.</span><span>Medical/surgical conditions complicating pregnancy.</span></div>
                 <div class="indication-row"><span class="ind-num">xxiii.</span><span>Research/scientific studies in recognised institutions.</span></div>
@@ -1739,12 +1741,16 @@
         async function shareWhatsAppInvoice(phone, patName, invNo, net, bal, centreName, visitId) {
             if (!phone) return alert('Mobile number missing for this patient.');
             const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
+            if (cleanDigits.length !== 10) return alert('Invalid 10-digit mobile number.');
             const pdfUrl = `${window.location.origin}/api/invoice/${visitId}/pdf`;
-            const msg = `Dear *${patName}*,\nThank you for visiting *${centreName || 'RESQ Diagnostics'}*.\n\n` +
+            const msg = `🏥 *${centreName || 'RESQ HEART CLINIC AND IMAGING CENTRE'}*\n` +
+                        `Dear *${patName}*,\n\n` +
+                        `Your diagnostic billing invoice is ready.\n` +
                         `📋 *Invoice No:* ${invNo}\n` +
-                        `💵 *Net Amount:* ₹${net}\n` +
+                        `💵 *Net Payable:* ₹${net}\n` +
                         `⏳ *Balance Due:* ₹${bal}\n\n` +
-                        `📄 *View / Download Your Official PDF Invoice:* \n${pdfUrl}`;
+                        `📄 *View / Download Official PDF Invoice:*\n${pdfUrl}\n\n` +
+                        `Thank you for visiting!`;
             window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
@@ -2362,7 +2368,7 @@
             }
         }
 
-        // 2. Open Selected Template in Word with Native Layout Preservation
+        // 2. Open Selected Template in Word with Native Layout Preservation & 12pt Calibri Spacing
         async function openReportInExternalWord() {
             if (!currentSelectedTemplate) {
                 return alert('Please select a template from the list first.');
@@ -2376,7 +2382,7 @@
             const title = (currentSelectedTemplate ? currentSelectedTemplate.title : 'SONOGRAPHY').toUpperCase();
             const isPreprinted = document.getElementById('chkPreprintedLetterhead').checked;
 
-            // First attempt: Request direct binary merge from the uploaded Word template file
+            // Attempt 1: Direct binary merge from uploaded original template file
             try {
                 const res = await apiFetch('/api/imaging/templates/generate-doc', {
                     method: 'POST',
@@ -2405,7 +2411,7 @@
                 console.warn('Direct server template merge fallback to client Calibri export.');
             }
 
-            // Fallback generation: Pure Calibri layout matching your uploaded clinical formats
+            // Fallback generation: 12pt Calibri font with 8pt spacing under bold headings
             const rawFindings = document.getElementById('manualReportFindingsText').value;
             const rawImpression = document.getElementById('manualReportImpressionText').value;
 
@@ -2419,12 +2425,12 @@
                 .split('\n')
                 .map(line => {
                     const trimmed = line.trim();
-                    if (!trimmed) return '<p style="margin: 0 0 5pt 0; line-height: 1.25; font-family: Calibri, sans-serif;">&nbsp;</p>';
+                    if (!trimmed) return '<p style="margin: 0 0 4pt 0; line-height: 1.2; font-family: Calibri, sans-serif;">&nbsp;</p>';
                     const match = trimmed.match(/^([A-Z0-9\s&/()]+(?:\s*:-|:))\s*(.*)$/);
                     if (match) {
-                        return `<p style="margin: 0 0 5pt 0; text-align: justify; line-height: 1.25; font-family: Calibri, sans-serif;"><b>${match[1]}</b> ${match[2]}</p>`;
+                        return `<p style="margin: 0 0 8pt 0; text-align: justify; line-height: 1.25; font-family: Calibri, sans-serif; font-size: 12pt;"><b>${match[1]}</b> ${match[2]}</p>`;
                     }
-                    return `<p style="margin: 0 0 5pt 0; text-align: justify; line-height: 1.25; font-family: Calibri, sans-serif;">${trimmed}</p>`;
+                    return `<p style="margin: 0 0 6pt 0; text-align: justify; line-height: 1.25; font-family: Calibri, sans-serif; font-size: 12pt;">${trimmed}</p>`;
                 })
                 .join('');
 
@@ -2443,13 +2449,13 @@
                             mso-footer-margin: 36pt;
                         }
                         div.Section1 { page: Section1; }
-                        body { font-family: Calibri, sans-serif; font-size: 11pt; color: #000; }
-                        table.patient-header { width: 100%; border-collapse: collapse; margin-bottom: 12pt; font-family: Calibri, sans-serif; font-size: 11pt; }
-                        table.patient-header td { padding: 2pt 0; vertical-align: top; }
-                        .report-title { text-align: center; font-size: 11.5pt; font-weight: bold; text-decoration: underline; margin: 10pt 0 12pt 0; font-family: Calibri, sans-serif; }
-                        .findings-section { font-family: Calibri, sans-serif; font-size: 11pt; }
-                        .impression-box { margin-top: 14pt; font-family: Calibri, sans-serif; font-size: 11pt; }
-                        .pndt-decl { margin-top: 14pt; font-size: 9.5pt; font-style: italic; border-top: 0.5pt solid #888; padding-top: 5pt; font-family: Calibri, sans-serif; }
+                        body { font-family: Calibri, sans-serif; font-size: 12pt; color: #000; }
+                        table.patient-header { width: 100%; border-collapse: collapse; margin-bottom: 12pt; font-family: Calibri, sans-serif; font-size: 12pt; }
+                        table.patient-header td { padding: 2pt 0; vertical-align: top; font-size: 12pt; }
+                        .report-title { text-align: center; font-size: 12.5pt; font-weight: bold; text-decoration: underline; margin: 10pt 0 12pt 0; font-family: Calibri, sans-serif; }
+                        .findings-section { font-family: Calibri, sans-serif; font-size: 12pt; }
+                        .impression-box { margin-top: 12pt; font-family: Calibri, sans-serif; font-size: 12pt; }
+                        .pndt-decl { margin-top: 12pt; font-size: 10pt; font-style: italic; border-top: 0.5pt solid #888; padding-top: 5pt; font-family: Calibri, sans-serif; }
                         table.sign-footer { width: 100%; margin-top: 25pt; border-collapse: collapse; font-family: Calibri, sans-serif; }
                     </style>
                 </head>
