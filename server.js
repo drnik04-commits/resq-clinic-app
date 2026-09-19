@@ -1826,7 +1826,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       );
     }
 
-    // 2. Sync Centres (with owner_password)
+    // 2. Sync Centres
     const centres = await localClient.query('SELECT * FROM clinic_centres');
     for (const c of centres.rows) {
       await cloudClient.query(
@@ -1879,17 +1879,16 @@ app.post('/api/sync/cloud', async (req, res) => {
       );
     }
 
-    // 6. Sync Visits & Bills
+    // 6. Sync Visits & Bills (Safely clears prior collision by ID or invoice number)
     const visits = await localClient.query('SELECT * FROM visits');
     for (const v of visits.rows) {
       await cloudClient.query(
+        `DELETE FROM visits WHERE id::text = $1::text OR invoice_number = $2`,
+        [v.id, v.invoice_number]
+      );
+      await cloudClient.query(
         `INSERT INTO visits (id, centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, payment_mode, invoice_number, doctor_commission, report_file, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-         ON CONFLICT (id) DO UPDATE SET 
-           total_amount = EXCLUDED.total_amount, concession = EXCLUDED.concession, 
-           paid_amount = EXCLUDED.paid_amount, balance_amount = EXCLUDED.balance_amount, 
-           payment_status = EXCLUDED.payment_status, payment_mode = EXCLUDED.payment_mode, 
-           doctor_commission = EXCLUDED.doctor_commission;`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
         [v.id, v.centre_id, v.patient_id, v.referring_doctor_id, v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, v.payment_mode, v.invoice_number, v.doctor_commission, v.report_file, v.created_at]
       );
     }
@@ -1898,9 +1897,12 @@ app.post('/api/sync/cloud', async (req, res) => {
     const investigations = await localClient.query('SELECT * FROM patient_investigations');
     for (const pi of investigations.rows) {
       await cloudClient.query(
+        `DELETE FROM patient_investigations WHERE id::text = $1::text`,
+        [pi.id]
+      );
+      await cloudClient.query(
         `INSERT INTO patient_investigations (id, visit_id, test_id, barcode, status, price, cut_type, test_cut)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT (id) DO NOTHING;`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [pi.id, pi.visit_id, pi.test_id, pi.barcode, pi.status, pi.price, pi.cut_type, pi.test_cut]
       );
     }
@@ -1909,11 +1911,12 @@ app.post('/api/sync/cloud', async (req, res) => {
     const pcpndt = await localClient.query('SELECT * FROM pcpndt_forms');
     for (const pf of pcpndt.rows) {
       await cloudClient.query(
+        `DELETE FROM pcpndt_forms WHERE id::text = $1::text OR visit_id::text = $2::text`,
+        [pf.id, pf.visit_id]
+      );
+      await cloudClient.query(
         `INSERT INTO pcpndt_forms (id, visit_id, centre_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-         ON CONFLICT (id) DO UPDATE SET 
-           relative_name = EXCLUDED.relative_name, lmp_date = EXCLUDED.lmp_date, 
-           weeks_of_preg = EXCLUDED.weeks_of_preg, scan_result = EXCLUDED.scan_result;`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
         [pf.id, pf.visit_id, pf.centre_id, pf.relative_name, pf.no_of_sons, pf.sons_age, pf.no_of_daughters, pf.daughters_age, pf.lmp_date, pf.weeks_of_preg, pf.indications, pf.scan_result, pf.doctor_name, pf.doctor_reg_no, pf.clinic_reg_no, pf.created_at]
       );
     }
@@ -1930,8 +1933,22 @@ app.post('/api/sync/cloud', async (req, res) => {
       );
     }
 
+    // 10. Sync Imaging Reports
+    const reports = await localClient.query('SELECT * FROM imaging_reports');
+    for (const r of reports.rows) {
+      await cloudClient.query(
+        `DELETE FROM imaging_reports WHERE id::text = $1::text OR visit_id::text = $2::text`,
+        [r.id, r.visit_id]
+      );
+      await cloudClient.query(
+        `INSERT INTO imaging_reports (id, visit_id, patient_id, centre_id, template_id, template_name, report_text, impression, doctor_name, doctor_reg_no, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [r.id, r.visit_id, r.patient_id, r.centre_id, r.template_id, r.template_name, r.report_text, r.impression, r.doctor_name, r.doctor_reg_no, r.created_at]
+      );
+    }
+
     await cloudClient.query('COMMIT');
-    res.status(200).json({ success: true, message: 'Cloud Sync Successful! All patients and bills transferred.' });
+    res.status(200).json({ success: true, message: 'Cloud Sync Successful! All records up to date.' });
   } catch (err) {
     try { await cloudClient.query('ROLLBACK'); } catch (rb) {}
     res.status(500).json({ success: false, error: 'Cloud Sync Failed: ' + err.message });
@@ -1939,7 +1956,7 @@ app.post('/api/sync/cloud', async (req, res) => {
     if (localClient) localClient.release();
     if (cloudClient) cloudClient.release();
   }
-}); 
+});
   
 app.get('*', (req, res) => {
   const publicIndex = path.join(__dirname, 'public', 'index.html');
