@@ -99,6 +99,7 @@ const FALLBACK_CENTRES = [
     centre_name: 'RESQ HEART CLINIC AND IMAGING CENTRE (Kandivali West)',
     tagline: 'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging',
     address: 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West',
+    place: 'Kandivali West',
     phone: '+91 8433838285',
     reg_no: 'RC197',
     centre_password: '1234',
@@ -110,6 +111,7 @@ const FALLBACK_CENTRES = [
     centre_name: 'RESQ DIAGNOSTIC & IMAGING CENTRE (Branch 2)',
     tagline: 'Multi-Speciality Diagnostic Imaging Services',
     address: 'Branch 2 Diagnostic Suite',
+    place: 'Kandivali West',
     phone: '+91 8433838285',
     reg_no: 'RC198',
     centre_password: '1234',
@@ -295,6 +297,7 @@ async function initDB() {
         centre_name VARCHAR(255) NOT NULL,
         tagline VARCHAR(255),
         address TEXT,
+        place VARCHAR(150) DEFAULT 'Kandivali West',
         phone VARCHAR(100),
         reg_no VARCHAR(100) DEFAULT 'RC197',
         email VARCHAR(100),
@@ -309,10 +312,10 @@ async function initDB() {
     if (centreCheck.rows.length === 0) {
       for (const fc of FALLBACK_CENTRES) {
         await pool.query(`
-          INSERT INTO clinic_centres (id, centre_name, tagline, address, phone, reg_no, centre_password, owner_password, is_private)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          INSERT INTO clinic_centres (id, centre_name, tagline, address, place, phone, reg_no, centre_password, owner_password, is_private)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
           ON CONFLICT (id) DO NOTHING;
-        `, [fc.id, fc.centre_name, fc.tagline, fc.address, fc.phone, fc.reg_no, fc.centre_password, fc.owner_password, fc.is_private]);
+        `, [fc.id, fc.centre_name, fc.tagline, fc.address, fc.place, fc.phone, fc.reg_no, fc.centre_password, fc.owner_password, fc.is_private]);
       }
     }
 
@@ -404,6 +407,9 @@ async function initDB() {
         doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA',
         doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218',
         clinic_reg_no VARCHAR(100) DEFAULT 'RC197',
+        place VARCHAR(150) DEFAULT 'Kandivali West',
+        clinic_name VARCHAR(255),
+        clinic_address TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -438,6 +444,10 @@ async function initDB() {
     `);
 
     await pool.query(`
+      ALTER TABLE clinic_centres ADD COLUMN IF NOT EXISTS place VARCHAR(150) DEFAULT 'Kandivali West';
+      ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS place VARCHAR(150) DEFAULT 'Kandivali West';
+      ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS clinic_name VARCHAR(255);
+      ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS clinic_address TEXT;
       ALTER TABLE referring_doctors ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
       ALTER TABLE test_master ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
       ALTER TABLE imaging_templates ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
@@ -573,7 +583,7 @@ app.post('/api/auth/change-owner-password', async (req, res) => {
 app.get('/api/centres', async (req, res) => {
   try {
     if (isDbConnected) {
-      const result = await pool.query('SELECT id, centre_name, tagline, address, phone, reg_no, email, is_private, created_at FROM clinic_centres ORDER BY created_at ASC');
+      const result = await pool.query('SELECT id, centre_name, tagline, address, place, phone, reg_no, email, is_private, created_at FROM clinic_centres ORDER BY created_at ASC');
       if (result.rows.length > 0) return res.status(200).json({ success: true, data: result.rows });
     }
   } catch (err) {}
@@ -582,7 +592,7 @@ app.get('/api/centres', async (req, res) => {
 
 app.post('/api/centres', async (req, res) => {
   try {
-    const { centreName, tagline, address, phone, regNo, email, centrePassword, ownerPassword, isPrivate } = req.body;
+    const { centreName, tagline, address, place, phone, regNo, email, centrePassword, ownerPassword, isPrivate } = req.body;
     if (!centreName || !centreName.trim()) {
       return res.status(400).json({ success: false, error: 'Centre name is required.' });
     }
@@ -590,9 +600,9 @@ app.post('/api/centres', async (req, res) => {
 
     if (isDbConnected) {
       const result = await pool.query(
-        `INSERT INTO clinic_centres (centre_name, tagline, address, phone, reg_no, email, centre_password, owner_password, is_private)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-        [centreName.trim(), tagline || '', address || '', phone || '', regNo || 'RC197', email || '', centrePassword || '1234', ownerPassword || 'owner123', privFlag]
+        `INSERT INTO clinic_centres (centre_name, tagline, address, place, phone, reg_no, email, centre_password, owner_password, is_private)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        [centreName.trim(), tagline || '', address || '', place || 'Kandivali West', phone || '', regNo || 'RC197', email || '', centrePassword || '1234', ownerPassword || 'owner123', privFlag]
       );
       return res.status(201).json({ success: true, data: result.rows[0] });
     }
@@ -602,6 +612,7 @@ app.post('/api/centres', async (req, res) => {
       centre_name: centreName.trim(),
       tagline: tagline || '',
       address: address || '',
+      place: place || 'Kandivali West',
       phone: phone || '',
       reg_no: regNo || 'RC197',
       email: email || '',
@@ -619,18 +630,18 @@ app.post('/api/centres', async (req, res) => {
 app.put('/api/centres/:id', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
-    const { centreName, tagline, address, phone, regNo, email, centrePassword, ownerPassword, isPrivate } = req.body;
+    const { centreName, tagline, address, place, phone, regNo, email, centrePassword, ownerPassword, isPrivate } = req.body;
     const privFlag = isPrivate === true || isPrivate === 'true';
 
     if (isDbConnected) {
       const result = await pool.query(
         `UPDATE clinic_centres 
-         SET centre_name = $1, tagline = $2, address = $3, phone = $4, reg_no = $5, email = $6, 
-             centre_password = COALESCE(NULLIF($7, ''), centre_password),
-             owner_password = COALESCE(NULLIF($8, ''), owner_password),
-             is_private = $9
-         WHERE id::text = $10::text RETURNING *`,
-        [centreName.trim(), tagline || '', address || '', phone || '', regNo || 'RC197', email || '', centrePassword || '', ownerPassword || '', privFlag, validId]
+         SET centre_name = $1, tagline = $2, address = $3, place = $4, phone = $5, reg_no = $6, email = $7, 
+             centre_password = COALESCE(NULLIF($8, ''), centre_password),
+             owner_password = COALESCE(NULLIF($9, ''), owner_password),
+             is_private = $10
+         WHERE id::text = $11::text RETURNING *`,
+        [centreName.trim(), tagline || '', address || '', place || 'Kandivali West', phone || '', regNo || 'RC197', email || '', centrePassword || '', ownerPassword || '', privFlag, validId]
       );
       return res.status(200).json({ success: true, data: result.rows[0] });
     }
@@ -639,7 +650,7 @@ app.put('/api/centres/:id', async (req, res) => {
     if (idx !== -1) {
       FALLBACK_CENTRES[idx] = { 
         ...FALLBACK_CENTRES[idx], 
-        centre_name: centreName, tagline, address, phone, reg_no: regNo, email,
+        centre_name: centreName, tagline, address, place: place || 'Kandivali West', phone, reg_no: regNo, email,
         centre_password: centrePassword || FALLBACK_CENTRES[idx].centre_password,
         owner_password: ownerPassword || FALLBACK_CENTRES[idx].owner_password,
         is_private: privFlag
@@ -715,17 +726,103 @@ app.post('/api/patients', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+app.get('/api/patients/:id/pcpndt-status', async (req, res) => {
+  try {
+    const patientId = getCleanId(req.params.id);
+    const result = await pool.query(
+      `SELECT pf.*, c.centre_name, c.place as centre_place 
+       FROM pcpndt_forms pf
+       JOIN visits v ON pf.visit_id = v.id
+       LEFT JOIN clinic_centres c ON pf.centre_id = c.id
+       WHERE v.patient_id::text = $1::text
+       ORDER BY pf.created_at DESC LIMIT 1`,
+      [patientId]
+    );
+    res.status(200).json({ success: true, data: result.rows[0] || null });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.put('/api/patients/:id', async (req, res) => {
+  const client = await pool.connect();
   try {
     const validId = getCleanId(req.params.id);
-    const { fullName, age, gender, phone, email, address, patientCode } = req.body;
+    const { fullName, age, gender, phone, email, address, patientCode, pcpndtData } = req.body;
     const parsedAge = age !== null && age !== undefined && !isNaN(parseInt(age, 10)) ? parseInt(age, 10) : 0;
-    const result = await pool.query(
-      `UPDATE patients SET full_name = $1, age = $2, gender = $3, phone = $4, email = $5, address = $6, patient_code = $7 WHERE id::text = $8::text RETURNING *`,
+
+    await client.query('BEGIN');
+
+    const patResult = await client.query(
+      `UPDATE patients 
+       SET full_name = $1, age = $2, gender = $3, phone = $4, email = $5, address = $6, patient_code = $7 
+       WHERE id::text = $8::text RETURNING *`,
       [fullName, parsedAge, gender || 'Female', phone || '', email || '', address || '', patientCode || '', validId]
     );
-    res.status(200).json({ success: true, data: result.rows[0], message: 'Patient details updated successfully!' });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+
+    if (pcpndtData && pcpndtData.savePcpndt) {
+      const visitRes = await client.query(
+        `SELECT id, centre_id FROM visits WHERE patient_id::text = $1::text ORDER BY created_at DESC LIMIT 1`,
+        [validId]
+      );
+      
+      let visitId = visitRes.rows[0]?.id;
+      let centreId = pcpndtData.centreId || visitRes.rows[0]?.centre_id || getTenantCentreId(req);
+
+      if (!visitId) {
+        const newV = await client.query(
+          `INSERT INTO visits (centre_id, patient_id, total_amount, paid_amount, balance_amount, invoice_number)
+           VALUES ($1, $2, 0, 0, 0, $3) RETURNING id`,
+          [centreId, validId, generateInvoiceNumber()]
+        );
+        visitId = newV.rows[0].id;
+      }
+
+      const existingF = await client.query('SELECT id FROM pcpndt_forms WHERE visit_id::text = $1::text', [visitId]);
+
+      if (existingF.rows.length > 0) {
+        await client.query(
+          `UPDATE pcpndt_forms 
+           SET centre_id = $1, relative_name = $2, lmp_date = $3, weeks_of_preg = $4,
+               no_of_sons = $5, sons_age = $6, no_of_daughters = $7, daughters_age = $8,
+               indications = $9, scan_result = $10, doctor_name = $11, doctor_reg_no = $12,
+               clinic_reg_no = $13, place = $14
+           WHERE visit_id::text = $15::text`,
+          [
+            centreId, pcpndtData.relativeName || '', pcpndtData.lmpDate || '', pcpndtData.weeksOfPreg || '',
+            parseInt(pcpndtData.noOfSons, 10) || 0, pcpndtData.sonsAge || '',
+            parseInt(pcpndtData.noOfDaughters, 10) || 0, pcpndtData.daughtersAge || '',
+            pcpndtData.indications || 'Routine Antenatal Anomaly Evaluation',
+            pcpndtData.scanResult || '', pcpndtData.doctorName || 'Dr NIKUNJ KOTHIA',
+            pcpndtData.doctorRegNo || '2009/09/3218', pcpndtData.clinicRegNo || 'RC197',
+            pcpndtData.place || 'Kandivali West', visitId
+          ]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO pcpndt_forms (visit_id, centre_id, relative_name, lmp_date, weeks_of_preg, no_of_sons, sons_age, no_of_daughters, daughters_age, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, place)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+          [
+            visitId, centreId, pcpndtData.relativeName || '', pcpndtData.lmpDate || '', pcpndtData.weeksOfPreg || '',
+            parseInt(pcpndtData.noOfSons, 10) || 0, pcpndtData.sonsAge || '',
+            parseInt(pcpndtData.noOfDaughters, 10) || 0, pcpndtData.daughtersAge || '',
+            pcpndtData.indications || 'Routine Antenatal Anomaly Evaluation',
+            pcpndtData.scanResult || '', pcpndtData.doctorName || 'Dr NIKUNJ KOTHIA',
+            pcpndtData.doctorRegNo || '2009/09/3218', pcpndtData.clinicRegNo || 'RC197',
+            pcpndtData.place || 'Kandivali West'
+          ]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    res.status(200).json({ success: true, data: patResult.rows[0], message: 'Patient details and records updated!' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
 });
 
 app.delete('/api/patients/:id', async (req, res) => {
@@ -834,7 +931,7 @@ app.put('/api/visits/:id', async (req, res) => {
     await client.query('BEGIN');
     const { 
       referringDoctorId, tests, concession, paidAmount, paymentMode, 
-      doctorCommission, doctor_commission, isPcpndt, relativeName, lmpDate, weeksOfPreg, pcpndtIndications, scanResult 
+      doctorCommission, doctor_commission, isPcpndt, relativeName, lmpDate, weeksOfPreg, pcpndtIndications, scanResult, place 
     } = req.body;
 
     let testArray = [];
@@ -886,13 +983,13 @@ app.put('/api/visits/:id', async (req, res) => {
       const pCheck = await client.query('SELECT id FROM pcpndt_forms WHERE visit_id::text = $1::text', [validVisitId]);
       if (pCheck.rows.length > 0) {
         await client.query(
-          `UPDATE pcpndt_forms SET relative_name = $1, lmp_date = $2, weeks_of_preg = $3, indications = $4, scan_result = $5 WHERE visit_id::text = $6::text`,
-          [relativeName || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '', validVisitId]
+          `UPDATE pcpndt_forms SET relative_name = $1, lmp_date = $2, weeks_of_preg = $3, indications = $4, scan_result = $5, place = COALESCE($6, place) WHERE visit_id::text = $7::text`,
+          [relativeName || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '', place || null, validVisitId]
         );
       } else {
         await client.query(
-          `INSERT INTO pcpndt_forms (visit_id, relative_name, lmp_date, weeks_of_preg, indications, scan_result) VALUES ($1, $2, $3, $4, $5, $6)`,
-          [validVisitId, relativeName || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '']
+          `INSERT INTO pcpndt_forms (visit_id, relative_name, lmp_date, weeks_of_preg, indications, scan_result, place) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [validVisitId, relativeName || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '', place || 'Kandivali West']
         );
       }
     }
@@ -919,7 +1016,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
       centreId, existingPatientId, patientCode, fullName, age, gender, phone, email, address,
       referringDoctorId, tests, concession, paidAmount, paymentMode, doctorCommission, doctor_commission, isPcpndt,
       relativeName, lmpDate, weeksOfPreg, noOfSons, sonsAge, noOfDaughters, daughtersAge,
-      pcpndtIndications, scanResult, doctorName, doctorRegNo, clinicRegNo
+      pcpndtIndications, scanResult, doctorName, doctorRegNo, clinicRegNo, place
     } = req.body;
 
     const finalCentreId = getCleanId(centreId) || getCleanId(req.headers['x-centre-id']);
@@ -986,9 +1083,9 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
 
     if (String(isPcpndt) === 'true') {
       await client.query(
-        `INSERT INTO pcpndt_forms (visit_id, centre_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-        [visitId, finalCentreId, relativeName || '', parseInt(noOfSons, 10) || 0, sonsAge || '', parseInt(noOfDaughters, 10) || 0, daughtersAge || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', clinicRegNo || 'RC197']
+        `INSERT INTO pcpndt_forms (visit_id, centre_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, place)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        [visitId, finalCentreId, relativeName || '', parseInt(noOfSons, 10) || 0, sonsAge || '', parseInt(noOfDaughters, 10) || 0, daughtersAge || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', clinicRegNo || 'RC197', place || 'Kandivali West']
       );
     }
 
@@ -1019,7 +1116,7 @@ app.get('/api/invoice/:id', async (req, res) => {
     const visitRes = await pool.query(
       `SELECT v.*, p.full_name, p.age, p.gender, p.phone, p.address, p.patient_code,
               d.doctor_name, c.centre_name, c.tagline as centre_tagline, c.address as centre_address,
-              c.phone as centre_phone, c.reg_no as centre_reg_no
+              c.place as centre_place, c.phone as centre_phone, c.reg_no as centre_reg_no
        FROM visits v
        JOIN patients p ON v.patient_id = p.id
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
@@ -1049,7 +1146,7 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     const visitRes = await pool.query(
       `SELECT v.*, p.full_name, p.age, p.gender, p.phone, p.address, p.patient_code,
               d.doctor_name, c.centre_name, c.tagline as centre_tagline, c.address as centre_address,
-              c.phone as centre_phone, c.reg_no as centre_reg_no
+              c.place as centre_place, c.phone as centre_phone, c.reg_no as centre_reg_no
        FROM visits v
        JOIN patients p ON v.patient_id = p.id
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
@@ -1251,22 +1348,22 @@ app.post('/api/tests', async (req, res) => {
 
 app.post('/api/tests/bulk-import', async (req, res) => {
   try {
-    const centreId = getTenantCentreId(req);
+    const targetCentreId = getCleanId(req.body.centreId) || getTenantCentreId(req);
     const { tests } = req.body;
     if (!Array.isArray(tests) || !tests.length) return res.status(400).json({ success: false, error: 'No test rows provided.' });
     let count = 0;
     for (const t of tests) {
-      if (t.testName) {
+      if (t.testName && t.testName.trim()) {
         const parsedCut = (t.testCut !== undefined && t.testCut !== null && !isNaN(parseFloat(t.testCut))) ? parseFloat(t.testCut) : 30;
         await pool.query(
           `INSERT INTO test_master (centre_id, test_name, category, price, cut_type, test_cut)
            VALUES ($1, $2, $3, $4, $5, $6)`,
-          [centreId, t.testName.trim(), t.category || 'Imaging', parseFloat(t.price) || 0, t.cutType || 'percentage', parsedCut]
+          [targetCentreId, t.testName.trim(), t.category || 'Imaging', parseFloat(t.price) || 0, t.cutType || 'percentage', parsedCut]
         );
         count++;
       }
     }
-    res.status(200).json({ success: true, message: `Successfully imported ${count} tests.` });
+    res.status(200).json({ success: true, message: `Successfully imported ${count} test(s) to centre.` });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -1308,12 +1405,12 @@ app.get('/api/doctors', async (req, res) => {
 
 app.post('/api/doctors', async (req, res) => {
   try {
-    const centreId = getTenantCentreId(req);
+    const targetCentreId = getCleanId(req.body.centreId) || getTenantCentreId(req);
     const { doctorName, hospitalClinicName, commissionType, commissionValue } = req.body;
     const parsedVal = (commissionValue !== undefined && commissionValue !== null && !isNaN(parseFloat(commissionValue))) ? parseFloat(commissionValue) : 30;
     const result = await pool.query(
       'INSERT INTO referring_doctors (centre_id, doctor_name, hospital_clinic_name, commission_type, commission_value) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [centreId, doctorName, hospitalClinicName, commissionType || 'percentage', parsedVal]
+      [targetCentreId, doctorName, hospitalClinicName, commissionType || 'percentage', parsedVal]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -1321,44 +1418,76 @@ app.post('/api/doctors', async (req, res) => {
 
 app.post('/api/doctors/bulk-import', async (req, res) => {
   try {
-    const centreId = getTenantCentreId(req);
+    const targetCentreId = getCleanId(req.body.centreId) || getTenantCentreId(req);
     const { doctors } = req.body;
     if (!Array.isArray(doctors) || !doctors.length) return res.status(400).json({ success: false, error: 'No doctor rows provided.' });
     let count = 0;
     for (const d of doctors) {
-      if (d.doctorName) {
+      if (d.doctorName && d.doctorName.trim()) {
         const parsedVal = (d.commissionValue !== undefined && d.commissionValue !== null && !isNaN(parseFloat(d.commissionValue))) ? parseFloat(d.commissionValue) : 30;
         await pool.query(
           `INSERT INTO referring_doctors (centre_id, doctor_name, hospital_clinic_name, commission_type, commission_value)
            VALUES ($1, $2, $3, $4, $5)`,
-          [centreId, d.doctorName.trim(), d.hospitalClinicName || '', d.commissionType || 'percentage', parsedVal]
+          [targetCentreId, d.doctorName.trim(), d.hospitalClinicName || '', d.commissionType || 'percentage', parsedVal]
         );
         count++;
       }
     }
-    res.status(200).json({ success: true, message: `Successfully imported ${count} referring doctors.` });
+    res.status(200).json({ success: true, message: `Successfully imported ${count} doctor(s) to centre.` });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.put('/api/doctors/:id', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
-    const { doctorName, hospitalClinicName, commissionType, commissionValue } = req.body;
-    const parsedVal = (commissionValue !== undefined && commissionValue !== null && !isNaN(parseFloat(commissionValue))) ? parseFloat(commissionValue) : 30;
+    if (!validId) return res.status(400).json({ success: false, error: 'Invalid Doctor ID' });
+
+    const { doctorName, hospitalClinicName, commissionType, commissionValue, centreId } = req.body;
+    if (!doctorName || !doctorName.trim()) {
+      return res.status(400).json({ success: false, error: 'Doctor name cannot be empty.' });
+    }
+
+    const parsedVal = (commissionValue !== undefined && commissionValue !== null && !isNaN(parseFloat(commissionValue))) 
+      ? parseFloat(commissionValue) 
+      : 30;
+
     const result = await pool.query(
-      `UPDATE referring_doctors SET doctor_name = $1, hospital_clinic_name = $2, commission_type = $3, commission_value = $4 WHERE id::text = $5::text RETURNING *`,
-      [doctorName, hospitalClinicName, commissionType || 'percentage', parsedVal, validId]
+      `UPDATE referring_doctors 
+       SET doctor_name = $1, 
+           hospital_clinic_name = $2, 
+           commission_type = $3, 
+           commission_value = $4,
+           centre_id = COALESCE($5, centre_id)
+       WHERE id::text = $6::text RETURNING *`,
+      [doctorName.trim(), hospitalClinicName || '', commissionType || 'percentage', parsedVal, getCleanId(centreId), validId]
     );
-    res.status(200).json({ success: true, data: result.rows[0] });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+
+    if (result.rowCount === 0) return res.status(404).json({ success: false, error: 'Doctor not found.' });
+    res.status(200).json({ success: true, data: result.rows[0], message: 'Doctor updated successfully!' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.delete('/api/doctors/:id', async (req, res) => {
+  const client = await pool.connect();
   try {
     const validId = getCleanId(req.params.id);
-    await pool.query('DELETE FROM referring_doctors WHERE id::text = $1::text', [validId]);
-    res.status(200).json({ success: true, message: 'Doctor deleted' });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    if (!validId) return res.status(400).json({ success: false, error: 'Invalid Doctor ID' });
+
+    await client.query('BEGIN');
+    await client.query('UPDATE visits SET referring_doctor_id = NULL WHERE referring_doctor_id::text = $1::text', [validId]);
+    const delRes = await client.query('DELETE FROM referring_doctors WHERE id::text = $1::text RETURNING id', [validId]);
+    await client.query('COMMIT');
+
+    if (delRes.rowCount === 0) return res.status(404).json({ success: false, error: 'Doctor not found.' });
+    res.status(200).json({ success: true, message: 'Doctor deleted successfully.' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
 });
 
 app.get('/api/imaging/templates', async (req, res) => {
@@ -1730,10 +1859,12 @@ app.get('/api/pcpndt', async (req, res) => {
     const { startDate, endDate, month, search } = req.query;
 
     let query = `
-      SELECT pf.*, pf.created_at as form_date, p.full_name as patient_name, p.age as patient_age, v.invoice_number
+      SELECT pf.*, pf.created_at as form_date, p.full_name as patient_name, p.age as patient_age, v.invoice_number,
+             c.centre_name, COALESCE(pf.place, c.place, 'Kandivali West') as place
       FROM pcpndt_forms pf
       JOIN visits v ON pf.visit_id = v.id
       JOIN patients p ON v.patient_id = p.id
+      LEFT JOIN clinic_centres c ON pf.centre_id = c.id
       WHERE 1=1
     `;
     let params = [];
@@ -1766,14 +1897,24 @@ app.get('/api/pcpndt', async (req, res) => {
 app.put('/api/pcpndt/:id', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
-    const { relativeName, lmpDate, weeksOfPreg, noOfSons, sonsAge, noOfDaughters, daughtersAge, indications, scanResult, doctorName, doctorRegNo, clinicRegNo } = req.body;
+    const { 
+      relativeName, lmpDate, weeksOfPreg, noOfSons, sonsAge, noOfDaughters, 
+      daughtersAge, indications, scanResult, doctorName, doctorRegNo, clinicRegNo, place, centreId 
+    } = req.body;
+
     const result = await pool.query(
       `UPDATE pcpndt_forms 
        SET relative_name = $1, lmp_date = $2, weeks_of_preg = $3, no_of_sons = $4, sons_age = $5,
            no_of_daughters = $6, daughters_age = $7, indications = $8, scan_result = $9,
-           doctor_name = $10, doctor_reg_no = $11, clinic_reg_no = $12
-       WHERE id::text = $13::text RETURNING *`,
-      [relativeName || '', lmpDate || '', weeksOfPreg || '', parseInt(noOfSons, 10) || 0, sonsAge || '', parseInt(noOfDaughters, 10) || 0, daughtersAge || '', indications || '', scanResult || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', clinicRegNo || 'RC197', validId]
+           doctor_name = $10, doctor_reg_no = $11, clinic_reg_no = $12, place = $13,
+           centre_id = COALESCE($14, centre_id)
+       WHERE id::text = $15::text RETURNING *`,
+      [
+        relativeName || '', lmpDate || '', weeksOfPreg || '', parseInt(noOfSons, 10) || 0, sonsAge || '',
+        parseInt(noOfDaughters, 10) || 0, daughtersAge || '', indications || '', scanResult || '',
+        doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', clinicRegNo || 'RC197', 
+        place || 'Kandivali West', getCleanId(centreId), validId
+      ]
     );
     res.status(200).json({ success: true, data: result.rows[0], message: 'Statutory Form F updated successfully!' });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -1824,13 +1965,13 @@ app.post('/api/sync/cloud', async (req, res) => {
     const centres = await localClient.query('SELECT * FROM clinic_centres');
     for (const c of centres.rows) {
       await cloudClient.query(
-        `INSERT INTO clinic_centres (id, centre_name, tagline, address, phone, reg_no, email, centre_password, owner_password, is_private, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `INSERT INTO clinic_centres (id, centre_name, tagline, address, place, phone, reg_no, email, centre_password, owner_password, is_private, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          ON CONFLICT (id) DO UPDATE SET 
-           centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address,
+           centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address, place = EXCLUDED.place,
            phone = EXCLUDED.phone, reg_no = EXCLUDED.reg_no, email = EXCLUDED.email,
            centre_password = EXCLUDED.centre_password, owner_password = EXCLUDED.owner_password, is_private = EXCLUDED.is_private;`,
-        [c.id, c.centre_name, c.tagline, c.address, c.phone, c.reg_no, c.email, c.centre_password, c.owner_password || 'owner123', c.is_private, c.created_at]
+        [c.id, c.centre_name, c.tagline, c.address, c.place || 'Kandivali West', c.phone, c.reg_no, c.email, c.centre_password, c.owner_password || 'owner123', c.is_private, c.created_at]
       );
     }
 
@@ -1841,7 +1982,8 @@ app.post('/api/sync/cloud', async (req, res) => {
         `INSERT INTO referring_doctors (id, centre_id, doctor_name, hospital_clinic_name, commission_type, commission_value)
          VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (id) DO UPDATE SET 
-           doctor_name = EXCLUDED.doctor_name, hospital_clinic_name = EXCLUDED.hospital_clinic_name, 
+           centre_id = EXCLUDED.centre_id, doctor_name = EXCLUDED.doctor_name, 
+           hospital_clinic_name = EXCLUDED.hospital_clinic_name, 
            commission_type = EXCLUDED.commission_type, commission_value = EXCLUDED.commission_value;`,
         [d.id, d.centre_id, d.doctor_name, d.hospital_clinic_name, d.commission_type, d.commission_value]
       );
@@ -1854,7 +1996,7 @@ app.post('/api/sync/cloud', async (req, res) => {
         `INSERT INTO test_master (id, centre_id, test_name, category, price, cut_type, test_cut)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (id) DO UPDATE SET 
-           test_name = EXCLUDED.test_name, category = EXCLUDED.category, 
+           centre_id = EXCLUDED.centre_id, test_name = EXCLUDED.test_name, category = EXCLUDED.category, 
            price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut;`,
         [t.id, t.centre_id, t.test_name, t.category, t.price, t.cut_type || 'percentage', t.test_cut]
       );
@@ -1903,12 +2045,12 @@ app.post('/api/sync/cloud', async (req, res) => {
     const pcpndt = await localClient.query('SELECT * FROM pcpndt_forms');
     for (const pf of pcpndt.rows) {
       await cloudClient.query(
-        `INSERT INTO pcpndt_forms (id, visit_id, centre_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        `INSERT INTO pcpndt_forms (id, visit_id, centre_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, place, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
          ON CONFLICT (id) DO UPDATE SET 
            relative_name = EXCLUDED.relative_name, lmp_date = EXCLUDED.lmp_date, 
-           weeks_of_preg = EXCLUDED.weeks_of_preg, scan_result = EXCLUDED.scan_result;`,
-        [pf.id, pf.visit_id, pf.centre_id, pf.relative_name, pf.no_of_sons, pf.sons_age, pf.no_of_daughters, pf.daughters_age, pf.lmp_date, pf.weeks_of_preg, pf.indications, pf.scan_result, pf.doctor_name, pf.doctor_reg_no, pf.clinic_reg_no, pf.created_at]
+           weeks_of_preg = EXCLUDED.weeks_of_preg, scan_result = EXCLUDED.scan_result, place = EXCLUDED.place;`,
+        [pf.id, pf.visit_id, pf.centre_id, pf.relative_name, pf.no_of_sons, pf.sons_age, pf.no_of_daughters, pf.daughters_age, pf.lmp_date, pf.weeks_of_preg, pf.indications, pf.scan_result, pf.doctor_name, pf.doctor_reg_no, pf.clinic_reg_no, pf.place || 'Kandivali West', pf.created_at]
       );
     }
 

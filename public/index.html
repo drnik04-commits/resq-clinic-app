@@ -202,6 +202,7 @@
                     </label>
                     <div id="pcpndtFields" style="display: none; margin-top: 14px;">
                         <div class="form-grid">
+                            <div class="form-group"><label>Place / Jurisdiction:</label><input type="text" id="pcpndtPlace" value="Kandivali West"></div>
                             <div class="form-group"><label>Husband / Relative Name:</label><input type="text" id="pcpndtRelativeName"></div>
                             <div class="form-group"><label>L.M.P Date:</label><input type="date" id="pcpndtLMP"></div>
                             <div class="form-group"><label>Weeks of Gestation:</label><input type="text" id="pcpndtWeeks" placeholder="e.g. 28 Weeks"></div>
@@ -372,12 +373,12 @@
                                     <label style="font-weight:bold; font-size:0.82rem; color:#0f172a;">REPORT FINDINGS & OBSERVATIONS (EDIT MANUALLY):</label>
                                     <span style="font-size:0.75rem; color:#64748b;">Selected Template Content Loaded</span>
                                 </div>
-                                <textarea id="manualReportFindingsText" rows="14" style="width:100%; font-family: Calibri, 'Segoe UI', sans-serif; font-size:12pt; line-height:1.4; padding:10px; border:1.5px solid #94a3b8; border-radius:4px; outline:none; resize:vertical; background:#ffffff;"></textarea>
+                                <textarea id="manualReportFindingsText" rows="14" style="width:100%; font-family: Calibri, 'Segoe UI', sans-serif; font-size:11pt; line-height:1.4; padding:10px; border:1.5px solid #94a3b8; border-radius:4px; outline:none; resize:vertical; background:#ffffff;"></textarea>
                             </div>
 
                             <div style="display:flex; flex-direction:column;">
                                 <label style="font-weight:bold; font-size:0.82rem; color:#991b1b; margin-bottom:4px;">IMPRESSION :-</label>
-                                <textarea id="manualReportImpressionText" rows="3" style="width:100%; font-family: Calibri, 'Segoe UI', sans-serif; font-size:12pt; font-weight:bold; color:#991b1b; line-height:1.3; padding:8px 10px; border:1.5px solid #f87171; border-radius:4px; outline:none; background:#fffaf0;"></textarea>
+                                <textarea id="manualReportImpressionText" rows="3" style="width:100%; font-family: Calibri, 'Segoe UI', sans-serif; font-size:11pt; font-weight:bold; color:#991b1b; line-height:1.3; padding:8px 10px; border:1.5px solid #f87171; border-radius:4px; outline:none; background:#fffaf0;"></textarea>
                             </div>
                         </div>
                     </div>
@@ -387,7 +388,7 @@
                             <strong style="color: #1e3a8a;">Merged Diagnostic Report Preview</strong>
                             <button type="button" class="cw-btn" style="padding: 2px 8px;" onclick="toggleReportLivePreview()">✕ Hide Preview</button>
                         </div>
-                        <div id="desktopPreviewContent" style="font-family: Calibri, sans-serif; font-size: 12pt; line-height: 1.4; white-space: pre-wrap; background:#fdfdfd; padding:15px; border:1px dashed #cbd5e1;"></div>
+                        <div id="desktopPreviewContent" style="font-family: Calibri, sans-serif; font-size: 11pt; line-height: 1.4; white-space: pre-wrap; background:#fdfdfd; padding:15px; border:1px dashed #cbd5e1;"></div>
                     </div>
                 </div>
             </div>
@@ -402,7 +403,7 @@
                 </div>
                 <table>
                     <thead>
-                        <tr><th>Date</th><th>Invoice</th><th>Patient Name & Age</th><th>Relative</th><th>LMP & Gestation</th><th>Children (M/F)</th><th>Doctor</th><th style="width: 290px;">Statutory Actions</th></tr>
+                        <tr><th>Date</th><th>Invoice</th><th>Patient Name & Age</th><th>Relative</th><th>LMP & Gestation</th><th>Children (M/F)</th><th>Doctor / Place</th><th style="width: 290px;">Statutory Actions</th></tr>
                     </thead>
                     <tbody id="pcpndtRegisterTableBody"></tbody>
                 </table>
@@ -415,7 +416,7 @@
                 <div>
                     <div class="card">
                         <div class="card-title" id="docFormTitle">
-                            <span>Add / Edit Referring Doctors</span>
+                            <span id="docFormTitleText">Add / Edit Referring Doctors</span>
                             <button type="button" class="btn-act btn-act-bills" style="background:#0284c7;" onclick="openBulkDocModal()">📥 Bulk Import Doctors</button>
                         </div>
                         <input type="hidden" id="editDocId">
@@ -440,7 +441,7 @@
                 <div>
                     <div class="card">
                         <div class="card-title" id="testFormTitle">
-                            <span>Add / Edit Tests & Cuts</span>
+                            <span id="testFormTitleText">Add / Edit Tests & Cuts</span>
                             <button type="button" class="btn-act btn-act-bills" style="background:#0284c7;" onclick="openBulkTestModal()">📥 Bulk Import Tests</button>
                         </div>
                         <input type="hidden" id="editTestId">
@@ -542,11 +543,11 @@
 
     </div>
 
-    <!-- MODAL 1: EDIT PATIENT -->
+    <!-- MODAL 1: EDIT PATIENT & INTEGRATED FORM F -->
     <div id="editPatientModal" class="modal">
-        <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-content" style="max-width: 780px;">
             <div class="modal-header">
-                <h3>✏️ Edit Patient Details</h3>
+                <h3>✏️ Edit Patient Details & Statutory PCPNDT</h3>
                 <button type="button" onclick="closeEditPatientModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
             </div>
             <input type="hidden" id="editPatientId">
@@ -566,22 +567,49 @@
                 <div class="form-group"><label>Email ID:</label><input type="email" id="editPatEmail"></div>
                 <div class="form-group full-width"><label>Address:</label><input type="text" id="editPatAddress"></div>
             </div>
-            <div style="margin-top: 14px; display: flex; gap: 8px;">
+
+            <!-- Integrated Form F Toggle & Section -->
+            <div class="pcpndt-panel" style="margin-top: 14px; background: #fffbeb; border: 1.5px solid #fde68a;">
+                <label class="pcpndt-checkbox-label">
+                    <input type="checkbox" id="editPatPcpndtToggle" onchange="document.getElementById('editPatPcpndtFields').style.display = this.checked ? 'block' : 'none'">
+                    📝 Attach / Update Statutory PCPNDT Form F for this Patient
+                </label>
+                <div id="editPatPcpndtFields" style="display: none; margin-top: 12px;">
+                    <div class="form-grid">
+                        <div class="form-group"><label>Assigned Centre:</label><select id="editPatPcpndtCentreSelect"></select></div>
+                        <div class="form-group"><label>Place / Jurisdiction:</label><input type="text" id="editPatPcpndtPlace" value="Kandivali West"></div>
+                        <div class="form-group"><label>Husband / Relative Name:</label><input type="text" id="editPatPcpndtRelative"></div>
+                        <div class="form-group"><label>L.M.P Date:</label><input type="date" id="editPatPcpndtLmp"></div>
+                        <div class="form-group"><label>Weeks of Gestation:</label><input type="text" id="editPatPcpndtWeeks" placeholder="e.g. 24 Weeks"></div>
+                        <div class="form-group"><label>Living Sons & Age:</label><div style="display:flex;gap:6px;"><input type="number" id="editPatPcpndtSonsCount" style="width:70px;"><input type="text" id="editPatPcpndtSonsAge" placeholder="Ages"></div></div>
+                        <div class="form-group"><label>Living Daughters & Age:</label><div style="display:flex;gap:6px;"><input type="number" id="editPatPcpndtDaughtersCount" style="width:70px;"><input type="text" id="editPatPcpndtDaughtersAge" placeholder="Ages"></div></div>
+                        <div class="form-group full-width"><label>Clinical Indications:</label><input type="text" id="editPatPcpndtIndications" value="Routine Antenatal Anomaly Evaluation"></div>
+                        <div class="form-group full-width"><label>Scan Observations / Results:</label><textarea id="editPatPcpndtResults" rows="2"></textarea></div>
+                        <div class="form-group"><label>Doctor Name:</label><input type="text" id="editPatPcpndtDocName" value="Dr NIKUNJ KOTHIA"></div>
+                        <div class="form-group"><label>Doctor Reg No:</label><input type="text" id="editPatPcpndtDocReg" value="2009/09/3218"></div>
+                        <div class="form-group"><label>Clinic Reg No:</label><input type="text" id="editPatPcpndtClinicReg" value="RC197"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 16px; display: flex; gap: 8px;">
                 <button type="button" class="btn-complete-reg" onclick="submitEditPatient()">Save Changes</button>
                 <button type="button" class="btn-act btn-act-del" onclick="closeEditPatientModal()">Cancel</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL 2: EDIT PCPNDT FORM F -->
+    <!-- MODAL 2: EDIT PCPNDT FORM F WITH PLACE & CENTRE -->
     <div id="editPcpndtModal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-content" style="max-width: 720px;">
             <div class="modal-header">
                 <h3>✏️ Edit Statutory PCPNDT Form F</h3>
                 <button type="button" onclick="closeEditPcpndtModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
             </div>
             <input type="hidden" id="editPcpndtId">
             <div class="form-grid">
+                <div class="form-group"><label>Clinic Centre:</label><select id="editPcpndtCentreSelect"></select></div>
+                <div class="form-group"><label>Place / Location *:</label><input type="text" id="editPcpndtPlace" value="Kandivali West"></div>
                 <div class="form-group"><label>Husband / Relative Name:</label><input type="text" id="editPcpndtRelative"></div>
                 <div class="form-group"><label>L.M.P Date:</label><input type="date" id="editPcpndtLmp"></div>
                 <div class="form-group"><label>Weeks of Gestation:</label><input type="text" id="editPcpndtWeeks"></div>
@@ -600,29 +628,37 @@
         </div>
     </div>
 
-    <!-- MODAL 3: BULK IMPORT DOCTORS -->
+    <!-- MODAL 3: BULK IMPORT DOCTORS PER CENTRE -->
     <div id="bulkDocModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
                 <h3>📥 Bulk Import Doctors</h3>
                 <button type="button" onclick="closeBulkDocModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
             </div>
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label style="font-weight: bold; color: #1e3a8a;">Assign To Centre:</label>
+                <select id="bulkDocCentreSelect" style="width:100%; padding:8px; border:1px solid #94a3b8; border-radius:4px;"></select>
+            </div>
             <p style="font-size: 0.8rem; color: #475569; margin-bottom: 8px;">Format: Doctor Name, Clinic Name, Cut % (one per line)</p>
             <textarea id="bulkDocText" rows="10" style="width:100%; font-family:monospace; padding:8px;" placeholder="Dr. Sharma, City Clinic, 30&#10;Dr. Mehta, LifeCare, 30&#10;Dr. Verma, Apollo, 30"></textarea>
-            <button type="button" class="btn-complete-reg" style="margin-top:10px; width:100%;" onclick="submitBulkDoctors()">Import Doctors</button>
+            <button type="button" class="btn-complete-reg" style="margin-top:10px; width:100%;" onclick="submitBulkDoctors()">Import Doctors to Selected Centre</button>
         </div>
     </div>
 
-    <!-- MODAL 4: BULK IMPORT TESTS -->
+    <!-- MODAL 4: BULK IMPORT TESTS PER CENTRE -->
     <div id="bulkTestModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
                 <h3>📥 Bulk Import Tests</h3>
                 <button type="button" onclick="closeBulkTestModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
             </div>
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label style="font-weight: bold; color: #1e3a8a;">Assign To Centre:</label>
+                <select id="bulkTestCentreSelect" style="width:100%; padding:8px; border:1px solid #94a3b8; border-radius:4px;"></select>
+            </div>
             <p style="font-size: 0.8rem; color: #475569; margin-bottom: 8px;">Format: Test Name, Category, Price, Cut % or Amount (one per line)</p>
             <textarea id="bulkTestText" rows="10" style="width:100%; font-family:monospace; padding:8px;" placeholder="USG Abdomen, Imaging, 1500, 30&#10;Digital X-Ray Chest, Imaging, 400, 100&#10;2D Echo Doppler, Cardiology, 1800, 30"></textarea>
-            <button type="button" class="btn-complete-reg" style="margin-top:10px; width:100%;" onclick="submitBulkTests()">Import Tests</button>
+            <button type="button" class="btn-complete-reg" style="margin-top:10px; width:100%;" onclick="submitBulkTests()">Import Tests to Selected Centre</button>
         </div>
     </div>
 
@@ -687,6 +723,7 @@
                         <div class="form-group full-width"><label>Centre Name *:</label><input type="text" id="centreNameInput" placeholder="e.g. RESQ HEART CLINIC (Branch 3)"></div>
                         <div class="form-group full-width"><label>Tagline / Subtitle:</label><input type="text" id="centreTaglineInput" placeholder="e.g. Advanced Diagnostic Imaging & Cardiac Care"></div>
                         <div class="form-group full-width"><label>Full Address:</label><input type="text" id="centreAddressInput" placeholder="Shop / Building, Road, Area, City"></div>
+                        <div class="form-group"><label>Place / Jurisdiction:</label><input type="text" id="centrePlaceInput" placeholder="e.g. Kandivali West"></div>
                         <div class="form-group"><label>Contact Phone / Mobile:</label><input type="text" id="centrePhoneInput" placeholder="+91 8433838285"></div>
                         <div class="form-group"><label>Statutory PCPNDT Reg No:</label><input type="text" id="centreRegNoInput" value="RC197"></div>
                         <div class="form-group"><label>Email ID:</label><input type="email" id="centreEmailInput" placeholder="branch@resqclinic.com"></div>
@@ -708,7 +745,7 @@
                 <div class="card">
                     <div class="card-title">Configured Clinic Centres</div>
                     <table>
-                        <thead><tr><th>Centre Name</th><th>Contact / Reg No</th><th>Privacy Status</th><th style="width: 150px;">Actions</th></tr></thead>
+                        <thead><tr><th>Centre Name</th><th>Place / Reg No</th><th>Privacy Status</th><th style="width: 150px;">Actions</th></tr></thead>
                         <tbody id="adminCentresListBody"></tbody>
                     </table>
                 </div>
@@ -844,8 +881,6 @@
                 <div class="indication-row"><span class="ind-num">xvi.</span><span>Evaluation of previous Caesarean Section scars.</span></div>
                 <div class="indication-row"><span class="ind-num">xvii.</span><span>Evaluation of foetal growth parameters, foetal weight and foetal well being.</span></div>
                 <div class="indication-row"><span class="ind-num">xviii.</span><span>Colour flow mapping and duplex Doppler studies.</span></div>
-                <div class="indication-row"><span class="ind-num">xix.</span><span>Ultrasound guided procedures such as medical termination of pregnancy, external cephalic version etc. and their follow-up.</span></div>
-                <div class="indication-row"><span class="ind-num">xx.</span><span>Adjunct to diagnostic and therapeutic invasive interventions such as chorionic villus sampling (CVS), amniocenteses, etc.</span></div>
                 <div class="indication-row"><span class="ind-num">xxx.</span><span>Observation of intra-partum events.</span></div>
                 <div class="indication-row"><span class="ind-num">xxii.</span><span>Medical/surgical conditions complicating pregnancy.</span></div>
                 <div class="indication-row"><span class="ind-num">xxiii.</span><span>Research/scientific studies in recognised institutions.</span></div>
@@ -857,7 +892,7 @@
             <div class="doc-line-item"><div class="label">15. Result conveyed on:</div><div class="val" id="docConveyDate">DD/MM/YYYY</div></div>
             <div class="doc-line-item"><div class="label">16. Any indication for MTP as per abnormality detected:</div><div class="val">NONE</div></div>
             <div class="doc-sign-box">
-                <div>Date - <span id="docSignDate">DD/MM/YYYY</span><br>Place - Kandivali West</div>
+                <div>Date - <span id="docSignDate">DD/MM/YYYY</span><br>Place - <span class="doc-dyn-place">Kandivali West</span></div>
                 <div style="text-align: right;"><strong id="docSignDocName">Dr NIKUNJ KOTHIA</strong> &nbsp; <span id="docSignDocReg">2009/09/3218</span><br><span style="font-size: 6.8pt;">Name/Sign/Reg No of Radiologist performing diagnostic procedures</span></div>
             </div>
             <div style="font-weight:bold; font-size:8pt; border-top:1px solid #000; padding-top:2px; margin-top:3px;">Section C : Invasive Procedures &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <u>NOT APPLICABLE</u></div>
@@ -876,7 +911,7 @@
             <div class="doc-line-item"><div class="label" style="min-width:320px;">24. Result of procedure / tests carried out :</div><div class="val">-</div></div>
             <div class="doc-line-item"><div class="label" style="min-width:320px;">27. Any indication for MTP :</div><div class="val">NONE</div></div>
             <div class="doc-sign-box" style="margin-top: 6px;">
-                <div>Date - <br>Place - Kandivali West</div>
+                <div>Date - <span id="docSignDate2">DD/MM/YYYY</span><br>Place - <span class="doc-dyn-place">Kandivali West</span></div>
                 <div style="text-align: right;"><span style="font-size: 6.8pt;">Name/Sign/Reg No of Radiologist</span></div>
             </div>
             <div style="font-weight:bold; font-size:8.2pt; border-top:1.5px solid #000; padding-top:3px; margin-top:8px; text-align:center;">Section D : Declaration</div>
@@ -908,8 +943,8 @@
     <!-- CLIENT SCRIPT -->
     <script>
         const FALLBACK_CENTRES_CLIENT = [
-            { id: 'c1111111-1111-1111-1111-111111111111', centre_name: 'RESQ HEART CLINIC (Kandivali West)', tagline: 'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging', address: 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West', phone: '+91 8433838285', reg_no: 'RC197', centre_password: '1234', owner_password: 'owner123', is_private: false },
-            { id: 'c2222222-2222-2222-2222-222222222222', centre_name: 'RESQ DIAGNOSTIC (Branch 2)', tagline: 'Multi-Speciality Diagnostic Imaging Services', address: 'Branch 2 Diagnostic Suite', phone: '+91 8433838285', reg_no: 'RC198', centre_password: '1234', owner_password: 'owner123', is_private: false }
+            { id: 'c1111111-1111-1111-1111-111111111111', centre_name: 'RESQ HEART CLINIC (Kandivali West)', tagline: 'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging', address: 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West', place: 'Kandivali West', phone: '+91 8433838285', reg_no: 'RC197', centre_password: '1234', owner_password: 'owner123', is_private: false },
+            { id: 'c2222222-2222-2222-2222-222222222222', centre_name: 'RESQ DIAGNOSTIC (Branch 2)', tagline: 'Multi-Speciality Diagnostic Imaging Services', address: 'Branch 2 Diagnostic Suite', place: 'Kandivali West', phone: '+91 8433838285', reg_no: 'RC198', centre_password: '1234', owner_password: 'owner123', is_private: false }
         ];
 
         let testsList = [], doctorsList = [], centresList = [...FALLBACK_CENTRES_CLIENT], selectedBillTests = [];
@@ -935,7 +970,7 @@
             const todayDisplay = getTodayDisplayDate();
 
             const dateInputIds = [
-                'auditDateInput', 'pcpndtLMP', 'editPcpndtLmp', 
+                'auditDateInput', 'pcpndtLMP', 'editPcpndtLmp', 'editPatPcpndtLmp',
                 'repStartDate', 'repEndDate', 'busStartDate', 'busEndDate'
             ];
             dateInputIds.forEach(id => {
@@ -955,7 +990,7 @@
                 fldDate.value = todayDisplay;
             }
 
-            const spanDateIds = ['prtDate', 'docDeclDate', 'docProcDate', 'docConveyDate', 'docSignDate'];
+            const spanDateIds = ['prtDate', 'docDeclDate', 'docProcDate', 'docConveyDate', 'docSignDate', 'docSignDate2'];
             spanDateIds.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = todayDisplay;
@@ -1041,6 +1076,8 @@
             document.getElementById('topCentreTagline').textContent = activeCentre.tagline || '';
             const regInput = document.getElementById('pcpndtClinicReg');
             if (regInput) regInput.value = activeCentre.reg_no || 'RC197';
+            const placeInput = document.getElementById('pcpndtPlace');
+            if (placeInput) placeInput.value = activeCentre.place || 'Kandivali West';
             const sel = document.getElementById('activeCentreSelector');
             if (sel) sel.value = String(activeCentre.id);
         }
@@ -1271,7 +1308,7 @@
                 tbody.innerHTML += `
                     <tr>
                         <td><strong>${escapeHtml(c.centre_name)}</strong><br><small style="color:#64748b;">${escapeHtml(c.address || '')}</small></td>
-                        <td>${c.phone || '-'}<br><small>Reg: ${c.reg_no || 'RC197'}</small></td>
+                        <td>${c.place || 'Kandivali West'}<br><small>Reg: ${c.reg_no || 'RC197'}</small></td>
                         <td>${privBadge}</td>
                         <td>
                             <button type="button" class="btn-act btn-act-edit" onclick="startEditCentre('${c.id}')">✏️ Edit</button>
@@ -1289,6 +1326,7 @@
             document.getElementById('centreNameInput').value = c.centre_name || '';
             document.getElementById('centreTaglineInput').value = c.tagline || '';
             document.getElementById('centreAddressInput').value = c.address || '';
+            document.getElementById('centrePlaceInput').value = c.place || 'Kandivali West';
             document.getElementById('centrePhoneInput').value = c.phone || '';
             document.getElementById('centreRegNoInput').value = c.reg_no || 'RC197';
             document.getElementById('centreEmailInput').value = c.email || '';
@@ -1307,6 +1345,7 @@
             document.getElementById('centreNameInput').value = '';
             document.getElementById('centreTaglineInput').value = '';
             document.getElementById('centreAddressInput').value = '';
+            document.getElementById('centrePlaceInput').value = 'Kandivali West';
             document.getElementById('centrePhoneInput').value = '';
             document.getElementById('centreRegNoInput').value = 'RC197';
             document.getElementById('centreEmailInput').value = '';
@@ -1325,6 +1364,7 @@
                 centreName: document.getElementById('centreNameInput').value.trim(),
                 tagline: document.getElementById('centreTaglineInput').value.trim(),
                 address: document.getElementById('centreAddressInput').value.trim(),
+                place: document.getElementById('centrePlaceInput').value.trim() || 'Kandivali West',
                 phone: document.getElementById('centrePhoneInput').value.trim(),
                 regNo: document.getElementById('centreRegNoInput').value.trim() || 'RC197',
                 email: document.getElementById('centreEmailInput').value.trim(),
@@ -1484,7 +1524,7 @@
             if (!name) return alert('Enter doctor name to add.');
             const res = await apiFetch('/api/doctors', {
                 method: 'POST',
-                body: JSON.stringify({ doctorName: name, hospitalClinicName: '', commissionType: 'percentage', commissionValue: 30 })
+                body: JSON.stringify({ doctorName: name, hospitalClinicName: '', commissionType: 'percentage', commissionValue: 30, centreId: activeCentre.id })
             });
             const json = await res.json();
             if (json.success) {
@@ -1612,6 +1652,7 @@
             const isPcpndt = document.getElementById('pcpndtToggle').checked;
             formData.append('isPcpndt', isPcpndt);
             if (isPcpndt) {
+                formData.append('place', document.getElementById('pcpndtPlace').value.trim() || 'Kandivali West');
                 formData.append('relativeName', document.getElementById('pcpndtRelativeName').value.trim());
                 formData.append('lmpDate', document.getElementById('pcpndtLMP').value || getTodayIsoDate());
                 formData.append('weeksOfPreg', document.getElementById('pcpndtWeeks').value.trim());
@@ -1706,6 +1747,7 @@
             const v = json.data.visitDetails;
             const f = json.data.pcpndtForm;
             const formattedDate = new Date(f.created_at || v.created_at || Date.now()).toLocaleDateString('en-GB');
+            const printPlace = f.place || v.centre_place || activeCentre.place || 'Kandivali West';
 
             document.getElementById('docClinicName').textContent = `${v.centre_name} ${v.centre_address || ''}`;
             document.getElementById('docClinicReg').textContent = f.clinic_reg_no || v.centre_reg_no || 'RC197';
@@ -1726,11 +1768,14 @@
             document.getElementById('docProcResult').textContent = f.scan_result || 'Single live intrauterine gestation with regular cardiac activity.';
             document.getElementById('docConveyDate').textContent = formattedDate;
             document.getElementById('docSignDate').textContent = formattedDate;
+            document.getElementById('docSignDate2').textContent = formattedDate;
             document.getElementById('docSignDocName').textContent = f.doctor_name || 'Dr NIKUNJ KOTHIA';
             document.getElementById('docSignDocReg').textContent = f.doctor_reg_no || '2009/09/3218';
             document.getElementById('docDeclDoctor').textContent = f.doctor_name || 'Dr NIKUNJ KOTHIA';
             document.getElementById('docDeclDocReg').textContent = f.doctor_reg_no || '2009/09/3218';
             document.getElementById('docAckClinic').textContent = `${v.centre_name} ${v.centre_address || ''}`;
+
+            document.querySelectorAll('.doc-dyn-place').forEach(el => el.textContent = printPlace);
 
             const printEl = document.getElementById('exactPcpndtDoc');
             printEl.classList.add('print-active');
@@ -1741,16 +1786,12 @@
         async function shareWhatsAppInvoice(phone, patName, invNo, net, bal, centreName, visitId) {
             if (!phone) return alert('Mobile number missing for this patient.');
             const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
-            if (cleanDigits.length !== 10) return alert('Invalid 10-digit mobile number.');
             const pdfUrl = `${window.location.origin}/api/invoice/${visitId}/pdf`;
-            const msg = `🏥 *${centreName || 'RESQ HEART CLINIC AND IMAGING CENTRE'}*\n` +
-                        `Dear *${patName}*,\n\n` +
-                        `Your diagnostic billing invoice is ready.\n` +
+            const msg = `Dear *${patName}*,\nThank you for visiting *${centreName || 'RESQ Diagnostics'}*.\n\n` +
                         `📋 *Invoice No:* ${invNo}\n` +
-                        `💵 *Net Payable:* ₹${net}\n` +
+                        `💵 *Net Amount:* ₹${net}\n` +
                         `⏳ *Balance Due:* ₹${bal}\n\n` +
-                        `📄 *View / Download Official PDF Invoice:*\n${pdfUrl}\n\n` +
-                        `Thank you for visiting!`;
+                        `📄 *View / Download Your Official PDF Invoice:* \n${pdfUrl}`;
             window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
@@ -1952,7 +1993,7 @@
                         <td>${escapeHtml(f.relative_name || '-')}</td>
                         <td>${f.lmp_date || '-'} (${f.weeks_of_preg || '-'})</td>
                         <td>${f.no_of_sons || 0}M / ${f.no_of_daughters || 0}F</td>
-                        <td>${escapeHtml(f.doctor_name)}</td>
+                        <td>${escapeHtml(f.doctor_name)}<br><small style="color:#0369a1;">📍 ${escapeHtml(f.place || 'Kandivali West')}</small></td>
                         <td>
                             <button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${f.visit_id}')">🖨️ Form F</button>
                             <button type="button" class="btn-act btn-act-edit" onclick="openEditPcpndtModal('${f.id}')">✏️ Edit Form F</button>
@@ -1967,7 +2008,15 @@
             apiFetch('/api/pcpndt').then(res => res.json()).then(json => {
                 const f = (json.data || []).find(x => String(x.id) === String(formId));
                 if (!f) return alert('Form F record not found.');
+                
+                const sel = document.getElementById('editPcpndtCentreSelect');
+                sel.innerHTML = '';
+                centresList.forEach(c => {
+                    sel.innerHTML += `<option value="${c.id}" ${String(c.id) === String(f.centre_id) ? 'selected' : ''}>${escapeHtml(c.centre_name)}</option>`;
+                });
+
                 document.getElementById('editPcpndtId').value = String(f.id);
+                document.getElementById('editPcpndtPlace').value = f.place || 'Kandivali West';
                 document.getElementById('editPcpndtRelative').value = f.relative_name || '';
                 document.getElementById('editPcpndtLmp').value = f.lmp_date || getTodayIsoDate();
                 document.getElementById('editPcpndtWeeks').value = f.weeks_of_preg || '';
@@ -1991,6 +2040,8 @@
         async function submitEditPcpndt() {
             const formId = document.getElementById('editPcpndtId').value;
             const payload = {
+                centreId: document.getElementById('editPcpndtCentreSelect').value,
+                place: document.getElementById('editPcpndtPlace').value.trim() || 'Kandivali West',
                 relativeName: document.getElementById('editPcpndtRelative').value.trim(),
                 lmpDate: document.getElementById('editPcpndtLmp').value || getTodayIsoDate(),
                 weeksOfPreg: document.getElementById('editPcpndtWeeks').value.trim(),
@@ -2048,10 +2099,13 @@
             });
         }
 
-        function openEditPatientModal(patientId) {
-            apiFetch(`/api/patients`).then(res => res.json()).then(json => {
+        async function openEditPatientModal(patientId) {
+            try {
+                const res = await apiFetch(`/api/patients`);
+                const json = await res.json();
                 const p = (json.data || []).find(x => String(x.id) === String(patientId));
                 if (!p) return alert('Patient not found.');
+
                 document.getElementById('editPatientId').value = String(p.id);
                 document.getElementById('editPatCode').value = p.patient_code || '';
                 document.getElementById('editPatName').value = p.full_name || '';
@@ -2060,8 +2114,48 @@
                 document.getElementById('editPatPhone').value = p.phone || '';
                 document.getElementById('editPatEmail').value = p.email || '';
                 document.getElementById('editPatAddress').value = p.address || '';
+
+                const centreSel = document.getElementById('editPatPcpndtCentreSelect');
+                centreSel.innerHTML = '';
+                centresList.forEach(c => {
+                    centreSel.innerHTML += `<option value="${c.id}" ${String(c.id) === String(activeCentre.id) ? 'selected' : ''}>${escapeHtml(c.centre_name)}</option>`;
+                });
+
+                const fRes = await apiFetch(`/api/patients/${patientId}/pcpndt-status`);
+                const fJson = await fRes.json();
+                const f = fJson.data;
+
+                if (f) {
+                    document.getElementById('editPatPcpndtToggle').checked = true;
+                    document.getElementById('editPatPcpndtFields').style.display = 'block';
+                    document.getElementById('editPatPcpndtCentreSelect').value = String(f.centre_id || activeCentre.id);
+                    document.getElementById('editPatPcpndtPlace').value = f.place || activeCentre.place || 'Kandivali West';
+                    document.getElementById('editPatPcpndtRelative').value = f.relative_name || '';
+                    document.getElementById('editPatPcpndtLmp').value = f.lmp_date || getTodayIsoDate();
+                    document.getElementById('editPatPcpndtWeeks').value = f.weeks_of_preg || '';
+                    document.getElementById('editPatPcpndtSonsCount').value = f.no_of_sons || 0;
+                    document.getElementById('editPatPcpndtSonsAge').value = f.sons_age || '';
+                    document.getElementById('editPatPcpndtDaughtersCount').value = f.no_of_daughters || 0;
+                    document.getElementById('editPatPcpndtDaughtersAge').value = f.daughters_age || '';
+                    document.getElementById('editPatPcpndtIndications').value = f.indications || 'Routine Antenatal Anomaly Evaluation';
+                    document.getElementById('editPatPcpndtResults').value = f.scan_result || '';
+                    document.getElementById('editPatPcpndtDocName').value = f.doctor_name || 'Dr NIKUNJ KOTHIA';
+                    document.getElementById('editPatPcpndtDocReg').value = f.doctor_reg_no || '2009/09/3218';
+                    document.getElementById('editPatPcpndtClinicReg').value = f.clinic_reg_no || activeCentre.reg_no || 'RC197';
+                } else {
+                    document.getElementById('editPatPcpndtToggle').checked = false;
+                    document.getElementById('editPatPcpndtFields').style.display = 'none';
+                    document.getElementById('editPatPcpndtPlace').value = activeCentre.place || 'Kandivali West';
+                    document.getElementById('editPatPcpndtLmp').value = getTodayIsoDate();
+                    document.getElementById('editPatPcpndtDocName').value = 'Dr NIKUNJ KOTHIA';
+                    document.getElementById('editPatPcpndtDocReg').value = '2009/09/3218';
+                    document.getElementById('editPatPcpndtClinicReg').value = activeCentre.reg_no || 'RC197';
+                }
+
                 document.getElementById('editPatientModal').style.display = 'flex';
-            });
+            } catch (e) {
+                alert('Error loading patient: ' + e.message);
+            }
         }
 
         function closeEditPatientModal() {
@@ -2070,6 +2164,8 @@
 
         async function submitEditPatient() {
             const id = document.getElementById('editPatientId').value;
+            const isPcpndt = document.getElementById('editPatPcpndtToggle').checked;
+
             const payload = {
                 patientCode: document.getElementById('editPatCode').value.trim(),
                 fullName: document.getElementById('editPatName').value.trim(),
@@ -2077,7 +2173,24 @@
                 gender: document.getElementById('editPatGender').value,
                 phone: document.getElementById('editPatPhone').value.trim(),
                 email: document.getElementById('editPatEmail').value.trim(),
-                address: document.getElementById('editPatAddress').value.trim()
+                address: document.getElementById('editPatAddress').value.trim(),
+                pcpndtData: isPcpndt ? {
+                    savePcpndt: true,
+                    centreId: document.getElementById('editPatPcpndtCentreSelect').value,
+                    place: document.getElementById('editPatPcpndtPlace').value.trim() || 'Kandivali West',
+                    relativeName: document.getElementById('editPatPcpndtRelative').value.trim(),
+                    lmpDate: document.getElementById('editPatPcpndtLmp').value,
+                    weeksOfPreg: document.getElementById('editPatPcpndtWeeks').value.trim(),
+                    noOfSons: parseInt(document.getElementById('editPatPcpndtSonsCount').value, 10) || 0,
+                    sonsAge: document.getElementById('editPatPcpndtSonsAge').value.trim(),
+                    noOfDaughters: parseInt(document.getElementById('editPatPcpndtDaughtersCount').value, 10) || 0,
+                    daughtersAge: document.getElementById('editPatPcpndtDaughtersAge').value.trim(),
+                    indications: document.getElementById('editPatPcpndtIndications').value.trim(),
+                    scanResult: document.getElementById('editPatPcpndtResults').value.trim(),
+                    doctorName: document.getElementById('editPatPcpndtDocName').value.trim(),
+                    doctorRegNo: document.getElementById('editPatPcpndtDocReg').value.trim(),
+                    clinicRegNo: document.getElementById('editPatPcpndtClinicReg').value.trim()
+                } : null
             };
 
             if (!payload.fullName) return alert('Patient full name is required.');
@@ -2085,10 +2198,10 @@
             const res = await apiFetch(`/api/patients/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
             const json = await res.json();
             if (json.success) {
-                alert('Patient details updated successfully!');
+                alert('Patient details and records saved successfully!');
                 closeEditPatientModal();
-                loadPatientsDirectory();
-                loadReports();
+                await loadPatientsDirectory();
+                await loadPcpndtRegister();
             } else {
                 alert('Error updating patient: ' + json.error);
             }
@@ -2348,7 +2461,6 @@
             window.print();
         }
 
-        // 1. Bulk Download All Templates Belonging to the Active Centre (as ZIP)
         async function bulkDownloadCentreTemplates() {
             try {
                 const res = await apiFetch('/api/imaging/templates/bulk-download');
@@ -2368,7 +2480,6 @@
             }
         }
 
-        // 2. Open Selected Template in Word with Native Layout Preservation & 12pt Calibri Spacing
         async function openReportInExternalWord() {
             if (!currentSelectedTemplate) {
                 return alert('Please select a template from the list first.');
@@ -2382,7 +2493,6 @@
             const title = (currentSelectedTemplate ? currentSelectedTemplate.title : 'SONOGRAPHY').toUpperCase();
             const isPreprinted = document.getElementById('chkPreprintedLetterhead').checked;
 
-            // Attempt 1: Direct binary merge from uploaded original template file
             try {
                 const res = await apiFetch('/api/imaging/templates/generate-doc', {
                     method: 'POST',
@@ -2411,7 +2521,6 @@
                 console.warn('Direct server template merge fallback to client Calibri export.');
             }
 
-            // Fallback generation: 12pt Calibri font with 8pt spacing under bold headings
             const rawFindings = document.getElementById('manualReportFindingsText').value;
             const rawImpression = document.getElementById('manualReportImpressionText').value;
 
@@ -2425,12 +2534,12 @@
                 .split('\n')
                 .map(line => {
                     const trimmed = line.trim();
-                    if (!trimmed) return '<p style="margin: 0 0 4pt 0; line-height: 1.2; font-family: Calibri, sans-serif;">&nbsp;</p>';
+                    if (!trimmed) return '<p style="margin: 0 0 5pt 0; line-height: 1.25; font-family: Calibri, sans-serif;">&nbsp;</p>';
                     const match = trimmed.match(/^([A-Z0-9\s&/()]+(?:\s*:-|:))\s*(.*)$/);
                     if (match) {
-                        return `<p style="margin: 0 0 8pt 0; text-align: justify; line-height: 1.25; font-family: Calibri, sans-serif; font-size: 12pt;"><b>${match[1]}</b> ${match[2]}</p>`;
+                        return `<p style="margin: 0 0 5pt 0; text-align: justify; line-height: 1.25; font-family: Calibri, sans-serif;"><b>${match[1]}</b> ${match[2]}</p>`;
                     }
-                    return `<p style="margin: 0 0 6pt 0; text-align: justify; line-height: 1.25; font-family: Calibri, sans-serif; font-size: 12pt;">${trimmed}</p>`;
+                    return `<p style="margin: 0 0 5pt 0; text-align: justify; line-height: 1.25; font-family: Calibri, sans-serif;">${trimmed}</p>`;
                 })
                 .join('');
 
@@ -2449,13 +2558,13 @@
                             mso-footer-margin: 36pt;
                         }
                         div.Section1 { page: Section1; }
-                        body { font-family: Calibri, sans-serif; font-size: 12pt; color: #000; }
-                        table.patient-header { width: 100%; border-collapse: collapse; margin-bottom: 12pt; font-family: Calibri, sans-serif; font-size: 12pt; }
-                        table.patient-header td { padding: 2pt 0; vertical-align: top; font-size: 12pt; }
-                        .report-title { text-align: center; font-size: 12.5pt; font-weight: bold; text-decoration: underline; margin: 10pt 0 12pt 0; font-family: Calibri, sans-serif; }
-                        .findings-section { font-family: Calibri, sans-serif; font-size: 12pt; }
-                        .impression-box { margin-top: 12pt; font-family: Calibri, sans-serif; font-size: 12pt; }
-                        .pndt-decl { margin-top: 12pt; font-size: 10pt; font-style: italic; border-top: 0.5pt solid #888; padding-top: 5pt; font-family: Calibri, sans-serif; }
+                        body { font-family: Calibri, sans-serif; font-size: 11pt; color: #000; }
+                        table.patient-header { width: 100%; border-collapse: collapse; margin-bottom: 12pt; font-family: Calibri, sans-serif; font-size: 11pt; }
+                        table.patient-header td { padding: 2pt 0; vertical-align: top; }
+                        .report-title { text-align: center; font-size: 11.5pt; font-weight: bold; text-decoration: underline; margin: 10pt 0 12pt 0; font-family: Calibri, sans-serif; }
+                        .findings-section { font-family: Calibri, sans-serif; font-size: 11pt; }
+                        .impression-box { margin-top: 14pt; font-family: Calibri, sans-serif; font-size: 11pt; }
+                        .pndt-decl { margin-top: 14pt; font-size: 9.5pt; font-style: italic; border-top: 0.5pt solid #888; padding-top: 5pt; font-family: Calibri, sans-serif; }
                         table.sign-footer { width: 100%; margin-top: 25pt; border-collapse: collapse; font-family: Calibri, sans-serif; }
                     </style>
                 </head>
@@ -2587,7 +2696,8 @@
             document.getElementById('testPriceInput').value = t.price || 0;
             document.getElementById('testCutTypeInput').value = t.cut_type || 'percentage';
             document.getElementById('testCutInput').value = t.test_cut || 30;
-            document.getElementById('testFormTitle').textContent = 'Edit Test / Investigation';
+            const titleEl = document.getElementById('testFormTitleText');
+            if (titleEl) titleEl.textContent = '✏️ Edit Test / Investigation';
             document.getElementById('btnSaveTest').textContent = 'Update Test';
             document.getElementById('btnCancelTestEdit').style.display = 'inline-block';
         }
@@ -2597,7 +2707,8 @@
             document.getElementById('testNameInput').value = '';
             document.getElementById('testPriceInput').value = '0';
             document.getElementById('testCutInput').value = '30';
-            document.getElementById('testFormTitle').textContent = 'Add / Edit Tests & Cuts';
+            const titleEl = document.getElementById('testFormTitleText');
+            if (titleEl) titleEl.textContent = 'Add / Edit Tests & Cuts';
             document.getElementById('btnSaveTest').textContent = 'Save Test';
             document.getElementById('btnCancelTestEdit').style.display = 'none';
         }
@@ -2629,10 +2740,18 @@
             loadTests();
         }
 
-        function openBulkTestModal() { document.getElementById('bulkTestModal').style.display = 'flex'; }
+        function openBulkTestModal() {
+            const sel = document.getElementById('bulkTestCentreSelect');
+            sel.innerHTML = '';
+            centresList.forEach(c => {
+                sel.innerHTML += `<option value="${c.id}" ${String(c.id) === String(activeCentre.id) ? 'selected' : ''}>${escapeHtml(c.centre_name)}</option>`;
+            });
+            document.getElementById('bulkTestModal').style.display = 'flex';
+        }
         function closeBulkTestModal() { document.getElementById('bulkTestModal').style.display = 'none'; }
 
         async function submitBulkTests() {
+            const targetCentreId = document.getElementById('bulkTestCentreSelect').value;
             const lines = document.getElementById('bulkTestText').value.split('\n');
             const tests = [];
             lines.forEach(line => {
@@ -2650,11 +2769,12 @@
             if (!tests.length) return alert('No valid test rows found.');
             const res = await apiFetch('/api/tests/bulk-import', {
                 method: 'POST',
-                body: JSON.stringify({ tests })
+                body: JSON.stringify({ centreId: targetCentreId, tests })
             });
             const json = await res.json();
             alert(json.message || 'Tests imported!');
             closeBulkTestModal();
+            document.getElementById('bulkTestText').value = '';
             loadTests();
         }
 
@@ -2708,15 +2828,19 @@
 
         function startEditDoctor(id) {
             const d = doctorsList.find(x => String(x.id) === String(id));
-            if (!d) return;
+            if (!d) return alert('Doctor record not found.');
+            
             document.getElementById('editDocId').value = String(d.id);
-            document.getElementById('docNameInput').value = d.doctor_name;
+            document.getElementById('docNameInput').value = d.doctor_name || '';
             document.getElementById('docHospInput').value = d.hospital_clinic_name || '';
             document.getElementById('docCommType').value = d.commission_type || 'percentage';
-            document.getElementById('docCutInput').value = d.commission_value || 30;
-            document.getElementById('docFormTitle').textContent = 'Edit Doctor';
+            document.getElementById('docCutInput').value = d.commission_value !== undefined ? d.commission_value : 30;
+
+            const titleEl = document.getElementById('docFormTitleText');
+            if (titleEl) titleEl.textContent = '✏️ Edit Referring Doctor';
             document.getElementById('btnSaveDoc').textContent = 'Update Doctor';
             document.getElementById('btnCancelDocEdit').style.display = 'inline-block';
+            document.getElementById('docNameInput').focus();
         }
 
         function cancelDocEdit() {
@@ -2724,7 +2848,9 @@
             document.getElementById('docNameInput').value = '';
             document.getElementById('docHospInput').value = '';
             document.getElementById('docCutInput').value = '30';
-            document.getElementById('docFormTitle').textContent = 'Add / Edit Referring Doctors';
+            
+            const titleEl = document.getElementById('docFormTitleText');
+            if (titleEl) titleEl.textContent = 'Add / Edit Referring Doctors';
             document.getElementById('btnSaveDoc').textContent = 'Save Doctor';
             document.getElementById('btnCancelDocEdit').style.display = 'none';
         }
@@ -2735,7 +2861,8 @@
                 doctorName: document.getElementById('docNameInput').value.trim(),
                 hospitalClinicName: document.getElementById('docHospInput').value.trim(),
                 commissionType: document.getElementById('docCommType').value,
-                commissionValue: parseFloat(document.getElementById('docCutInput').value) || 0
+                commissionValue: parseFloat(document.getElementById('docCutInput').value) || 0,
+                centreId: activeCentre.id
             };
             if (!payload.doctorName) return alert('Doctor name required.');
             const url = editId ? `/api/doctors/${editId}` : '/api/doctors';
@@ -2750,15 +2877,33 @@
         }
 
         async function deleteDoctor(id) {
-            if (!confirm('Delete doctor?')) return;
-            await apiFetch(`/api/doctors/${id}`, { method: 'DELETE' });
-            loadDoctors();
+            if (!confirm('Are you sure you want to delete this referring doctor? All past visit records will be preserved.')) return;
+            try {
+                const res = await apiFetch(`/api/doctors/${id}`, { method: 'DELETE' });
+                const json = await res.json();
+                if (json.success) {
+                    alert('Doctor deleted successfully.');
+                    await loadDoctors();
+                } else {
+                    alert('Delete failed: ' + (json.error || 'Server error'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
         }
 
-        function openBulkDocModal() { document.getElementById('bulkDocModal').style.display = 'flex'; }
+        function openBulkDocModal() {
+            const sel = document.getElementById('bulkDocCentreSelect');
+            sel.innerHTML = '';
+            centresList.forEach(c => {
+                sel.innerHTML += `<option value="${c.id}" ${String(c.id) === String(activeCentre.id) ? 'selected' : ''}>${escapeHtml(c.centre_name)}</option>`;
+            });
+            document.getElementById('bulkDocModal').style.display = 'flex';
+        }
         function closeBulkDocModal() { document.getElementById('bulkDocModal').style.display = 'none'; }
 
         async function submitBulkDoctors() {
+            const targetCentreId = document.getElementById('bulkDocCentreSelect').value;
             const lines = document.getElementById('bulkDocText').value.split('\n');
             const doctors = [];
             lines.forEach(line => {
@@ -2772,15 +2917,18 @@
                     });
                 }
             });
+
             if (!doctors.length) return alert('No valid doctor rows found.');
+
             const res = await apiFetch('/api/doctors/bulk-import', {
                 method: 'POST',
-                body: JSON.stringify({ doctors })
+                body: JSON.stringify({ centreId: targetCentreId, doctors })
             });
             const json = await res.json();
             alert(json.message || 'Doctors imported!');
             closeBulkDocModal();
-            loadDoctors();
+            document.getElementById('bulkDocText').value = '';
+            await loadDoctors();
         }
 
         async function loadBusiness() {
