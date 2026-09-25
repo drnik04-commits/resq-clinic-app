@@ -493,7 +493,8 @@
                     <div><label style="font-size:0.8rem; font-weight:bold; color:#475569;">Search Patient / Inv:</label><br><input type="text" id="repPatientSearch" placeholder="Name, Mobile, Inv..." style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
                     <div style="display:flex; gap:6px;">
                         <button type="button" class="btn-search" onclick="loadReports()">🔍 Filter</button>
-                        <button type="button" class="btn-act btn-act-edit" onclick="resetReportsFilters()">🔄 Show All</button>
+                        <button type="button" class="btn-act btn-act-edit" onclick="resetReportsFilters()">📅 Reset to Today</button>
+                        <button type="button" class="btn-act" style="background:#64748b; color:white;" onclick="clearReportsDateFilters()">🌐 Show All Time</button>
                         <button type="button" class="btn-act btn-act-bill-unprinted" onclick="window.print()">🖨️ Print Summary</button>
                     </div>
                 </div>
@@ -1074,28 +1075,68 @@
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         }
 
+        function getTodayMonthIso() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        }
+
         function getTodayDisplayDate() {
             const d = new Date();
             return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
         }
 
-        // DEFAULT DATES APPLIED UNIVERSALLY ON LOAD
+        // DEFAULT DATES APPLIED UNIVERSALLY ON LOAD & SEARCH FILTERS
         function applyDefaultDatesEverywhere() {
             const todayIso = getTodayIsoDate();
+            const todayMonth = getTodayMonthIso();
             const todayDisplay = getTodayDisplayDate();
 
-            const dateInputIds = ['auditDateInput', 'pcpndtLMP', 'editPcpndtLmp', 'editPatPcpndtLmp'];
-            dateInputIds.forEach(id => {
+            // 1. Search & Filter Date Inputs (Daily Collection, Doctor Business, Daily Audit)
+            const searchDateInputs = [
+                'repStartDate',
+                'repEndDate',
+                'busStartDate',
+                'busEndDate',
+                'auditDateInput'
+            ];
+            searchDateInputs.forEach(id => {
                 const el = document.getElementById(id);
                 if (el && !el.value) el.value = todayIso;
             });
 
+            // 2. Search & Filter Month Inputs
+            const searchMonthInputs = ['repMonth', 'busMonth'];
+            searchMonthInputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.value) el.value = todayMonth;
+            });
+
+            // 3. Clinical & Registration Date Fields
+            const clinicalDateInputs = [
+                'pcpndtLMP',
+                'editPcpndtLmp',
+                'editPatPcpndtLmp'
+            ];
+            clinicalDateInputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.value) el.value = todayIso;
+            });
+
+            // 4. Imaging Merged Study Date
             const fldDate = document.getElementById('fld_Date1');
             if (fldDate && (!fldDate.value || fldDate.value === '')) {
                 fldDate.value = todayDisplay;
             }
 
-            const spanDateIds = ['prtDate', 'docDeclDate', 'docProcDate', 'docConveyDate', 'docSignDate', 'docSignDate2'];
+            // 5. Printable Invoices and Form F Date Spans
+            const spanDateIds = [
+                'prtDate',
+                'docDeclDate',
+                'docProcDate',
+                'docConveyDate',
+                'docSignDate',
+                'docSignDate2'
+            ];
             spanDateIds.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = todayDisplay;
@@ -2041,12 +2082,23 @@
             }
         }
 
+        // RESET FILTERS TO TODAY'S DATE
         function resetReportsFilters() {
+            const todayIso = getTodayIsoDate();
+            const todayMonth = getTodayMonthIso();
+            if (document.getElementById('repStartDate')) document.getElementById('repStartDate').value = todayIso;
+            if (document.getElementById('repEndDate')) document.getElementById('repEndDate').value = todayIso;
+            if (document.getElementById('repMonth')) document.getElementById('repMonth').value = todayMonth;
+            if (document.getElementById('repCategory')) document.getElementById('repCategory').value = '';
+            if (document.getElementById('repPatientSearch')) document.getElementById('repPatientSearch').value = '';
+            loadReports();
+        }
+
+        // CLEAR DATES TO VIEW ALL RECORDS
+        function clearReportsDateFilters() {
             if (document.getElementById('repStartDate')) document.getElementById('repStartDate').value = '';
             if (document.getElementById('repEndDate')) document.getElementById('repEndDate').value = '';
             if (document.getElementById('repMonth')) document.getElementById('repMonth').value = '';
-            if (document.getElementById('repCategory')) document.getElementById('repCategory').value = '';
-            if (document.getElementById('repPatientSearch')) document.getElementById('repPatientSearch').value = '';
             loadReports();
         }
 
