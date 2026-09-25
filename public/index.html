@@ -63,7 +63,6 @@
         .btn-act-del { background-color: #dc3545; color: white; }
 
         .clinical-window { background: #dbe4ee; border: 2px solid #6b8cae; border-radius: 6px; padding: 12px; color: #112233; }
-        .cw-top-strip { background: #cbd9ea; border: 1px solid #9bb5d1; padding: 8px 12px; border-radius: 4px; display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
         .cw-split-grid { display: grid; grid-template-columns: 390px 1fr; gap: 14px; }
         .cw-left-pane { background: #ecf2f8; border: 1px solid #a4bdd7; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 8px; }
         .cw-filter-box { background: #e2ecf6; border: 1px solid #b6ccdf; padding: 6px 10px; font-size: 0.82rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -488,7 +487,24 @@
                     </div>
                 </div>
 
-                <table><thead><tr><th>Date</th><th>Centre</th><th>Patient Name</th><th>Services</th><th>Payment Mode</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th style="width: 480px;">Actions</th></tr></thead><tbody id="reportsTableBody"></tbody></table>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Centre</th>
+                            <th>Patient Name</th>
+                            <th>Services</th>
+                            <th>Payment Mode</th>
+                            <th>Total</th>
+                            <th>Paid</th>
+                            <th>Balance</th>
+                            <th>Doctor Cut</th>
+                            <th>Status</th>
+                            <th style="width: 480px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsTableBody"></tbody>
+                </table>
             </div>
         </div>
 
@@ -539,7 +555,7 @@
                 </div>
             </div>
             <p style="font-size:0.75rem; color:#64748b; margin-top:10px;">
-                💡 <strong>Tip:</strong> Ensure your template has <code>&lt;*NAME1*&gt;</code>, <code>&lt;*DATE*&gt;</code>, <code>&lt;Age&gt;</code>, <code>&lt;Sex&gt;</code>, <code>&lt;*Consultant/Gp1*&gt;</code> in the header and is saved as <strong>.docx</strong> for 100% table and margin fidelity.
+                💡 <strong>Tip:</strong> Ensure your template has <code>&lt;*NAME1*&gt;</code>, <code>&lt;*DATE*&gt;</code>, <code>&lt;Age&gt;</code>, <code>&lt;Sex&gt;</code>, <code>&lt;*Consultant/Gp1*&gt;</code> in the header and is saved as <strong>.docx</strong> for 100% table and margin fidelity[cite: 4, 8, 12].
             </p>
             <div style="margin-top: 16px; display: flex; gap: 8px;">
                 <button type="button" class="btn-complete-reg" onclick="submitSingleTemplate()">Upload & Add Template</button>
@@ -975,24 +991,14 @@
 
         function applyDefaultDatesEverywhere() {
             const todayIso = getTodayIsoDate();
-            const todayMonth = todayIso.slice(0, 7);
             const todayDisplay = getTodayDisplayDate();
 
-            const dateInputIds = [
-                'auditDateInput', 'pcpndtLMP', 'editPcpndtLmp', 'editPatPcpndtLmp',
-                'repStartDate', 'repEndDate', 'busStartDate', 'busEndDate'
-            ];
+            // Set today's date ONLY on registration/audit forms, never lock the collections filter
+            const dateInputIds = ['auditDateInput', 'pcpndtLMP', 'editPcpndtLmp', 'editPatPcpndtLmp'];
             dateInputIds.forEach(id => {
                 const el = document.getElementById(id);
                 if (el && !el.value) el.value = todayIso;
             });
-
-            if (document.getElementById('repMonth') && !document.getElementById('repMonth').value) {
-                document.getElementById('repMonth').value = todayMonth;
-            }
-            if (document.getElementById('busMonth') && !document.getElementById('busMonth').value) {
-                document.getElementById('busMonth').value = todayMonth;
-            }
 
             const fldDate = document.getElementById('fld_Date1');
             if (fldDate && (!fldDate.value || fldDate.value === '')) {
@@ -1804,67 +1810,80 @@
             const patientName = document.getElementById('repPatientSearch')?.value?.trim() || '';
 
             let url = `/api/reports/collection?1=1`;
-            if (startDate) url += `&startDate=${startDate}`;
-            if (endDate) url += `&endDate=${endDate}`;
-            if (month) url += `&month=${month}`;
+            if (startDate) url += `&startDate=${encodeURIComponent(startDate)}`;
+            if (endDate) url += `&endDate=${encodeURIComponent(endDate)}`;
+            if (month && !startDate && !endDate) url += `&month=${encodeURIComponent(month)}`;
             if (category) url += `&category=${encodeURIComponent(category)}`;
             if (patientName) url += `&patientName=${encodeURIComponent(patientName)}`;
 
-            const res = await apiFetch(url);
-            const json = await res.json();
-            const data = json.data || [];
+            try {
+                const res = await apiFetch(url);
+                const json = await res.json();
+                const data = json.data || [];
 
-            let cashTotal = 0, onlineTotal = 0, grandTotal = 0, pendingTotal = 0;
-            data.forEach(v => {
-                const paid = parseFloat(v.paid_amount || 0);
-                const bal = parseFloat(v.balance_amount || 0);
-                grandTotal += paid;
-                pendingTotal += bal;
-                const mode = (v.payment_mode || '').toLowerCase();
-                if (mode === 'cash') cashTotal += paid;
-                else onlineTotal += paid;
-            });
+                let cashTotal = 0, onlineTotal = 0, grandTotal = 0, pendingTotal = 0;
+                data.forEach(v => {
+                    const paid = parseFloat(v.paid_amount || 0);
+                    const bal = parseFloat(v.balance_amount || 0);
+                    grandTotal += paid;
+                    pendingTotal += bal;
+                    const mode = (v.payment_mode || '').toLowerCase();
+                    if (mode === 'cash') cashTotal += paid;
+                    else onlineTotal += paid;
+                });
 
-            document.getElementById('repCashTotal').textContent = `₹${cashTotal.toFixed(2)}`;
-            document.getElementById('repOnlineTotal').textContent = `₹${onlineTotal.toFixed(2)}`;
-            document.getElementById('repGrandTotal').textContent = `₹${grandTotal.toFixed(2)}`;
-            document.getElementById('repPendingTotal').textContent = `₹${pendingTotal.toFixed(2)}`;
+                document.getElementById('repCashTotal').textContent = `₹${cashTotal.toFixed(2)}`;
+                document.getElementById('repOnlineTotal').textContent = `₹${onlineTotal.toFixed(2)}`;
+                document.getElementById('repGrandTotal').textContent = `₹${grandTotal.toFixed(2)}`;
+                document.getElementById('repPendingTotal').textContent = `₹${pendingTotal.toFixed(2)}`;
 
-            const tbody = document.getElementById('reportsTableBody');
-            tbody.innerHTML = '';
-            data.forEach(v => {
-                const net = (parseFloat(v.total_amount) - parseFloat(v.concession || 0)).toFixed(2);
-                const isPaidFull = parseFloat(v.balance_amount || 0) <= 0;
-                const modeBadge = (v.payment_mode || 'Cash').toLowerCase() === 'cash' 
-                    ? '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:3px; font-weight:bold; font-size:0.75rem;">💵 Cash</span>'
-                    : '<span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:3px; font-weight:bold; font-size:0.75rem;">💳 Online / UPI</span>';
+                const tbody = document.getElementById('reportsTableBody');
+                tbody.innerHTML = '';
 
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${new Date(v.created_at).toLocaleDateString('en-GB')}</td>
-                        <td>${escapeHtml(v.centre_name || '')}</td>
-                        <td><strong>${escapeHtml(v.full_name)}</strong></td>
-                        <td>${v.categories}</td>
-                        <td>${modeBadge}</td>
-                        <td>₹${parseFloat(v.total_amount).toFixed(2)}</td>
-                        <td>₹${parseFloat(v.paid_amount).toFixed(2)}</td>
-                        <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
-                        <td>${v.payment_status === 'Paid' ? '<span style="color:#2e7d32;font-weight:bold;">Paid</span>' : '<span style="color:#c62828;font-weight:bold;">Pending</span>'}</td>
-                        <td>
-                            <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${v.visit_id}')">🖨️ Bill</button>
-                            <a href="/api/invoice/${v.visit_id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 PDF</a>
-                            <button type="button" class="btn-act" style="background:#0284c7; color:white;" onclick="triggerBillSMS('${v.visit_id}')">📲 Bill SMS</button>
-                            ${isPaidFull 
-                                ? `<button type="button" class="btn-act" style="background:#059669; color:white;" onclick="triggerReportSMS('${v.visit_id}')">📋 Report SMS</button>` 
-                                : `<button type="button" class="btn-act" style="background:#94a3b8; color:white; cursor:not-allowed;" title="Payment Pending" disabled>🔒 Report Locked</button>`}
-                            <button type="button" class="btn-act btn-act-wa" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}', '${v.visit_id}')">📱 WA</button>
-                            ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.visit_id}')">📝 Form F</button>` : ''}
-                            <button type="button" class="btn-act btn-act-edit" onclick="openEditBillModal('${v.visit_id}')">✏️ Edit Bill</button>
-                            <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.visit_id}')">✕ Delete</button>
-                        </td>
-                    </tr>
-                `;
-            });
+                if (!data.length) {
+                    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:16px; color:#64748b;">No billing or collection records found. Clear filters above to view all history.</td></tr>`;
+                    return;
+                }
+
+                data.forEach(v => {
+                    const net = (parseFloat(v.total_amount) - parseFloat(v.concession || 0)).toFixed(2);
+                    const isPaidFull = parseFloat(v.balance_amount || 0) <= 0;
+                    const modeBadge = (v.payment_mode || 'Cash').toLowerCase() === 'cash' 
+                        ? '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:3px; font-weight:bold; font-size:0.75rem;">💵 Cash</span>'
+                        : '<span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:3px; font-weight:bold; font-size:0.75rem;">💳 Online / UPI</span>';
+
+                    const cutAmount = parseFloat(v.doctor_commission || 0).toFixed(2);
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${new Date(v.created_at).toLocaleDateString('en-GB')}</td>
+                            <td>${escapeHtml(v.centre_name || '')}</td>
+                            <td><strong>${escapeHtml(v.full_name)}</strong></td>
+                            <td>${v.categories}</td>
+                            <td>${modeBadge}</td>
+                            <td>₹${parseFloat(v.total_amount).toFixed(2)}</td>
+                            <td>₹${parseFloat(v.paid_amount).toFixed(2)}</td>
+                            <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
+                            <td style="color:#7c3aed; font-weight:bold;">₹${cutAmount}</td>
+                            <td>${v.payment_status === 'Paid' ? '<span style="color:#2e7d32;font-weight:bold;">Paid</span>' : '<span style="color:#c62828;font-weight:bold;">Pending</span>'}</td>
+                            <td>
+                                <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${v.visit_id}')">🖨️ Bill</button>
+                                <a href="/api/invoice/${v.visit_id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 PDF</a>
+                                <button type="button" class="btn-act" style="background:#0284c7; color:white;" onclick="triggerBillSMS('${v.visit_id}')">📲 Bill SMS</button>
+                                ${isPaidFull 
+                                    ? `<button type="button" class="btn-act" style="background:#059669; color:white;" onclick="triggerReportSMS('${v.visit_id}')">📋 Report SMS</button>` 
+                                    : `<button type="button" class="btn-act" style="background:#94a3b8; color:white; cursor:not-allowed;" title="Payment Pending" disabled>🔒 Report Locked</button>`}
+                                <button type="button" class="btn-act btn-act-wa" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}', '${v.visit_id}')">📱 WA</button>
+                                ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.visit_id}')">📝 Form F</button>` : ''}
+                                <button type="button" class="btn-act btn-act-edit" onclick="openEditBillModal('${v.visit_id}')">✏️ Edit Bill</button>
+                                <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.visit_id}')">✕ Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) {
+                console.error('loadReports error:', e);
+            }
         }
 
         function resetReportsFilters() {
@@ -2854,42 +2873,51 @@
             const pat = document.getElementById('busPatientName')?.value?.trim() || '';
 
             let url = `/api/reports/doctor-detailed?1=1`;
-            if (docId) url += `&doctorId=${docId}`;
-            if (start) url += `&startDate=${start}`;
-            if (end) url += `&endDate=${end}`;
-            if (month) url += `&month=${month}`;
+            if (docId) url += `&doctorId=${encodeURIComponent(docId)}`;
+            if (start) url += `&startDate=${encodeURIComponent(start)}`;
+            if (end) url += `&endDate=${encodeURIComponent(end)}`;
+            if (month && !start && !end) url += `&month=${encodeURIComponent(month)}`;
             if (pat) url += `&patientName=${encodeURIComponent(pat)}`;
 
-            const res = await apiFetch(url);
-            const json = await res.json();
-            const data = json.data || [];
-            let totalBiz = 0, totalCut = 0;
-            const tbody = document.getElementById('businessTableBody');
-            tbody.innerHTML = '';
-            data.forEach(b => {
-                const biz = parseFloat(b.total_amount || 0);
-                const cut = (b.doctor_commission !== null && b.doctor_commission !== undefined && !isNaN(parseFloat(b.doctor_commission)))
-                    ? parseFloat(b.doctor_commission)
-                    : (biz * 0.30);
+            try {
+                const res = await apiFetch(url);
+                const json = await res.json();
+                const data = json.data || [];
+                let totalBiz = 0, totalCut = 0;
+                const tbody = document.getElementById('businessTableBody');
+                tbody.innerHTML = '';
 
-                totalBiz += biz;
-                totalCut += cut;
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${new Date(b.created_at).toLocaleDateString('en-GB')}</td>
-                        <td><strong>${escapeHtml(b.doctor_name)}</strong><br><small>${escapeHtml(b.hospital_clinic_name || '')}</small></td>
-                        <td>${escapeHtml(b.full_name)}</td>
-                        <td>${b.invoice_number}</td>
-                        <td>₹${biz.toFixed(2)}</td>
-                        <td style="color:#7c3aed; font-weight:bold;">₹${cut.toFixed(2)}</td>
-                        <td>
-                            <button type="button" class="btn-act btn-act-edit" onclick="editSingleDoctorCut('${b.visit_id}', '${escapeHtml(b.doctor_name)}', '${cut.toFixed(2)}')">✏️ Edit Cut</button>
-                            <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${b.visit_id}')">🖨️ Bill</button>
-                        </td>
-                    </tr>
-                `;
-            });
-            document.getElementById('busSummaryBanner').innerHTML = `Gross Business: <strong>₹${totalBiz.toFixed(2)}</strong> | Total Cuts: <strong style="color:#7c3aed;">₹${totalCut.toFixed(2)}</strong> | Total Referrals: <strong>${data.length}</strong>`;
+                if (!data.length) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:16px; color:#64748b;">No doctor business records found. Try clearing the date filters above.</td></tr>`;
+                    document.getElementById('busSummaryBanner').innerHTML = `Gross Business: <strong>₹0.00</strong> | Total Cuts: <strong style="color:#7c3aed;">₹0.00</strong> | Total Referrals: <strong>0</strong>`;
+                    return;
+                }
+
+                data.forEach(b => {
+                    const biz = parseFloat(b.total_amount || 0);
+                    const cut = parseFloat(b.doctor_commission || 0);
+
+                    totalBiz += biz;
+                    totalCut += cut;
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${new Date(b.created_at).toLocaleDateString('en-GB')}</td>
+                            <td><strong>${escapeHtml(b.doctor_name)}</strong><br><small>${escapeHtml(b.hospital_clinic_name || '')}</small></td>
+                            <td>${escapeHtml(b.full_name)}</td>
+                            <td>${b.invoice_number}</td>
+                            <td>₹${biz.toFixed(2)}</td>
+                            <td style="color:#7c3aed; font-weight:bold;">₹${cut.toFixed(2)}</td>
+                            <td>
+                                <button type="button" class="btn-act btn-act-edit" onclick="editSingleDoctorCut('${b.visit_id}', '${escapeHtml(b.doctor_name)}', '${cut.toFixed(2)}')">✏️ Edit Cut</button>
+                                <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${b.visit_id}')">🖨️ Bill</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('busSummaryBanner').innerHTML = `Gross Business: <strong>₹${totalBiz.toFixed(2)}</strong> | Total Cuts: <strong style="color:#7c3aed;">₹${totalCut.toFixed(2)}</strong> | Total Referrals: <strong>${data.length}</strong>`;
+            } catch (e) {
+                console.error('loadBusiness error:', e);
+            }
         }
 
         async function editSingleDoctorCut(visitId, docName, currentCut) {

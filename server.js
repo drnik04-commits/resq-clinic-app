@@ -53,6 +53,7 @@ function escapeXml(unsafe) {
     .replace(/'/g, '&apos;');
 }
 
+// Multer storage: routes templates into centre-specific folders
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const centreId = getTenantCentreId(req);
@@ -1543,7 +1544,6 @@ app.get('/api/imaging/templates', async (req, res) => {
     const { category, search } = req.query;
     const templates = [];
 
-    // Query DB first
     let dbQuery = 'SELECT * FROM imaging_templates WHERE 1=1';
     const params = [];
     if (centreId) {
@@ -1582,7 +1582,6 @@ app.get('/api/imaging/templates', async (req, res) => {
       });
     });
 
-    // Also scan disk directories
     const searchDirs = [];
     if (centreId) searchDirs.push({ dir: path.join(TEMPLATES_DIR, String(centreId)), isCentre: true });
     searchDirs.push({ dir: TEMPLATES_DIR, isCentre: false });
@@ -1719,7 +1718,6 @@ app.post('/api/imaging/templates/clear-all', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
 
-    // Delete from Database
     if (isDbConnected) {
       if (centreId) {
         await pool.query('DELETE FROM imaging_templates WHERE centre_id::text = $1::text', [String(centreId)]);
@@ -1728,7 +1726,6 @@ app.post('/api/imaging/templates/clear-all', async (req, res) => {
       }
     }
 
-    // Delete files from Disk
     const targetDirs = [];
     if (centreId) targetDirs.push(path.join(TEMPLATES_DIR, String(centreId)));
     targetDirs.push(TEMPLATES_DIR);
@@ -1782,7 +1779,6 @@ app.delete('/api/imaging/templates/:identifier', async (req, res) => {
     const centreId = getTenantCentreId(req);
     const identifier = req.params.identifier;
 
-    // Database deletion
     if (isDbConnected) {
       await pool.query(
         `DELETE FROM imaging_templates 
@@ -1792,7 +1788,6 @@ app.delete('/api/imaging/templates/:identifier', async (req, res) => {
       );
     }
 
-    // Disk deletion
     const possiblePaths = [];
     if (centreId) possiblePaths.push(path.join(TEMPLATES_DIR, String(centreId), identifier));
     possiblePaths.push(path.join(TEMPLATES_DIR, identifier));
@@ -1817,7 +1812,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
 
     if (!templateName) return res.status(400).json({ success: false, error: 'Template name is required' });
 
-    // Determine Top & Bottom Margin
     let topMarginMm = 55;
     let bottomMarginMm = 15;
 
@@ -1837,7 +1831,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
       }
     }
 
-    // Find File on disk
     let targetPath = null;
     if (centreId) {
       const centreSpecific = path.join(TEMPLATES_DIR, String(centreId), templateName);
@@ -1881,7 +1874,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
       docXml = docXml.replace(/(<w:pgMar[^>]*?\bw:top=")[^"]*(")/g, `$1${topDxa}$2`);
       docXml = docXml.replace(/(<w:pgMar[^>]*?\bw:bottom=")[^"]*(")/g, `$1${bottomDxa}$2`);
 
-      // Pattern 1: Tags
       docXml = docXml
         .replace(/&lt;\*NAME1\*&gt;|<\*NAME1\*>|{{NAME}}|{{PATIENT_NAME}}/g, escapeXml(ptName))
         .replace(/&lt;\*DATE\*&gt;|<\*DATE\*>|{{DATE}}/g, escapeXml(dt))
@@ -1889,7 +1881,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
         .replace(/&lt;Sex&gt;|<Sex>|{{SEX}}|{{GENDER}}/g, escapeXml(sx))
         .replace(/&lt;\*Consultant\/Gp1\*&gt;|<\*Consultant\/Gp1\*>|{{REF_DOCTOR}}|{{DOCTOR}}/g, escapeXml(doc));
 
-      // Pattern 2: Static headers
       docXml = docXml
         .replace(/(NAME\s+(?:MS\.|MR\.|MRS\.|MAST\.)?\s*)([A-Z\s._]{2,30}?)(?=\s+DATE)/i, `$1${escapeXml(ptName)} `)
         .replace(/(DATE\s*)([0-9/.-]+|\/05\/2014)/i, `$1${escapeXml(dt)}`)
@@ -1999,6 +1990,390 @@ app.post('/api/imaging/reports', async (req, res) => {
     }
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ----------------------------------------------------
+// REPORTS & STATUTORY PCPNDT APIS
+// ----------------------------------------------------
+app.get('/api/reports/collection', async (req, res) => {
+  try {
+    const centreId = getTenantCentreId(req);
+    const { category, startDate, endDate, month, patientName } = req.query;
+
+    let query = `
+      SELECT v.id as visit_id, v.created_at, v.total_amount, v.concession, v.paid_amount, v.balance_amount,
+             v.payment_status, v.payment_mode, v.invoice_number, COALESCE(v.doctor_commission, 0.00) as doctor_commission,
+             p.full_name, p.phone, COALESCE(c.centre_name, 'Main Centre') as centre_name,
+             EXISTS(SELECT 1 FROM pcpndt_forms pf WHERE pf.visit_id = v.id) as has_pcpndt,
+             COALESCE((
+               SELECT string_agg(DISTINCT tm.category, ', ')
+               FROM patient_investigations pi
+               JOIN test_master tm ON pi.test_id = tm.id
+               WHERE pi.visit_id = v.id
+             ), 'General') as categories
+      FROM visits v
+      JOIN patients p ON v.patient_id = p.id
+      LEFT JOIN clinic_centres c ON v.centre_id = c.id
+      WHERE 1=1
+    `;
+    let params = [];
+
+    if (centreId) {
+      params.push(String(centreId));
+      query += ` AND (v.centre_id::text = $${params.length}::text OR v.centre_id IS NULL)`;
+    }
+    if (startDate && startDate.trim()) {
+      params.push(startDate.trim());
+      query += ` AND v.created_at::date >= $${params.length}::date`;
+    }
+    if (endDate && endDate.trim()) {
+      params.push(endDate.trim());
+      query += ` AND v.created_at::date <= $${params.length}::date`;
+    }
+    if (month && month.trim() && !startDate && !endDate) {
+      params.push(`${month.trim()}%`);
+      query += ` AND TO_CHAR(v.created_at, 'YYYY-MM') LIKE $${params.length}`;
+    }
+    if (patientName && patientName.trim()) {
+      params.push(`%${patientName.trim()}%`);
+      query += ` AND (p.full_name ILIKE $${params.length} OR p.phone ILIKE $${params.length} OR v.invoice_number ILIKE $${params.length})`;
+    }
+    if (category && category.trim()) {
+      params.push(`%${category.trim()}%`);
+      query += ` AND EXISTS (
+        SELECT 1 FROM patient_investigations pi2
+        JOIN test_master tm2 ON pi2.test_id = tm2.id
+        WHERE pi2.visit_id = v.id AND tm2.category ILIKE $${params.length}
+      )`;
+    }
+
+    query += ` ORDER BY v.created_at DESC LIMIT 500`;
+
+    const result = await pool.query(query, params);
+    let grossTotal = 0, totalCollection = 0, totalPending = 0;
+    result.rows.forEach(r => {
+      grossTotal += parseFloat(r.total_amount || 0);
+      totalCollection += parseFloat(r.paid_amount || 0);
+      totalPending += parseFloat(r.balance_amount || 0);
+    });
+
+    res.status(200).json({
+      success: true,
+      data: result.rows,
+      summary: { totalCollection, totalPending, grossTotal, recordCount: result.rows.length }
+    });
+  } catch (err) {
+    console.error('Collection report error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/reports/doctor-detailed', async (req, res) => {
+  try {
+    const centreId = getTenantCentreId(req);
+    const { doctorId, startDate, endDate, month, patientName } = req.query;
+
+    let query = `
+      SELECT v.id as visit_id, v.created_at, v.total_amount, 
+             COALESCE(v.doctor_commission, 0.00) as doctor_commission, 
+             v.invoice_number, p.full_name,
+             COALESCE(d.doctor_name, 'Direct OPD / Self') as doctor_name,
+             COALESCE(d.hospital_clinic_name, '-') as hospital_clinic_name,
+             COALESCE(c.centre_name, 'Main Centre') as centre_name
+      FROM visits v
+      JOIN patients p ON v.patient_id = p.id
+      LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
+      LEFT JOIN clinic_centres c ON v.centre_id = c.id
+      WHERE 1=1
+    `;
+    let params = [];
+
+    if (centreId) {
+      params.push(String(centreId));
+      query += ` AND (v.centre_id::text = $${params.length}::text OR v.centre_id IS NULL)`;
+    }
+    if (doctorId && doctorId.trim()) {
+      params.push(String(doctorId.trim()));
+      query += ` AND v.referring_doctor_id::text = $${params.length}::text`;
+    }
+    if (startDate && startDate.trim()) {
+      params.push(startDate.trim());
+      query += ` AND v.created_at::date >= $${params.length}::date`;
+    }
+    if (endDate && endDate.trim()) {
+      params.push(endDate.trim());
+      query += ` AND v.created_at::date <= $${params.length}::date`;
+    }
+    if (month && month.trim() && !startDate && !endDate) {
+      params.push(`${month.trim()}%`);
+      query += ` AND TO_CHAR(v.created_at, 'YYYY-MM') LIKE $${params.length}`;
+    }
+    if (patientName && patientName.trim()) {
+      params.push(`%${patientName.trim()}%`);
+      query += ` AND p.full_name ILIKE $${params.length}`;
+    }
+
+    query += ' ORDER BY v.created_at DESC LIMIT 500';
+    const result = await pool.query(query, params);
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('Doctor report error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/reports/executive-daily', async (req, res) => {
+  try {
+    const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
+
+    let query = `
+      SELECT c.id as centre_id, c.centre_name,
+             COUNT(DISTINCT v.id) as total_patients,
+             COALESCE(SUM(v.total_amount), 0) as gross_revenue,
+             COALESCE(SUM(v.concession), 0) as total_discount,
+             COALESCE(SUM(CASE WHEN v.payment_mode = 'Cash' THEN v.paid_amount ELSE 0 END), 0) as cash_collected,
+             COALESCE(SUM(CASE WHEN v.payment_mode <> 'Cash' THEN v.paid_amount ELSE 0 END), 0) as upi_collected,
+             COALESCE(SUM(v.paid_amount), 0) as total_collected,
+             COALESCE(SUM(v.balance_amount), 0) as pending_balance,
+             COALESCE(SUM(v.doctor_commission), 0) as total_cuts,
+             COUNT(DISTINCT pf.id) as pcpndt_count,
+             COUNT(DISTINCT CASE WHEN tm.category = 'Imaging' THEN pi.id END) as imaging_count
+      FROM clinic_centres c
+      LEFT JOIN visits v ON v.centre_id = c.id AND v.created_at::date = $1::date
+      LEFT JOIN pcpndt_forms pf ON pf.visit_id = v.id
+      LEFT JOIN patient_investigations pi ON pi.visit_id = v.id
+      LEFT JOIN test_master tm ON pi.test_id = tm.id
+      GROUP BY c.id, c.centre_name
+      ORDER BY c.created_at ASC
+    `;
+    const result = await pool.query(query, [targetDate]);
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.get('/api/pcpndt', async (req, res) => {
+  try {
+    const centreId = getTenantCentreId(req);
+    const { startDate, endDate, month, search } = req.query;
+
+    let query = `
+      SELECT pf.*, pf.created_at as form_date, p.full_name as patient_name, p.age as patient_age, v.invoice_number,
+             c.centre_name, COALESCE(pf.place, c.place, 'Kandivali West') as place
+      FROM pcpndt_forms pf
+      JOIN visits v ON pf.visit_id = v.id
+      JOIN patients p ON v.patient_id = p.id
+      LEFT JOIN clinic_centres c ON pf.centre_id = c.id
+      WHERE 1=1
+    `;
+    let params = [];
+    if (centreId) {
+      params.push(String(centreId));
+      query += ` AND (pf.centre_id::text = $${params.length}::text OR v.centre_id::text = $${params.length}::text)`;
+    }
+    if (startDate) {
+      params.push(startDate);
+      query += ` AND pf.created_at::date >= $${params.length}::date`;
+    }
+    if (endDate) {
+      params.push(endDate);
+      query += ` AND pf.created_at::date <= $${params.length}::date`;
+    }
+    if (month) {
+      params.push(`${month}%`);
+      query += ` AND TO_CHAR(pf.created_at, 'YYYY-MM') LIKE $${params.length}`;
+    }
+    if (search && search.trim()) {
+      params.push(`%${search.trim()}%`);
+      query += ` AND (p.full_name ILIKE $${params.length} OR v.invoice_number ILIKE $${params.length})`;
+    }
+    query += ' ORDER BY pf.created_at DESC LIMIT 300';
+    const result = await pool.query(query, params);
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.put('/api/pcpndt/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    const { 
+      relativeName, lmpDate, weeksOfPreg, noOfSons, sonsAge, noOfDaughters, 
+      daughtersAge, indications, scanResult, doctorName, doctorRegNo, clinicRegNo, place, centreId 
+    } = req.body;
+
+    const result = await pool.query(
+      `UPDATE pcpndt_forms 
+       SET relative_name = $1, lmp_date = $2, weeks_of_preg = $3, no_of_sons = $4, sons_age = $5,
+           no_of_daughters = $6, daughters_age = $7, indications = $8, scan_result = $9,
+           doctor_name = $10, doctor_reg_no = $11, clinic_reg_no = $12, place = $13,
+           centre_id = COALESCE($14, centre_id)
+       WHERE id::text = $15::text RETURNING *`,
+      [
+        relativeName || '', lmpDate || '', weeksOfPreg || '', parseInt(noOfSons, 10) || 0, sonsAge || '',
+        parseInt(noOfDaughters, 10) || 0, daughtersAge || '', indications || '', scanResult || '',
+        doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', clinicRegNo || 'RC197', 
+        place || 'Kandivali West', getCleanId(centreId), validId
+      ]
+    );
+    res.status(200).json({ success: true, data: result.rows[0], message: 'Statutory Form F updated successfully!' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.delete('/api/pcpndt/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    await pool.query('DELETE FROM pcpndt_forms WHERE id::text = $1::text', [validId]);
+    res.status(200).json({ success: true, message: 'Form F deleted' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+app.post('/api/sync/cloud', async (req, res) => {
+  if (!cleanCloudUrl) {
+    return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
+  }
+
+  let localClient, cloudClient;
+  try {
+    localClient = await pool.connect();
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Local DB error: ' + err.message });
+  }
+
+  try {
+    cloudClient = await cloudPool.connect();
+  } catch (err) {
+    localClient.release();
+    return res.status(503).json({ success: false, error: 'Cannot connect to Cloud DB: ' + err.message });
+  }
+
+  try {
+    await cloudClient.query('BEGIN');
+    await cloudClient.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
+
+    // 1. Sync App Auth
+    const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
+    if (auths.rows.length > 0) {
+      await cloudClient.query(
+        `INSERT INTO app_auth (id, role, password) VALUES ($1, $2, $3)
+         ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password`,
+        [auths.rows[0].id, auths.rows[0].role, auths.rows[0].password]
+      );
+    }
+
+    // 2. Sync Centres
+    const centres = await localClient.query('SELECT * FROM clinic_centres');
+    for (const c of centres.rows) {
+      await cloudClient.query(
+        `INSERT INTO clinic_centres (id, centre_name, tagline, address, place, phone, reg_no, email, centre_password, owner_password, is_private, top_margin_mm, bottom_margin_mm, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         ON CONFLICT (id) DO UPDATE SET 
+           centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address, place = EXCLUDED.place,
+           phone = EXCLUDED.phone, reg_no = EXCLUDED.reg_no, email = EXCLUDED.email,
+           centre_password = EXCLUDED.centre_password, owner_password = EXCLUDED.owner_password, is_private = EXCLUDED.is_private,
+           top_margin_mm = EXCLUDED.top_margin_mm, bottom_margin_mm = EXCLUDED.bottom_margin_mm;`,
+        [c.id, c.centre_name, c.tagline, c.address, c.place || 'Kandivali West', c.phone, c.reg_no, c.email, c.centre_password, c.owner_password || 'owner123', c.is_private, c.top_margin_mm || 55, c.bottom_margin_mm || 15, c.created_at]
+      );
+    }
+
+    // 3. Sync Doctors
+    const doctors = await localClient.query('SELECT * FROM referring_doctors');
+    for (const d of doctors.rows) {
+      await cloudClient.query(
+        `INSERT INTO referring_doctors (id, centre_id, doctor_name, hospital_clinic_name, commission_type, commission_value)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (id) DO UPDATE SET 
+           centre_id = EXCLUDED.centre_id, doctor_name = EXCLUDED.doctor_name, 
+           hospital_clinic_name = EXCLUDED.hospital_clinic_name, 
+           commission_type = EXCLUDED.commission_type, commission_value = EXCLUDED.commission_value;`,
+        [d.id, d.centre_id, d.doctor_name, d.hospital_clinic_name, d.commission_type, d.commission_value]
+      );
+    }
+
+    // 4. Sync Test Master
+    const tests = await localClient.query('SELECT * FROM test_master');
+    for (const t of tests.rows) {
+      await cloudClient.query(
+        `INSERT INTO test_master (id, centre_id, test_name, category, price, cut_type, test_cut)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (id) DO UPDATE SET 
+           centre_id = EXCLUDED.centre_id, test_name = EXCLUDED.test_name, category = EXCLUDED.category, 
+           price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut;`,
+        [t.id, t.centre_id, t.test_name, t.category, t.price, t.cut_type || 'percentage', t.test_cut]
+      );
+    }
+
+    // 5. Sync Patients
+    const patients = await localClient.query('SELECT * FROM patients');
+    for (const p of patients.rows) {
+      await cloudClient.query(
+        `INSERT INTO patients (id, centre_id, patient_code, full_name, age, gender, phone, email, address, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (id) DO UPDATE SET 
+           full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender,
+           phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address;`,
+        [p.id, p.centre_id, p.patient_code, p.full_name, p.age, p.gender, p.phone, p.email, p.address, p.created_at]
+      );
+    }
+
+    // 6. Sync Visits & Cascaded Child Records
+    const visits = await localClient.query('SELECT * FROM visits');
+    for (const v of visits.rows) {
+      await cloudClient.query(`DELETE FROM patient_investigations WHERE visit_id::text = $1::text`, [v.id]);
+      await cloudClient.query(`DELETE FROM pcpndt_forms WHERE visit_id::text = $1::text`, [v.id]);
+      await cloudClient.query(`DELETE FROM imaging_reports WHERE visit_id::text = $1::text`, [v.id]);
+      await cloudClient.query(`DELETE FROM visits WHERE id::text = $1::text OR invoice_number = $2`, [v.id, v.invoice_number]);
+
+      await cloudClient.query(
+        `INSERT INTO visits (id, centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, payment_mode, invoice_number, doctor_commission, report_file, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+        [v.id, v.centre_id, v.patient_id, v.referring_doctor_id, v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, v.payment_mode, v.invoice_number, v.doctor_commission, v.report_file, v.created_at]
+      );
+    }
+
+    // 7. Sync Patient Investigations
+    const investigations = await localClient.query('SELECT * FROM patient_investigations');
+    for (const pi of investigations.rows) {
+      await cloudClient.query(
+        `INSERT INTO patient_investigations (id, visit_id, test_id, barcode, status, price, cut_type, test_cut)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (id) DO NOTHING;`,
+        [pi.id, pi.visit_id, pi.test_id, pi.barcode, pi.status, pi.price, pi.cut_type, pi.test_cut]
+      );
+    }
+
+    // 8. Sync PCPNDT Forms
+    const pcpndt = await localClient.query('SELECT * FROM pcpndt_forms');
+    for (const pf of pcpndt.rows) {
+      await cloudClient.query(
+        `INSERT INTO pcpndt_forms (id, visit_id, centre_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, place, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+         ON CONFLICT (id) DO UPDATE SET 
+           relative_name = EXCLUDED.relative_name, lmp_date = EXCLUDED.lmp_date, 
+           weeks_of_preg = EXCLUDED.weeks_of_preg, scan_result = EXCLUDED.scan_result, place = EXCLUDED.place;`,
+        [pf.id, pf.visit_id, pf.centre_id, pf.relative_name, pf.no_of_sons, pf.sons_age, pf.no_of_daughters, pf.daughters_age, pf.lmp_date, pf.weeks_of_preg, pf.indications, pf.scan_result, pf.doctor_name, pf.doctor_reg_no, pf.clinic_reg_no, pf.place || 'Kandivali West', pf.created_at]
+      );
+    }
+
+    // 9. Sync Imaging Templates
+    const templates = await localClient.query('SELECT * FROM imaging_templates');
+    for (const t of templates.rows) {
+      await cloudClient.query(
+        `INSERT INTO imaging_templates (id, centre_id, template_name, title, category, default_impression, template_body)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (id) DO UPDATE 
+         SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body`,
+        [t.id, t.centre_id, t.template_name, t.title, t.category, t.default_impression, t.template_body]
+      );
+    }
+
+    await cloudClient.query('COMMIT');
+    res.status(200).json({ success: true, message: 'Cloud Sync Successful! All records up to date.' });
+  } catch (err) {
+    try { await cloudClient.query('ROLLBACK'); } catch (rb) {}
+    res.status(500).json({ success: false, error: 'Cloud Sync Failed: ' + err.message });
+  } finally {
+    if (localClient) localClient.release();
+    if (cloudClient) cloudClient.release();
+  }
 });
 
 app.get('*', (req, res) => {
