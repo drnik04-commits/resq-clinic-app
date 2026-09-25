@@ -53,7 +53,6 @@ function escapeXml(unsafe) {
     .replace(/'/g, '&apos;');
 }
 
-// Multer storage: routes templates into centre-specific folders
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const centreId = getTenantCentreId(req);
@@ -401,11 +400,20 @@ async function initDB() {
         balance_amount DECIMAL(10,2) DEFAULT 0.00,
         payment_status VARCHAR(50) DEFAULT 'Pending',
         payment_mode VARCHAR(50) DEFAULT 'Cash',
+        cash_amount DECIMAL(10,2) DEFAULT 0.00,
+        online_amount DECIMAL(10,2) DEFAULT 0.00,
+        bill_printed BOOLEAN DEFAULT false,
         invoice_number VARCHAR(100),
         doctor_commission DECIMAL(10,2) DEFAULT 0.00,
         report_file VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+
+    await pool.query(`
+      ALTER TABLE visits ADD COLUMN IF NOT EXISTS cash_amount DECIMAL(10,2) DEFAULT 0.00;
+      ALTER TABLE visits ADD COLUMN IF NOT EXISTS online_amount DECIMAL(10,2) DEFAULT 0.00;
+      ALTER TABLE visits ADD COLUMN IF NOT EXISTS bill_printed BOOLEAN DEFAULT false;
     `);
 
     await pool.query(`
@@ -965,6 +973,18 @@ app.put('/api/visits/:id/cut', async (req, res) => {
   }
 });
 
+// MARK BILL AS PRINTED
+app.post('/api/visits/:id/mark-printed', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    await pool.query('UPDATE visits SET bill_printed = true WHERE id::text = $1::text', [validId]);
+    res.status(200).json({ success: true, message: 'Bill marked as printed.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// UPDATE BILL WITH CASH + ONLINE BIFURCATION
 app.put('/api/visits/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -974,6 +994,7 @@ app.put('/api/visits/:id', async (req, res) => {
     await client.query('BEGIN');
     const { 
       referringDoctorId, tests, concession, paidAmount, paymentMode, 
+      cashAmount, onlineAmount,
       doctorCommission, doctor_commission, isPcpndt, relativeName, lmpDate, weeksOfPreg, pcpndtIndications, scanResult, place 
     } = req.body;
 
@@ -987,7 +1008,21 @@ app.put('/api/visits/:id', async (req, res) => {
     const grossTotal = testArray.reduce((sum, t) => sum + (parseFloat(t.price) || 0), 0);
     const disc = parseFloat(concession) || 0;
     const netTotal = Math.max(0, grossTotal - disc);
-    const paid = parseFloat(paidAmount) || 0;
+
+    let parsedCash = parseFloat(cashAmount) || 0;
+    let parsedOnline = parseFloat(onlineAmount) || 0;
+    let paid = parseFloat(paidAmount) || 0;
+
+    if (paymentMode === 'Split') {
+      paid = parsedCash + parsedOnline;
+    } else if (paymentMode === 'Cash') {
+      parsedCash = paid;
+      parsedOnline = 0;
+    } else {
+      parsedOnline = paid;
+      parsedCash = 0;
+    }
+
     const balance = Math.max(0, netTotal - paid);
     const payStatus = balance <= 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Pending');
 
@@ -1008,9 +1043,10 @@ app.put('/api/visits/:id', async (req, res) => {
 
     await client.query(
       `UPDATE visits 
-       SET referring_doctor_id = $1, total_amount = $2, concession = $3, paid_amount = $4, balance_amount = $5, payment_status = $6, payment_mode = $7, doctor_commission = $8
-       WHERE id::text = $9::text`,
-      [validDoctorId, grossTotal, disc, paid, balance, payStatus, paymentMode || 'Cash', totalCommission, validVisitId]
+       SET referring_doctor_id = $1, total_amount = $2, concession = $3, paid_amount = $4, balance_amount = $5, 
+           payment_status = $6, payment_mode = $7, cash_amount = $8, online_amount = $9, doctor_commission = $10
+       WHERE id::text = $11::text`,
+      [validDoctorId, grossTotal, disc, paid, balance, payStatus, paymentMode || 'Cash', parsedCash, parsedOnline, totalCommission, validVisitId]
     );
 
     await client.query('DELETE FROM patient_investigations WHERE visit_id::text = $1::text', [validVisitId]);
@@ -1051,15 +1087,17 @@ app.put('/api/visits/:id', async (req, res) => {
   }
 });
 
+// REGISTER VISIT WITH PAYMENT BIFURCATION (CASH + ONLINE)
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const {
       centreId, existingPatientId, patientCode, fullName, age, gender, phone, email, address,
-      referringDoctorId, tests, concession, paidAmount, paymentMode, doctorCommission, doctor_commission, isPcpndt,
-      relativeName, lmpDate, weeksOfPreg, noOfSons, sonsAge, noOfDaughters, daughtersAge,
-      pcpndtIndications, scanResult, doctorName, doctorRegNo, clinicRegNo, place
+      referringDoctorId, tests, concession, paidAmount, paymentMode, cashAmount, onlineAmount,
+      doctorCommission, doctor_commission, isPcpndt, relativeName, lmpDate, weeksOfPreg, 
+      noOfSons, sonsAge, noOfDaughters, daughtersAge, pcpndtIndications, scanResult, doctorName, 
+      doctorRegNo, clinicRegNo, place
     } = req.body;
 
     const finalCentreId = getCleanId(centreId) || getCleanId(req.headers['x-centre-id']);
@@ -1088,7 +1126,21 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     const grossTotal = testArray.reduce((sum, t) => sum + (parseFloat(t.price) || 0), 0);
     const disc = parseFloat(concession) || 0;
     const netTotal = Math.max(0, grossTotal - disc);
-    const paid = parseFloat(paidAmount) || 0;
+
+    let parsedCash = parseFloat(cashAmount) || 0;
+    let parsedOnline = parseFloat(onlineAmount) || 0;
+    let paid = parseFloat(paidAmount) || 0;
+
+    if (paymentMode === 'Split') {
+      paid = parsedCash + parsedOnline;
+    } else if (paymentMode === 'Cash') {
+      parsedCash = paid;
+      parsedOnline = 0;
+    } else {
+      parsedOnline = paid;
+      parsedCash = 0;
+    }
+
     const balance = Math.max(0, netTotal - paid);
     const payStatus = balance <= 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Pending');
 
@@ -1110,9 +1162,12 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     const invoiceNum = generateInvoiceNumber();
 
     const visitRes = await client.query(
-      `INSERT INTO visits (centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, payment_mode, invoice_number, doctor_commission, report_file)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
-      [finalCentreId, patientId, validDoctorId, grossTotal, disc, paid, balance, payStatus, paymentMode || 'Cash', invoiceNum, totalCommission, req.file ? req.file.path : null]
+      `INSERT INTO visits (
+        centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, 
+        balance_amount, payment_status, payment_mode, cash_amount, online_amount, bill_printed,
+        invoice_number, doctor_commission, report_file
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, $12, $13, $14) RETURNING id`,
+      [finalCentreId, patientId, validDoctorId, grossTotal, disc, paid, balance, payStatus, paymentMode || 'Cash', parsedCash, parsedOnline, invoiceNum, totalCommission, req.file ? req.file.path : null]
     );
     const visitId = visitRes.rows[0].id;
 
@@ -1183,6 +1238,7 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// PDF GENERATOR WITH CENTRE CONTACT PHONE & BIFURCATED PAYMENT
 app.get('/api/invoice/:id/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1216,8 +1272,11 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
 
     doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
     if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
-    doc.fontSize(8).fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Phone: ${v.centre_phone || ''} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
-    doc.moveDown(0.6);
+    
+    // CENTRE CONTACT NUMBER IN PROMINENT HEADER
+    doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`📞 Contact / Phone: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
+    doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
+    doc.moveDown(0.5);
     doc.strokeColor('#cccccc').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
     doc.moveDown(0.8);
 
@@ -1252,25 +1311,30 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     doc.strokeColor('#e2e8f0').lineWidth(0.5).moveTo(40, currentY + 4).lineTo(555, currentY + 4).stroke();
     currentY += 14;
 
-    const totalBoxX = 350;
+    const totalBoxX = 330;
     doc.fontSize(9).font('Helvetica');
-    doc.text('Gross Total:', totalBoxX, currentY, { width: 100 });
+    doc.text('Gross Total:', totalBoxX, currentY, { width: 120 });
     doc.text(`INR ${parseFloat(v.total_amount || 0).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
-    currentY += 15;
+    currentY += 14;
 
-    doc.text('Concession:', totalBoxX, currentY, { width: 100 });
+    doc.text('Concession / Discount:', totalBoxX, currentY, { width: 120 });
     doc.text(`- INR ${parseFloat(v.concession || 0).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
-    currentY += 15;
+    currentY += 14;
 
-    doc.font('Helvetica-Bold').text('Net Payable:', totalBoxX, currentY, { width: 100 });
+    doc.font('Helvetica-Bold').text('Net Payable:', totalBoxX, currentY, { width: 120 });
     doc.text(`INR ${(parseFloat(v.total_amount || 0) - parseFloat(v.concession || 0)).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
-    currentY += 15;
+    currentY += 14;
 
-    doc.font('Helvetica').text('Paid Amount:', totalBoxX, currentY, { width: 100 });
+    let modeText = `Paid (${v.payment_mode || 'Cash'}):`;
+    if (v.payment_mode === 'Split') {
+      modeText = `Paid (Cash ₹${parseFloat(v.cash_amount || 0).toFixed(0)} + Online ₹${parseFloat(v.online_amount || 0).toFixed(0)}):`;
+    }
+
+    doc.font('Helvetica').text(modeText, totalBoxX, currentY, { width: 120 });
     doc.text(`INR ${parseFloat(v.paid_amount || 0).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
-    currentY += 15;
+    currentY += 14;
 
-    doc.font('Helvetica-Bold').fillColor('#c00000').text('Balance Due:', totalBoxX, currentY, { width: 100 });
+    doc.font('Helvetica-Bold').fillColor('#c00000').text('Balance Due:', totalBoxX, currentY, { width: 120 });
     doc.text(`INR ${parseFloat(v.balance_amount || 0).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
 
     doc.fontSize(8).fillColor('#777777').font('Helvetica').text(
@@ -1534,10 +1598,8 @@ app.delete('/api/doctors/:id', async (req, res) => {
 });
 
 // -------------------------------------------------------------------------
-// TEMPLATE ENGINE: CATEGORY SEARCH, SINGLE UPLOAD, CLEAR-ALL & MERGE
+// TEMPLATE ENGINE APIS
 // -------------------------------------------------------------------------
-
-// List templates filtered by search, category, and centre tenancy
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1624,7 +1686,6 @@ app.get('/api/imaging/templates', async (req, res) => {
   }
 });
 
-// 1. ADD A SINGLE TEMPLATE INDIVIDUALLY
 app.post('/api/imaging/templates/single', upload.single('templateFile'), async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1667,7 +1728,6 @@ app.post('/api/imaging/templates/single', upload.single('templateFile'), async (
   }
 });
 
-// 2. BULK UPLOAD TEMPLATES
 app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1713,7 +1773,6 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
   }
 });
 
-// 3. DELETE ALL TEMPLATES (Wipe from DB and Disk for fresh start)
 app.post('/api/imaging/templates/clear-all', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1748,7 +1807,6 @@ app.post('/api/imaging/templates/clear-all', async (req, res) => {
   }
 });
 
-// 4. EDIT TEMPLATE (Title & Category)
 app.put('/api/imaging/templates/:identifier', async (req, res) => {
   try {
     const { title, category, templateBody, defaultImpression } = req.body;
@@ -1773,7 +1831,6 @@ app.put('/api/imaging/templates/:identifier', async (req, res) => {
   }
 });
 
-// 5. DELETE SINGLE TEMPLATE PERMANENTLY
 app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1804,7 +1861,6 @@ app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   }
 });
 
-// 6. 1-CLICK UNIVERSAL WORD MERGE ENGINE
 app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   try {
     const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm } = req.body;
@@ -1866,7 +1922,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
       if (buffer[0] === 0x50 && buffer[1] === 0x4b) isZip = true;
     } catch (e) {}
 
-    // Modern Word (.docx)
     if (ext === '.docx' || isZip) {
       const zip = new AdmZip(targetPath);
       let docXml = zip.readAsText('word/document.xml');
@@ -1896,7 +1951,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
       return res.send(outputBuffer);
     }
 
-    // Binary Word 97-2003 (.doc)
     let binaryData = fs.readFileSync(targetPath, 'binary');
 
     if (binaryData.includes('<*NAME1*>') || binaryData.includes('{{NAME}}') || binaryData.includes('{{PATIENT_NAME}}')) {
@@ -2002,7 +2056,8 @@ app.get('/api/reports/collection', async (req, res) => {
 
     let query = `
       SELECT v.id as visit_id, v.created_at, v.total_amount, v.concession, v.paid_amount, v.balance_amount,
-             v.payment_status, v.payment_mode, v.invoice_number, COALESCE(v.doctor_commission, 0.00) as doctor_commission,
+             v.payment_status, v.payment_mode, v.cash_amount, v.online_amount, v.bill_printed, v.invoice_number, 
+             COALESCE(v.doctor_commission, 0.00) as doctor_commission,
              p.full_name, p.phone, COALESCE(c.centre_name, 'Main Centre') as centre_name,
              EXISTS(SELECT 1 FROM pcpndt_forms pf WHERE pf.visit_id = v.id) as has_pcpndt,
              COALESCE((
@@ -2131,8 +2186,16 @@ app.get('/api/reports/executive-daily', async (req, res) => {
              COUNT(DISTINCT v.id) as total_patients,
              COALESCE(SUM(v.total_amount), 0) as gross_revenue,
              COALESCE(SUM(v.concession), 0) as total_discount,
-             COALESCE(SUM(CASE WHEN v.payment_mode = 'Cash' THEN v.paid_amount ELSE 0 END), 0) as cash_collected,
-             COALESCE(SUM(CASE WHEN v.payment_mode <> 'Cash' THEN v.paid_amount ELSE 0 END), 0) as upi_collected,
+             COALESCE(SUM(CASE 
+               WHEN v.payment_mode = 'Cash' THEN v.paid_amount 
+               WHEN v.payment_mode = 'Split' THEN COALESCE(v.cash_amount, 0)
+               ELSE 0 
+             END), 0) as cash_collected,
+             COALESCE(SUM(CASE 
+               WHEN v.payment_mode = 'Cash' THEN 0 
+               WHEN v.payment_mode = 'Split' THEN COALESCE(v.online_amount, 0)
+               ELSE v.paid_amount 
+             END), 0) as upi_collected,
              COALESCE(SUM(v.paid_amount), 0) as total_collected,
              COALESCE(SUM(v.balance_amount), 0) as pending_balance,
              COALESCE(SUM(v.doctor_commission), 0) as total_cuts,
@@ -2314,7 +2377,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       );
     }
 
-    // 6. Sync Visits & Cascaded Child Records
+    // 6. Sync Visits
     const visits = await localClient.query('SELECT * FROM visits');
     for (const v of visits.rows) {
       await cloudClient.query(`DELETE FROM patient_investigations WHERE visit_id::text = $1::text`, [v.id]);
@@ -2323,9 +2386,9 @@ app.post('/api/sync/cloud', async (req, res) => {
       await cloudClient.query(`DELETE FROM visits WHERE id::text = $1::text OR invoice_number = $2`, [v.id, v.invoice_number]);
 
       await cloudClient.query(
-        `INSERT INTO visits (id, centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, payment_mode, invoice_number, doctor_commission, report_file, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-        [v.id, v.centre_id, v.patient_id, v.referring_doctor_id, v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, v.payment_mode, v.invoice_number, v.doctor_commission, v.report_file, v.created_at]
+        `INSERT INTO visits (id, centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, payment_mode, cash_amount, online_amount, bill_printed, invoice_number, doctor_commission, report_file, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+        [v.id, v.centre_id, v.patient_id, v.referring_doctor_id, v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, v.payment_mode, v.cash_amount || 0, v.online_amount || 0, v.bill_printed || false, v.invoice_number, v.doctor_commission, v.report_file, v.created_at]
       );
     }
 

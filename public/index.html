@@ -56,7 +56,8 @@
         .btn-act { border: none; padding: 5px 9px; border-radius: 4px; cursor: pointer; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; margin-right: 3px; text-decoration: none; }
         .btn-act-edit { background-color: #f59e0b; color: white; }
         .btn-act-bills { background-color: #1976d2; color: white; }
-        .btn-act-bill-prt { background-color: #0284c7; color: white; }
+        .btn-act-bill-unprinted { background-color: #0284c7 !important; color: white !important; }
+        .btn-act-bill-printed { background-color: #059669 !important; color: white !important; font-weight: 800; border: 1.5px solid #047857; }
         .btn-act-pdf { background-color: #047857; color: white; }
         .btn-act-wa { background-color: #25d366; color: white; }
         .btn-act-formf { background-color: #ca8a04; color: white; }
@@ -84,7 +85,7 @@
 
         @media print {
             body * { visibility: hidden; }
-            #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc * { visibility: visible; }
+            #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc *, #pcpndtSummaryPrintArea, #pcpndtSummaryPrintArea * { visibility: visible; }
             .print-active { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
             .doc-page { page-break-after: always; page-break-inside: avoid; margin: 0; padding: 8mm 12mm; box-sizing: border-box; font-family: Arial, sans-serif !important; color: #000 !important; background: #fff !important; font-size: 7.7pt; line-height: 1.2; }
             @page { size: A4 portrait; margin: 0; }
@@ -242,8 +243,36 @@
                     <div class="form-group full-width"><label>Attach Report / Document (PDF/Word):</label><input type="file" id="reportFileInput" accept=".pdf,.doc,.docx"></div>
                     <div class="form-group"><label>Concession / Discount (₹):</label><input type="number" id="inputDiscount" value="0" oninput="calculateFinancialTotals()"></div>
                     <div class="form-group"><label>Doctor Referral Cut Override (₹):</label><input type="number" id="inputDoctorCut" placeholder="Auto-calculated (Type to override)" oninput="recalcDisplayTotalsOnly()"></div>
-                    <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="inputPaid" value="0" oninput="calculateFinancialTotals()"></div>
-                    <div class="form-group"><label>Payment Mode:</label><select id="inputPaymentMode"><option value="Cash">Cash</option><option value="Online / UPI">Online / UPI</option><option value="Card">Card</option></select></div>
+                    
+                    <div class="form-group">
+                        <label>Payment Mode:</label>
+                        <select id="inputPaymentMode" onchange="onPaymentModeChange(this.value)">
+                            <option value="Cash">Cash</option>
+                            <option value="Online / UPI">Online / UPI</option>
+                            <option value="Card">Card</option>
+                            <option value="Split">Split (Cash + Online / UPI)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="singlePaidGroup">
+                        <label>Paid Amount (₹):</label>
+                        <input type="number" id="inputPaid" value="0" oninput="calculateFinancialTotals()">
+                    </div>
+
+                    <!-- SPLIT PAYMENT BIFURCATION PANEL -->
+                    <div class="form-group full-width" id="splitPaidGroup" style="display:none; background:#f0f9ff; padding:10px; border-radius:6px; border:1.5px solid #7dd3fc;">
+                        <label style="color:#0369a1; font-weight:bold; margin-bottom:4px; display:block;">💵 Split Payment Bifurcation:</label>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                            <div>
+                                <label style="font-size:0.8rem; font-weight:bold;">Cash Amount Paid (₹):</label>
+                                <input type="number" id="inputSplitCash" value="0" oninput="onSplitAmountsChange()" style="width:100%; padding:6px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.8rem; font-weight:bold;">Online / UPI Paid (₹):</label>
+                                <input type="number" id="inputSplitOnline" value="0" oninput="onSplitAmountsChange()" style="width:100%; padding:6px;">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div style="margin-top: 20px; display: flex; gap: 14px;">
@@ -272,7 +301,7 @@
             </div>
         </div>
 
-        <!-- TAB 3: REPORT GENERATOR STUDIO (1-CLICK EXACT WORD MERGE) -->
+        <!-- TAB 3: REPORT GENERATOR STUDIO -->
         <div id="tab-imaging-reports" class="tab-content">
             <div class="card" style="border: 2px solid #2563eb;">
                 <div class="card-title">
@@ -287,7 +316,6 @@
                 </div>
 
                 <div class="cw-split-grid">
-                    <!-- LEFT PANE: TEMPLATES LIST & FILTER BAR -->
                     <div class="cw-left-pane">
                         <div class="cw-filter-box">
                             <select id="tmplCatFilter" onchange="filterTemplates()" style="padding:4px; border-radius:3px; border:1px solid #cbd5e1; font-size:0.8rem; flex:1;">
@@ -305,7 +333,6 @@
                         <div class="cw-selected-badge" id="selectedTemplateBanner">No Template Selected</div>
                     </div>
 
-                    <!-- RIGHT PANE: PATIENT DETAILS & MARGINS -->
                     <div style="display:flex; flex-direction:column; gap:14px;">
                         <div style="background: #f0fdf4; border: 1.5px solid #86efac; padding: 12px; border-radius: 6px;">
                             <label style="font-weight: bold; font-size: 0.85rem; color: #166534; display:block; margin-bottom: 4px;">Pick Registered Patient (or enter below):</label>
@@ -366,7 +393,10 @@
             <div class="card">
                 <div class="card-title">
                     <span>Statutory PCPNDT Form F Compliance Register</span>
-                    <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" class="btn-gov-portal">🏛️ Maha PCPNDT Portal</a>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn-act btn-act-bill-unprinted" onclick="openPcpndtSummaryModal()">📑 Print Form F Summary</button>
+                        <a href="http://pcpndt.maharashtra.gov.in/HOME/Login.aspx" target="_blank" class="btn-gov-portal">🏛️ Maha PCPNDT Portal</a>
+                    </div>
                 </div>
                 <table>
                     <thead>
@@ -464,7 +494,7 @@
                     <div style="display:flex; gap:6px;">
                         <button type="button" class="btn-search" onclick="loadReports()">🔍 Filter</button>
                         <button type="button" class="btn-act btn-act-edit" onclick="resetReportsFilters()">🔄 Show All</button>
-                        <button type="button" class="btn-act btn-act-bill-prt" onclick="window.print()">🖨️ Print Summary</button>
+                        <button type="button" class="btn-act btn-act-bill-unprinted" onclick="window.print()">🖨️ Print Summary</button>
                     </div>
                 </div>
 
@@ -554,9 +584,6 @@
                     <input type="file" id="singleTmplFileInput" accept=".doc,.docx" style="padding: 6px; border: 1.5px dashed #0284c7; border-radius: 4px; background: #f8fafc;">
                 </div>
             </div>
-            <p style="font-size:0.75rem; color:#64748b; margin-top:10px;">
-                💡 <strong>Tip:</strong> Ensure your template has <code>&lt;*NAME1*&gt;</code>, <code>&lt;*DATE*&gt;</code>, <code>&lt;Age&gt;</code>, <code>&lt;Sex&gt;</code>, <code>&lt;*Consultant/Gp1*&gt;</code> in the header and is saved as <strong>.docx</strong> for 100% table and margin fidelity[cite: 4, 8, 12].
-            </p>
             <div style="margin-top: 16px; display: flex; gap: 8px;">
                 <button type="button" class="btn-complete-reg" onclick="submitSingleTemplate()">Upload & Add Template</button>
                 <button type="button" class="btn-act btn-act-del" onclick="closeSingleTemplateModal()">Cancel</button>
@@ -564,7 +591,7 @@
         </div>
     </div>
 
-    <!-- MODAL: EDIT TEMPLATE (TITLE & CATEGORY) -->
+    <!-- MODAL: EDIT TEMPLATE -->
     <div id="editTemplateModal" class="modal">
         <div class="modal-content" style="max-width: 550px;">
             <div class="modal-header">
@@ -595,7 +622,7 @@
         </div>
     </div>
 
-    <!-- MODAL 1: EDIT PATIENT & INTEGRATED FORM F -->
+    <!-- MODAL: EDIT PATIENT & INTEGRATED FORM F -->
     <div id="editPatientModal" class="modal">
         <div class="modal-content" style="max-width: 780px;">
             <div class="modal-header">
@@ -650,7 +677,7 @@
         </div>
     </div>
 
-    <!-- MODAL 2: EDIT PCPNDT FORM F WITH PLACE & CENTRE -->
+    <!-- MODAL: EDIT PCPNDT FORM F -->
     <div id="editPcpndtModal" class="modal">
         <div class="modal-content" style="max-width: 720px;">
             <div class="modal-header">
@@ -679,7 +706,41 @@
         </div>
     </div>
 
-    <!-- MODAL 3: BULK IMPORT DOCTORS PER CENTRE -->
+    <!-- MODAL: STATUTORY PCPNDT FORM F SUMMARY REGISTER -->
+    <div id="pcpndtSummaryModal" class="modal">
+        <div class="modal-content" style="max-width: 980px;">
+            <div class="modal-header">
+                <h3>📑 Statutory PCPNDT Form F Monthly Summary Register</h3>
+                <button type="button" onclick="closePcpndtSummaryModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div><strong>Centre:</strong> <span id="summCentreName"></span> | <strong>Month:</strong> <span id="summPeriod"></span></div>
+                <button type="button" class="btn-act btn-act-bill-unprinted" onclick="printPcpndtSummarySheet()">🖨️ Print Summary Sheet</button>
+            </div>
+            <div id="pcpndtSummaryPrintArea">
+                <table style="width:100%; border-collapse:collapse; font-size:8pt;">
+                    <thead>
+                        <tr style="background:#f1f5f9;">
+                            <th>Sr.</th>
+                            <th>Date</th>
+                            <th>Patient Name</th>
+                            <th>Age</th>
+                            <th>Relative Name</th>
+                            <th>Address</th>
+                            <th>LMP / Gestation</th>
+                            <th>Sons (Age)</th>
+                            <th>Dtrs (Age)</th>
+                            <th>Indications</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pcpndtSummaryTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: BULK IMPORT DOCTORS -->
     <div id="bulkDocModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
@@ -696,7 +757,7 @@
         </div>
     </div>
 
-    <!-- MODAL 4: BULK IMPORT TESTS PER CENTRE -->
+    <!-- MODAL: BULK IMPORT TESTS -->
     <div id="bulkTestModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
@@ -713,7 +774,7 @@
         </div>
     </div>
 
-    <!-- MODAL 5: PATIENT BILLS HISTORY -->
+    <!-- MODAL: PATIENT BILLS HISTORY -->
     <div id="patientBillsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3 id="patientBillsTitle">Bills History</h3><button type="button" onclick="closePatientBillsModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
@@ -722,7 +783,7 @@
         </div>
     </div>
 
-    <!-- MODAL 6: EDIT BILL -->
+    <!-- MODAL: EDIT BILL (WITH SPLIT PAYMENT BIFURCATION) -->
     <div id="editBillModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3>Edit Bill & Rate Details</h3><button type="button" onclick="closeEditBillModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
@@ -748,14 +809,41 @@
             <div class="form-grid">
                 <div class="form-group"><label>Concession (₹):</label><input type="number" id="editBillDisc" oninput="recalcEditBillTotals()"></div>
                 <div class="form-group"><label>Doctor Referral Cut Override (₹):</label><input type="number" id="editBillDocCut" placeholder="Doctor cut amount"></div>
-                <div class="form-group"><label>Paid Amount (₹):</label><input type="number" id="editBillPaid" oninput="recalcEditBillTotals()"></div>
-                <div class="form-group"><label>Payment Mode:</label><select id="editBillPaymentMode"><option value="Cash">Cash</option><option value="Online / UPI">Online / UPI</option><option value="Card">Card</option></select></div>
+                
+                <div class="form-group">
+                    <label>Payment Mode:</label>
+                    <select id="editBillPaymentMode" onchange="onEditBillModeChanged(this.value)">
+                        <option value="Cash">Cash</option>
+                        <option value="Online / UPI">Online / UPI</option>
+                        <option value="Card">Card</option>
+                        <option value="Split">Split (Cash + Online / UPI)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="editSinglePaidGroup">
+                    <label>Paid Amount (₹):</label>
+                    <input type="number" id="editBillPaid" oninput="recalcEditBillTotals()">
+                </div>
+
+                <div class="form-group full-width" id="editSplitPaidGroup" style="display:none; background:#f0f9ff; padding:10px; border-radius:6px; border:1.5px solid #7dd3fc;">
+                    <label style="color:#0369a1; font-weight:bold; margin-bottom:4px; display:block;">💵 Split Payment Bifurcation:</label>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size:0.8rem; font-weight:bold;">Cash Amount (₹):</label>
+                            <input type="number" id="editSplitCash" value="0" oninput="onEditSplitChanged()" style="width:100%; padding:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem; font-weight:bold;">Online / UPI (₹):</label>
+                            <input type="number" id="editSplitOnline" value="0" oninput="onEditSplitChanged()" style="width:100%; padding:6px;">
+                        </div>
+                    </div>
+                </div>
             </div>
             <button type="button" class="btn-complete-reg" style="margin-top: 14px; width: 100%; padding:12px;" onclick="submitFullEditBill()">Save & Update Bill</button>
         </div>
     </div>
 
-    <!-- MODAL 7: ADMIN SETTINGS & MULTI-CENTRE MANAGER -->
+    <!-- MODAL: ADMIN SETTINGS & MULTI-CENTRE MANAGER -->
     <div id="adminModal" class="modal">
         <div class="modal-content" style="max-width: 850px;">
             <div class="modal-header">
@@ -832,12 +920,14 @@
         </div>
     </div>
 
-    <!-- INVOICE PRINT PAPER -->
+    <!-- INVOICE PRINT PAPER WITH CENTRE CONTACT NUMBER -->
     <div id="invoicePrintArea" class="print-paper">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
             <h2 id="prtClinicName" style="font-size: 16pt;">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
             <p id="prtClinicAddress" style="font-size: 8.5pt;"></p>
-            <p id="prtClinicContact" style="font-size: 8.5pt; font-weight: bold;"></p>
+            <p id="prtClinicContact" style="font-size: 9pt; font-weight: bold; color: #b91c1c; margin-top: 2px;">
+                📞 Phone / Contact: <span id="prtContactNum">+91 8433838285</span>
+            </p>
         </div>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9pt;">
             <tr>
@@ -858,11 +948,11 @@
             <tbody id="prtItemsBody"></tbody>
         </table>
         <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-            <table style="width: 250px; font-size: 9pt; border-collapse: collapse;">
+            <table style="width: 320px; font-size: 9pt; border-collapse: collapse;">
                 <tr><td style="padding: 2px;">Gross Total:</td><td style="text-align: right; font-weight: bold;">₹<span id="prtGross"></span></td></tr>
                 <tr><td style="padding: 2px;">Concession:</td><td style="text-align: right;">- ₹<span id="prtDisc"></span></td></tr>
                 <tr style="border-top: 1px solid #000;"><td style="padding: 2px; font-weight: bold;">Net Payable:</td><td style="text-align: right; font-weight: bold;">₹<span id="prtNet"></span></td></tr>
-                <tr><td style="padding: 2px;">Paid Amount:</td><td style="text-align: right;">₹<span id="prtPaid"></span></td></tr>
+                <tr><td style="padding: 2px;" id="prtPaidLabel">Paid Amount:</td><td style="text-align: right;">₹<span id="prtPaid"></span></td></tr>
                 <tr style="border-top: 1px solid #000; font-weight: bold; color: #c00;"><td style="padding: 2px;">Balance Due:</td><td style="text-align: right;">₹<span id="prtBal"></span></td></tr>
             </table>
         </div>
@@ -989,11 +1079,11 @@
             return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
         }
 
+        // DEFAULT DATES APPLIED UNIVERSALLY ON LOAD
         function applyDefaultDatesEverywhere() {
             const todayIso = getTodayIsoDate();
             const todayDisplay = getTodayDisplayDate();
 
-            // Set today's date ONLY on registration/audit forms, never lock the collections filter
             const dateInputIds = ['auditDateInput', 'pcpndtLMP', 'editPcpndtLmp', 'editPatPcpndtLmp'];
             dateInputIds.forEach(id => {
                 const el = document.getElementById(id);
@@ -1096,6 +1186,8 @@
             const sel = document.getElementById('activeCentreSelector');
             if (sel) sel.value = String(activeCentre.id);
             document.getElementById('repTopMarginMm').value = activeCentre.top_margin_mm || 55;
+            const contactEl = document.getElementById('prtContactNum');
+            if (contactEl) contactEl.textContent = activeCentre.phone || '+91 8433838285';
         }
 
         function onLockRoleChanged(role) {
@@ -1504,6 +1596,10 @@
             if (document.getElementById('inputDoctorCut')) {
                 delete document.getElementById('inputDoctorCut').dataset.touched;
             }
+            document.getElementById('inputSplitCash').value = 0;
+            document.getElementById('inputSplitOnline').value = 0;
+            document.getElementById('inputPaymentMode').value = 'Cash';
+            onPaymentModeChange('Cash');
             document.getElementById('loadedPatientBanner').style.display = 'none';
             document.getElementById('patientLookupResultsBox').style.display = 'none';
             applyDefaultDatesEverywhere();
@@ -1604,6 +1700,25 @@
             calculateFinancialTotals();
         }
 
+        // PAYMENT MODE & SPLIT PAYMENT HANDLERS
+        function onPaymentModeChange(mode) {
+            const isSplit = mode === 'Split';
+            document.getElementById('singlePaidGroup').style.display = isSplit ? 'none' : 'block';
+            document.getElementById('splitPaidGroup').style.display = isSplit ? 'block' : 'none';
+            if (isSplit) {
+                onSplitAmountsChange();
+            } else {
+                calculateFinancialTotals();
+            }
+        }
+
+        function onSplitAmountsChange() {
+            const cash = parseFloat(document.getElementById('inputSplitCash').value) || 0;
+            const online = parseFloat(document.getElementById('inputSplitOnline').value) || 0;
+            document.getElementById('inputPaid').value = (cash + online).toFixed(2);
+            calculateFinancialTotals();
+        }
+
         function calculateFinancialTotals() {
             const gross = selectedBillTests.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0);
             const discount = parseFloat(document.getElementById('inputDiscount').value) || 0;
@@ -1671,6 +1786,8 @@
             formData.append('doctorCommission', document.getElementById('inputDoctorCut').value || 0);
             formData.append('paidAmount', document.getElementById('inputPaid').value || 0);
             formData.append('paymentMode', document.getElementById('inputPaymentMode').value);
+            formData.append('cashAmount', document.getElementById('inputSplitCash')?.value || 0);
+            formData.append('onlineAmount', document.getElementById('inputSplitOnline')?.value || 0);
 
             const isPcpndt = document.getElementById('pcpndtToggle').checked;
             formData.append('isPcpndt', isPcpndt);
@@ -1712,6 +1829,17 @@
             } else { alert('Error: ' + json.error); }
         }
 
+        // PRINT INVOICE WITH LIVE PHONE NUMBER & MARK PRINTED
+        async function markBillAsPrinted(visitId) {
+            try {
+                await apiFetch(`/api/visits/${visitId}/mark-printed`, { method: 'POST' });
+                document.querySelectorAll(`.btn-prt-visit-${visitId}`).forEach(btn => {
+                    btn.className = 'btn-act btn-act-bill-printed';
+                    btn.innerHTML = '🖨️ Bill ✔️';
+                });
+            } catch (e) {}
+        }
+
         async function printSingleInvoice(visitId) {
             if (!visitId) return alert('No visit loaded to print.');
             const res = await apiFetch(`/api/invoice/${visitId}`);
@@ -1722,6 +1850,7 @@
 
             document.getElementById('prtClinicName').textContent = v.centre_name;
             document.getElementById('prtClinicAddress').textContent = v.centre_address || '';
+            document.getElementById('prtContactNum').textContent = v.centre_phone || activeCentre.phone || '+91 8433838285';
             document.getElementById('prtPatName').textContent = v.full_name;
             document.getElementById('prtPatMeta').textContent = `${v.age || 'N/A'} Yrs / ${v.gender || '-'}`;
             document.getElementById('prtDocName').textContent = v.doctor_name || 'Direct OPD';
@@ -1737,6 +1866,11 @@
             document.getElementById('prtGross').textContent = parseFloat(v.total_amount).toFixed(2);
             document.getElementById('prtDisc').textContent = parseFloat(v.concession || 0).toFixed(2);
             document.getElementById('prtNet').textContent = (parseFloat(v.total_amount) - parseFloat(v.concession || 0)).toFixed(2);
+            
+            const paidLabel = v.payment_mode === 'Split'
+                ? `Paid (Cash ₹${parseFloat(v.cash_amount||0).toFixed(0)} + Online ₹${parseFloat(v.online_amount||0).toFixed(0)}):`
+                : `Paid (${v.payment_mode || 'Cash'}):`;
+            document.getElementById('prtPaidLabel').textContent = paidLabel;
             document.getElementById('prtPaid').textContent = parseFloat(v.paid_amount).toFixed(2);
             document.getElementById('prtBal').textContent = parseFloat(v.balance_amount).toFixed(2);
 
@@ -1744,6 +1878,8 @@
             printEl.classList.add('print-active');
             window.print();
             printEl.classList.remove('print-active');
+
+            await markBillAsPrinted(visitId);
         }
 
         async function printPCPNDTForm(visitId) {
@@ -1802,6 +1938,12 @@
             window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
+        function getBillPrintBtnHtml(visitId, isPrinted) {
+            const printedClass = isPrinted ? 'btn-act-bill-printed' : 'btn-act-bill-unprinted';
+            const label = isPrinted ? '🖨️ Bill ✔️' : '🖨️ Bill';
+            return `<button type="button" class="btn-act ${printedClass} btn-prt-visit-${visitId}" onclick="printSingleInvoice('${visitId}')">${label}</button>`;
+        }
+
         async function loadReports() {
             const startDate = document.getElementById('repStartDate')?.value || '';
             const endDate = document.getElementById('repEndDate')?.value || '';
@@ -1828,8 +1970,14 @@
                     grandTotal += paid;
                     pendingTotal += bal;
                     const mode = (v.payment_mode || '').toLowerCase();
-                    if (mode === 'cash') cashTotal += paid;
-                    else onlineTotal += paid;
+                    if (mode === 'split') {
+                        cashTotal += parseFloat(v.cash_amount || 0);
+                        onlineTotal += parseFloat(v.online_amount || 0);
+                    } else if (mode === 'cash') {
+                        cashTotal += paid;
+                    } else {
+                        onlineTotal += paid;
+                    }
                 });
 
                 document.getElementById('repCashTotal').textContent = `₹${cashTotal.toFixed(2)}`;
@@ -1848,9 +1996,16 @@
                 data.forEach(v => {
                     const net = (parseFloat(v.total_amount) - parseFloat(v.concession || 0)).toFixed(2);
                     const isPaidFull = parseFloat(v.balance_amount || 0) <= 0;
-                    const modeBadge = (v.payment_mode || 'Cash').toLowerCase() === 'cash' 
-                        ? '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:3px; font-weight:bold; font-size:0.75rem;">💵 Cash</span>'
-                        : '<span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:3px; font-weight:bold; font-size:0.75rem;">💳 Online / UPI</span>';
+                    
+                    let modeBadge = '';
+                    const mode = (v.payment_mode || 'Cash');
+                    if (mode === 'Split') {
+                        modeBadge = `<span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:3px; font-weight:bold; font-size:0.75rem;">Split (C:₹${parseFloat(v.cash_amount||0).toFixed(0)}/O:₹${parseFloat(v.online_amount||0).toFixed(0)})</span>`;
+                    } else if (mode.toLowerCase() === 'cash') {
+                        modeBadge = '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:3px; font-weight:bold; font-size:0.75rem;">💵 Cash</span>';
+                    } else {
+                        modeBadge = '<span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:3px; font-weight:bold; font-size:0.75rem;">💳 Online / UPI</span>';
+                    }
 
                     const cutAmount = parseFloat(v.doctor_commission || 0).toFixed(2);
 
@@ -1867,7 +2022,7 @@
                             <td style="color:#7c3aed; font-weight:bold;">₹${cutAmount}</td>
                             <td>${v.payment_status === 'Paid' ? '<span style="color:#2e7d32;font-weight:bold;">Paid</span>' : '<span style="color:#c62828;font-weight:bold;">Pending</span>'}</td>
                             <td>
-                                <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${v.visit_id}')">🖨️ Bill</button>
+                                ${getBillPrintBtnHtml(v.visit_id, v.bill_printed)}
                                 <a href="/api/invoice/${v.visit_id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 PDF</a>
                                 <button type="button" class="btn-act" style="background:#0284c7; color:white;" onclick="triggerBillSMS('${v.visit_id}')">📲 Bill SMS</button>
                                 ${isPaidFull 
@@ -1911,6 +2066,25 @@
             } catch (e) { alert('SMS Error: ' + e.message); }
         }
 
+        // EDIT BILL MODAL LOGIC WITH SPLIT BIFURCATION
+        function onEditBillModeChanged(mode) {
+            const isSplit = mode === 'Split';
+            document.getElementById('editSinglePaidGroup').style.display = isSplit ? 'none' : 'block';
+            document.getElementById('editSplitPaidGroup').style.display = isSplit ? 'block' : 'none';
+            if (isSplit) {
+                onEditSplitChanged();
+            } else {
+                recalcEditBillTotals();
+            }
+        }
+
+        function onEditSplitChanged() {
+            const cash = parseFloat(document.getElementById('editSplitCash').value) || 0;
+            const online = parseFloat(document.getElementById('editSplitOnline').value) || 0;
+            document.getElementById('editBillPaid').value = (cash + online).toFixed(2);
+            recalcEditBillTotals();
+        }
+
         async function openEditBillModal(visitId) {
             const res = await apiFetch(`/api/invoice/${visitId}`);
             const json = await res.json();
@@ -1922,7 +2096,12 @@
             document.getElementById('editBillDisc').value = v.concession || 0;
             document.getElementById('editBillPaid').value = v.paid_amount || 0;
             document.getElementById('editBillDocCut').value = (v.doctor_commission !== null && v.doctor_commission !== undefined) ? v.doctor_commission : 0;
-            document.getElementById('editBillPaymentMode').value = v.payment_mode || 'Cash';
+            
+            const mode = v.payment_mode || 'Cash';
+            document.getElementById('editBillPaymentMode').value = mode;
+            document.getElementById('editSplitCash').value = v.cash_amount || 0;
+            document.getElementById('editSplitOnline').value = v.online_amount || 0;
+            onEditBillModeChanged(mode);
 
             const docSel = document.getElementById('editBillDocSelect');
             docSel.innerHTML = '<option value="">Direct / Self</option>';
@@ -1996,7 +2175,9 @@
                     concession: parseFloat(document.getElementById('editBillDisc').value) || 0,
                     doctorCommission: parseFloat(document.getElementById('editBillDocCut').value) || 0,
                     paidAmount: parseFloat(document.getElementById('editBillPaid').value) || 0,
-                    paymentMode: document.getElementById('editBillPaymentMode').value
+                    paymentMode: document.getElementById('editBillPaymentMode').value,
+                    cashAmount: parseFloat(document.getElementById('editSplitCash').value) || 0,
+                    onlineAmount: parseFloat(document.getElementById('editSplitOnline').value) || 0
                 })
             });
             const json = await res.json();
@@ -2038,6 +2219,82 @@
                     </tr>
                 `;
             });
+        }
+
+        // STATUTORY PCPNDT FORM F SUMMARY LOGIC
+        async function openPcpndtSummaryModal() {
+            const res = await apiFetch('/api/pcpndt');
+            const json = await res.json();
+            const data = json.data || [];
+            
+            document.getElementById('summCentreName').textContent = activeCentre.centre_name;
+            document.getElementById('summPeriod').textContent = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+            
+            const tbody = document.getElementById('pcpndtSummaryTableBody');
+            tbody.innerHTML = '';
+            
+            if (!data.length) {
+                tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:15px;">No PCPNDT Form F records logged.</td></tr>`;
+            } else {
+                data.forEach((row, i) => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${i + 1}</td>
+                            <td>${new Date(row.form_date || row.created_at).toLocaleDateString('en-GB')}</td>
+                            <td><strong>${escapeHtml(row.patient_name)}</strong></td>
+                            <td>${row.patient_age || '-'}</td>
+                            <td>${escapeHtml(row.relative_name || '-')}</td>
+                            <td>${escapeHtml(row.place || 'Kandivali West')}</td>
+                            <td>${row.lmp_date || '-'}<br>${row.weeks_of_preg || '-'}</td>
+                            <td>${row.no_of_sons || 0} (${row.sons_age || '-'})</td>
+                            <td>${row.no_of_daughters || 0} (${row.daughters_age || '-'})</td>
+                            <td>${escapeHtml(row.indications || 'Routine USG')}</td>
+                            <td>${escapeHtml(row.scan_result || 'Single Live Intrauterine')}</td>
+                        </tr>
+                    `;
+                });
+            }
+            
+            document.getElementById('pcpndtSummaryModal').style.display = 'flex';
+        }
+
+        function closePcpndtSummaryModal() {
+            document.getElementById('pcpndtSummaryModal').style.display = 'none';
+        }
+
+        function printPcpndtSummarySheet() {
+            const printContents = document.getElementById('pcpndtSummaryPrintArea').innerHTML;
+            const printWin = window.open('', '', 'height=750,width=1100');
+            printWin.document.write(`
+                <html>
+                    <head>
+                        <title>PCPNDT Form F Monthly Summary Register</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; font-size: 8pt; margin: 15mm; color: #000; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                            th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
+                            th { background: #f0f0f0; }
+                            .header { text-align: center; margin-bottom: 12px; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <h2>${activeCentre.centre_name}</h2>
+                            <p>${activeCentre.address || ''} | 📞 Contact: ${activeCentre.phone || ''} | Reg: ${activeCentre.reg_no || 'RC197'}</p>
+                            <h3>MONTHLY STATUTORY PCPNDT FORM F SUMMARY REGISTER</h3>
+                        </div>
+                        ${printContents}
+                        <div style="margin-top: 40px; display: flex; justify-content: space-between;">
+                            <div>Date: ${new Date().toLocaleDateString('en-GB')}</div>
+                            <div>Doctor / Radiologist Signature & Stamp</div>
+                        </div>
+                    </body>
+                </html>
+            `);
+            printWin.document.close();
+            printWin.focus();
+            printWin.print();
+            printWin.close();
         }
 
         function openEditPcpndtModal(formId) {
@@ -2127,7 +2384,7 @@
                         <td>
                             <button type="button" class="btn-act btn-act-edit" onclick="openEditPatientModal('${p.id}')">✏️ Edit</button>
                             <button type="button" class="btn-act btn-act-bills" onclick="openPatientBillsModal('${p.id}', '${escapeHtml(p.full_name)}')">📂 View Bills</button>
-                            <button type="button" class="btn-act btn-act-bill-prt" onclick="document.getElementById('lookupSearch').value='${p.phone || p.full_name}'; lookupPatient(); openTab('tab-billing', document.querySelectorAll('.tab-btn')[0]);">➕ New Bill</button>
+                            <button type="button" class="btn-act btn-act-bill-unprinted" onclick="document.getElementById('lookupSearch').value='${p.phone || p.full_name}'; lookupPatient(); openTab('tab-billing', document.querySelectorAll('.tab-btn')[0]);">➕ New Bill</button>
                             <button type="button" class="btn-act btn-act-del" onclick="deletePatientRecord('${p.id}')">✕ Delete</button>
                         </td>
                     </tr>
@@ -2263,7 +2520,7 @@
                             <td>₹${parseFloat(v.paid_amount).toFixed(2)}</td>
                             <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
                             <td>
-                                <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${v.id}')">🖨️ Bill</button>
+                                ${getBillPrintBtnHtml(v.id, v.bill_printed)}
                                 <a href="/api/invoice/${v.id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 PDF</a>
                                 ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.id}')">📝 Form F</button>` : ''}
                                 <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.id}')">✕ Delete</button>
@@ -2380,7 +2637,6 @@
             document.getElementById('selectedTemplateBanner').textContent = `✅ Ready to merge: ${tmpl.title || tmpl.template_name}`;
         }
 
-        // --- ADD SINGLE TEMPLATE MODAL FUNCTIONS ---
         function openSingleTemplateModal() {
             document.getElementById('singleTmplTitle').value = '';
             document.getElementById('singleTmplFileInput').value = '';
@@ -2423,7 +2679,6 @@
             }
         }
 
-        // --- EDIT TEMPLATE MODAL FUNCTIONS ---
         function openEditTemplateModal(tmpl) {
             document.getElementById('editTmplId').value = tmpl.template_name;
             document.getElementById('editTmplTitle').value = tmpl.title || tmpl.template_name;
@@ -2456,7 +2711,6 @@
             }
         }
 
-        // --- DELETE FUNCTIONS ---
         async function deleteTemplate(tmplName) {
             if (!confirm(`Are you sure you want to permanently delete template "${tmplName}"?`)) return;
             const res = await apiFetch(`/api/imaging/templates/${encodeURIComponent(tmplName)}`, { method: 'DELETE' });
@@ -2489,7 +2743,6 @@
             }
         }
 
-        // --- MERGE INTO WORD ---
         async function openReportInExternalWord() {
             if (!currentSelectedTemplate) {
                 return alert('Please select a template from the list first.');
@@ -2909,7 +3162,7 @@
                             <td style="color:#7c3aed; font-weight:bold;">₹${cut.toFixed(2)}</td>
                             <td>
                                 <button type="button" class="btn-act btn-act-edit" onclick="editSingleDoctorCut('${b.visit_id}', '${escapeHtml(b.doctor_name)}', '${cut.toFixed(2)}')">✏️ Edit Cut</button>
-                                <button type="button" class="btn-act btn-act-bill-prt" onclick="printSingleInvoice('${b.visit_id}')">🖨️ Bill</button>
+                                ${getBillPrintBtnHtml(b.visit_id, false)}
                             </td>
                         </tr>
                     `;
