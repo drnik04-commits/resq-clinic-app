@@ -31,7 +31,7 @@
         .tab-content.active { display: block; }
         .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
         .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 4px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .card-title { font-size: 1.1rem; font-weight: 700; color: #1a365d; margin-bottom: 14px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+        .card-title { font-size: 1.1rem; font-weight: 700; color: #1a365d; margin-bottom: 14px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
         .search-row { display: flex; gap: 8px; margin-bottom: 14px; position: relative; }
         .search-row input { flex: 1; padding: 8px 12px; border: 1px solid #90caf9; border-radius: 4px; outline: none; }
         .btn-search { background-color: #00c853; color: white; border: none; padding: 8px 18px; border-radius: 4px; font-weight: bold; cursor: pointer; }
@@ -64,20 +64,20 @@
 
         .clinical-window { background: #dbe4ee; border: 2px solid #6b8cae; border-radius: 6px; padding: 12px; color: #112233; }
         .cw-top-strip { background: #cbd9ea; border: 1px solid #9bb5d1; padding: 8px 12px; border-radius: 4px; display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
-        .cw-split-grid { display: grid; grid-template-columns: 340px 1fr; gap: 12px; }
+        .cw-split-grid { display: grid; grid-template-columns: 390px 1fr; gap: 14px; }
         .cw-left-pane { background: #ecf2f8; border: 1px solid #a4bdd7; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 8px; }
-        .cw-filter-box { background: #e2ecf6; border: 1px solid #b6ccdf; padding: 6px 10px; font-size: 0.8rem; display: flex; gap: 12px; align-items: center; }
-        .cw-templates-list { background: #ffffff; border: 1.5px solid #7c98b6; height: 320px; overflow-y: auto; border-radius: 3px; }
-        .cw-template-item { font-size: 0.82rem; font-family: Consolas, monospace; border-bottom: 1px solid #edf2f7; }
+        .cw-filter-box { background: #e2ecf6; border: 1px solid #b6ccdf; padding: 6px 10px; font-size: 0.82rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .cw-templates-list { background: #ffffff; border: 1.5px solid #7c98b6; height: 380px; overflow-y: auto; border-radius: 3px; }
+        .cw-template-item { font-size: 0.86rem; padding: 8px 10px; border-bottom: 1px solid #edf2f7; cursor: pointer; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
         .cw-template-item:hover { background-color: #d8e8f8; }
-        .cw-template-item.selected { background-color: #3182ce; color: #ffffff; font-weight: bold; }
+        .cw-template-item.selected { background-color: #2563eb; color: #ffffff; }
+        .cw-template-item.selected span.tmpl-title-text { color: #ffffff; }
         .cw-template-item.selected button { color: #ffffff !important; }
-        .cw-selected-badge { background: #fdf2f2; border: 1px solid #fca5a5; color: #991b1b; font-size: 0.8rem; font-weight: bold; padding: 6px 10px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .cw-button-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 4px; }
-        .cw-btn { background: #e2e8f0; border: 1px solid #94a3b8; padding: 7px 4px; font-size: 0.8rem; font-weight: bold; color: #1e293b; border-radius: 3px; cursor: pointer; text-align: center; }
-        .cw-btn:hover { background: #cbd5e1; }
-        .cw-btn-word { background: #1e40af !important; color: #ffffff !important; border: 1px solid #1e3a8a !important; grid-column: span 2; padding: 10px; font-size: 0.95rem; }
-        .cw-right-pane { background: #ffffff; border: 1.5px solid #7c98b6; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; }
+        .cw-selected-badge { background: #fdf2f2; border: 1px solid #fca5a5; color: #991b1b; font-size: 0.82rem; font-weight: bold; padding: 8px 10px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cw-btn-word { background: #1e40af !important; color: #ffffff !important; border: none; padding: 15px 20px; font-size: 1.12rem; font-weight: bold; border-radius: 6px; cursor: pointer; text-align: center; box-shadow: 0 4px 14px rgba(30,64,175,0.35); }
+        .cw-btn-word:hover { background: #1d4ed8 !important; }
+        .badge-cat { font-size: 0.7rem; padding: 2px 6px; border-radius: 3px; background: #e2e8f0; color: #334155; }
+        .cw-template-item.selected .badge-cat { background: #ffffff; color: #1e40af; }
 
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); justify-content: center; align-items: center; z-index: 10000; }
         .modal-content { background: white; border-radius: 6px; width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 20px; }
@@ -85,9 +85,8 @@
 
         @media print {
             body * { visibility: hidden; }
-            #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc *, #liveReportPreviewDrawer, #liveReportPreviewDrawer * { visibility: visible; }
+            #invoicePrintArea, #invoicePrintArea *, #exactPcpndtDoc, #exactPcpndtDoc * { visibility: visible; }
             .print-active { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
-            .with-55mm-margin { padding-top: 55mm !important; }
             .doc-page { page-break-after: always; page-break-inside: avoid; margin: 0; padding: 8mm 12mm; box-sizing: border-box; font-family: Arial, sans-serif !important; color: #000 !important; background: #fff !important; font-size: 7.7pt; line-height: 1.2; }
             @page { size: A4 portrait; margin: 0; }
         }
@@ -143,7 +142,7 @@
     <div class="tab-nav">
         <button class="tab-btn active" onclick="openTab('tab-billing', this)">Billing & Registration</button>
         <button class="tab-btn" id="btnTabAudit" onclick="openTab('tab-daily-audit', this); loadDailyAudit();">📊 Executive Audit</button>
-        <button class="tab-btn" onclick="openTab('tab-imaging-reports', this)">🩻 Report Generator Studio</button>
+        <button class="tab-btn" onclick="openTab('tab-imaging-reports', this)">🩻 Word Report Generator</button>
         <button class="tab-btn" onclick="openTab('tab-pcpndt-register', this)">📝 PCPNDT Form F Register</button>
         <button class="tab-btn" onclick="openTab('tab-masters', this)">Edit Doctors & Tests</button>
         <button class="tab-btn" onclick="openTab('tab-patients', this)">Manage Patients & Bills</button>
@@ -274,121 +273,90 @@
             </div>
         </div>
 
-        <!-- TAB 3: REPORT GENERATOR STUDIO -->
+        <!-- TAB 3: REPORT GENERATOR STUDIO (1-CLICK EXACT WORD MERGE) -->
         <div id="tab-imaging-reports" class="tab-content">
-            <div class="card" style="padding: 10px;">
-                <div class="clinical-window">
-                    <div class="cw-top-strip">
-                        <div style="display: flex; gap: 6px; align-items: center;">
-                            <label style="font-weight: bold; font-size: 0.82rem;">Patient:</label>
-                            <select id="imagingVisitSelect" onchange="onImagingVisitSelected(this.value)" style="padding: 4px 8px; border: 1px solid #7c98b6; border-radius: 3px; font-weight: bold; min-width: 220px;">
-                                <option value="">-- Choose Patient / Visit --</option>
-                            </select>
-                            <button type="button" class="cw-btn" onclick="loadImagingVisitsDropdown()">Fetch</button>
-                        </div>
-                        <div style="display: flex; gap: 6px; align-items: center;">
-                            <label style="font-weight: bold; font-size: 0.82rem;">Invest:</label>
-                            <select id="tmplInvestFilter" onchange="filterTemplatesByUI()" style="padding: 4px 8px; border: 1px solid #7c98b6; border-radius: 3px;">
-                                <option value="" selected>All Investigations</option>
-                                <option value="Ultrasonography">Ultrasonography</option>
-                                <option value="Echocardiography">Echocardiography</option>
-                                <option value="Color Doppler">Color Doppler</option>
+            <div class="card" style="border: 2px solid #2563eb;">
+                <div class="card-title">
+                    <span style="color:#1e40af;">🩻 Word Report Generator (1-Click Exact Merge)</span>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button type="button" class="btn-act" style="background:#059669; color:white;" onclick="openSingleTemplateModal()">➕ Add Single Template</button>
+                        <button type="button" class="btn-act" style="background:#0284c7; color:white;" onclick="document.getElementById('tmplFileInput').click()">📁 Bulk Upload (.docx)</button>
+                        <input type="file" id="tmplFileInput" multiple accept=".doc,.docx" style="display:none;" onchange="uploadTemplatesFiles(this.files)">
+                        <button type="button" class="btn-act" style="background:#dc2626; color:white;" onclick="deleteAllTemplates()">🗑️ Delete All Templates</button>
+                        <button type="button" class="btn-act" style="background:#475569; color:white;" onclick="bulkDownloadCentreTemplates()">📥 Download Backup (ZIP)</button>
+                    </div>
+                </div>
+
+                <div class="cw-split-grid">
+                    <!-- LEFT PANE: TEMPLATES LIST & FILTER BAR -->
+                    <div class="cw-left-pane">
+                        <div class="cw-filter-box">
+                            <select id="tmplCatFilter" onchange="filterTemplates()" style="padding:4px; border-radius:3px; border:1px solid #cbd5e1; font-size:0.8rem; flex:1;">
+                                <option value="">All Categories</option>
+                                <option value="Ultrasonography">Ultrasonography (USG)</option>
                                 <option value="Digital X-Ray">Digital X-Ray</option>
-                                <option value="Obstetrics">Obstetrics</option>
-                            </select>
-                        </div>
-                        <div style="display: flex; gap: 6px; align-items: center;">
-                            <label style="font-weight: bold; font-size: 0.82rem;">View:</label>
-                            <select id="tmplViewFilter" onchange="filterTemplatesByUI()" style="padding: 4px 8px; border: 1px solid #7c98b6; border-radius: 3px;">
-                                <option value="" selected>All Views</option>
-                                <option value="Abd and Pel">Abd and Pel</option>
+                                <option value="Color Doppler">Color Doppler</option>
+                                <option value="Echocardiography">Echocardiography (Echo)</option>
                                 <option value="Obstetrics">Obstetrics / Fetal</option>
-                                <option value="KUB">KUB</option>
-                                <option value="Scrotal">Scrotal Doppler</option>
-                                <option value="Echo">Echocardiography</option>
+                            </select>
+                            <input type="text" id="tmplSearchBox" placeholder="🔍 Search template..." oninput="filterTemplates()" style="padding:4px 8px; border-radius:3px; border:1px solid #cbd5e1; font-size:0.8rem; flex:1.2;">
+                        </div>
+
+                        <div class="cw-templates-list" id="templateListContainer"></div>
+                        <div class="cw-selected-badge" id="selectedTemplateBanner">No Template Selected</div>
+                    </div>
+
+                    <!-- RIGHT PANE: PATIENT DETAILS & MARGINS -->
+                    <div style="display:flex; flex-direction:column; gap:14px;">
+                        <div style="background: #f0fdf4; border: 1.5px solid #86efac; padding: 12px; border-radius: 6px;">
+                            <label style="font-weight: bold; font-size: 0.85rem; color: #166534; display:block; margin-bottom: 4px;">Pick Registered Patient (or enter below):</label>
+                            <select id="imagingVisitSelect" onchange="onImagingVisitSelected(this.value)" style="width: 100%; padding: 8px; border: 1.5px solid #10b981; border-radius: 4px; font-weight: bold;">
+                                <option value="">-- Direct OPD / Choose Patient --</option>
                             </select>
                         </div>
-                        <div style="margin-left: auto; display:flex; gap:8px; align-items:center;">
-                            <button type="button" class="btn-act btn-act-bills" style="background:#0284c7;" onclick="bulkDownloadCentreTemplates()">📥 Bulk Download Templates (ZIP)</button>
-                            <button type="button" class="btn-act btn-act-bills" style="background:#475569;" onclick="document.getElementById('tmplUploadFileInput').click()">📁 Bulk Upload Templates</button>
-                            <input type="file" id="tmplUploadFileInput" multiple accept=".dot,.doc,.docx" style="display:none;" onchange="uploadTemplatesFiles(this.files)">
-                            <label style="font-size: 0.8rem; font-weight: bold; cursor: pointer;">
-                                <input type="checkbox" id="chkPreprintedLetterhead" checked> 🖨️ 55mm Preprinted Letterhead Margin
-                            </label>
-                        </div>
-                    </div>
 
-                    <div class="cw-split-grid">
-                        <div class="cw-left-pane">
-                            <div class="cw-filter-box">
-                                <span>Filter Templates by :</span>
-                                <label><input type="checkbox" id="chkFilterInvest" onchange="filterTemplatesByUI()"> Investigation</label>
-                                <label><input type="checkbox" id="chkFilterView" onchange="filterTemplatesByUI()"> View</label>
-                                <button type="button" class="cw-btn" style="padding: 1px 6px;" onclick="filterTemplatesByUI()">Set</button>
+                        <div class="form-grid" style="background: #ffffff; padding: 14px; border: 1px solid var(--border); border-radius: 6px;">
+                            <div class="form-group full-width">
+                                <label>PATIENT FULL NAME:</label>
+                                <input type="text" id="fld_Pt_Name1" placeholder="e.g. MRS. PRIYA SHARMA" style="font-weight: bold; font-size: 1rem; color:#1e3a8a;">
                             </div>
-
-                            <div class="cw-templates-list" id="desktopTemplatesList"></div>
-
-                            <div class="cw-selected-badge" id="desktopSelectedTmplLabel">No Template Selected</div>
-
-                            <div class="cw-button-bar">
-                                <button type="button" class="cw-btn" style="background:#2563eb; color:white;" onclick="mergeFieldsIntoPreview(true)">⚡ Merge & Show Preview</button>
-                                <button type="button" class="cw-btn" onclick="toggleReportLivePreview()">Show / Hide Preview</button>
-                                <button type="button" class="cw-btn" onclick="printReportStudio()">Print</button>
-                                <button type="button" class="cw-btn" onclick="printSingleInvoice(currentSelectedVisit?.visit_id)">Print Address</button>
-                                <button type="button" class="cw-btn cw-btn-word" onclick="openReportInExternalWord()">🚀 OPEN IN MICROSOFT WORD (.DOC)</button>
+                            <div class="form-group">
+                                <label>DATE OF STUDY:</label>
+                                <input type="text" id="fld_Date1">
                             </div>
-                        </div>
-
-                        <div class="cw-right-pane" style="padding: 10px; display:flex; flex-direction:column; gap:10px; background:#f8fafc;">
-                            <div style="display:grid; grid-template-columns: 2fr 1fr 1fr 1fr 2fr; gap:8px; background:#e2ecf6; padding:8px 10px; border-radius:4px; border:1px solid #cbd5e1;">
-                                <div>
-                                    <label style="font-size:0.75rem; font-weight:bold; color:#1e3a8a;">PATIENT NAME</label>
-                                    <input type="text" id="fld_Pt_Name1" placeholder="PATIENT NAME" style="width:100%; font-weight:bold; border:1px solid #94a3b8; background:#fff; padding:4px 6px; border-radius:3px;">
-                                </div>
-                                <div>
-                                    <label style="font-size:0.75rem; font-weight:bold; color:#1e3a8a;">DATE</label>
-                                    <input type="text" id="fld_Date1" style="width:100%; border:1px solid #94a3b8; background:#fff; padding:4px 6px; border-radius:3px;">
-                                </div>
-                                <div>
-                                    <label style="font-size:0.75rem; font-weight:bold; color:#1e3a8a;">AGE</label>
-                                    <input type="text" id="fld_Age" placeholder="e.g. 28 Yrs" style="width:100%; border:1px solid #94a3b8; background:#fff; padding:4px 6px; border-radius:3px;">
-                                </div>
-                                <div>
-                                    <label style="font-size:0.75rem; font-weight:bold; color:#1e3a8a;">SEX</label>
-                                    <select id="fld_Sex" style="width:100%; border:1px solid #94a3b8; background:#fff; padding:4px 6px; border-radius:3px;">
-                                        <option value="FEMALE">FEMALE</option>
-                                        <option value="MALE">MALE</option>
-                                        <option value="OTHER">OTHER</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label style="font-size:0.75rem; font-weight:bold; color:#1e3a8a;">REF. DOCTOR</label>
-                                    <input type="text" id="fld_Ref1" placeholder="Dr. Name / Direct OPD" style="width:100%; border:1px solid #94a3b8; background:#fff; padding:4px 6px; border-radius:3px;">
-                                </div>
+                            <div class="form-group">
+                                <label>AGE (YEARS):</label>
+                                <input type="text" id="fld_Age" placeholder="e.g. 24 YRS">
                             </div>
-
-                            <div style="display:flex; flex-direction:column; flex:1;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                                    <label style="font-weight:bold; font-size:0.82rem; color:#0f172a;">REPORT FINDINGS & OBSERVATIONS (EDIT MANUALLY):</label>
-                                    <span style="font-size:0.75rem; color:#64748b;">Selected Template Content Loaded</span>
-                                </div>
-                                <textarea id="manualReportFindingsText" rows="14" style="width:100%; font-family: Calibri, 'Segoe UI', sans-serif; font-size:11pt; line-height:1.4; padding:10px; border:1.5px solid #94a3b8; border-radius:4px; outline:none; resize:vertical; background:#ffffff;"></textarea>
+                            <div class="form-group">
+                                <label>GENDER / SEX:</label>
+                                <select id="fld_Sex">
+                                    <option value="FEMALE">FEMALE</option>
+                                    <option value="MALE">MALE</option>
+                                    <option value="OTHER">OTHER</option>
+                                </select>
                             </div>
-
-                            <div style="display:flex; flex-direction:column;">
-                                <label style="font-weight:bold; font-size:0.82rem; color:#991b1b; margin-bottom:4px;">IMPRESSION :-</label>
-                                <textarea id="manualReportImpressionText" rows="3" style="width:100%; font-family: Calibri, 'Segoe UI', sans-serif; font-size:11pt; font-weight:bold; color:#991b1b; line-height:1.3; padding:8px 10px; border:1.5px solid #f87171; border-radius:4px; outline:none; background:#fffaf0;"></textarea>
+                            <div class="form-group">
+                                <label>REFERRING DOCTOR:</label>
+                                <input type="text" id="fld_Ref1" placeholder="Dr. Full Name / DIRECT OPD">
+                            </div>
+                            <div class="form-group full-width" style="background:#fef3c7; border:1px solid #fde68a; padding:10px; border-radius:4px;">
+                                <label style="color:#92400e; font-weight:bold;">🖨️ Preprinted Letterhead Top Margin (mm):</label>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <input type="number" id="repTopMarginMm" value="55" style="width: 100px; font-weight:bold; font-size:1rem;">
+                                    <span style="font-size:0.82rem; color:#78350f;">millimeters (starts text right below your branch printed header)</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div id="liveReportPreviewDrawer" style="display: none; background: #ffffff; border: 1.5px solid #64748b; border-radius: 4px; padding: 16px; margin-top: 12px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 10px;">
-                            <strong style="color: #1e3a8a;">Merged Diagnostic Report Preview</strong>
-                            <button type="button" class="cw-btn" style="padding: 2px 8px;" onclick="toggleReportLivePreview()">✕ Hide Preview</button>
+                        <div style="margin-top: auto;">
+                            <button type="button" class="cw-btn-word" onclick="openReportInExternalWord()" style="width: 100%;">
+                                🚀 MERGE & OPEN IN MICROSOFT WORD (.DOC / .DOCX)
+                            </button>
+                            <p style="font-size: 0.82rem; color: #475569; text-align: center; margin-top: 8px;">
+                                🛡️ <strong>100% Fidelity Guarantee:</strong> Injects Name, Age, Sex, Date & Ref Doctor. Your anomaly scan tables, boxes, bold headings, and spacing are 100% preserved.
+                            </p>
                         </div>
-                        <div id="desktopPreviewContent" style="font-family: Calibri, sans-serif; font-size: 11pt; line-height: 1.4; white-space: pre-wrap; background:#fdfdfd; padding:15px; border:1px dashed #cbd5e1;"></div>
                     </div>
                 </div>
             </div>
@@ -543,6 +511,74 @@
 
     </div>
 
+    <!-- MODAL: ADD SINGLE TEMPLATE INDIVIDUALLY -->
+    <div id="singleTemplateModal" class="modal">
+        <div class="modal-content" style="max-width: 550px;">
+            <div class="modal-header">
+                <h3>➕ Add Individual Word Template</h3>
+                <button type="button" onclick="closeSingleTemplateModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label>Template Title / Heading *:</label>
+                    <input type="text" id="singleTmplTitle" placeholder="e.g. OBSTETRIC ANOMALY SCAN">
+                </div>
+                <div class="form-group full-width">
+                    <label>Category / Modality:</label>
+                    <select id="singleTmplCategory">
+                        <option value="Ultrasonography">Ultrasonography (USG)</option>
+                        <option value="Obstetrics">Obstetrics / Fetal</option>
+                        <option value="Color Doppler">Color Doppler</option>
+                        <option value="Echocardiography">Echocardiography (Echo)</option>
+                        <option value="Digital X-Ray">Digital X-Ray</option>
+                    </select>
+                </div>
+                <div class="form-group full-width">
+                    <label>Select Word Template File (.docx / .doc) *:</label>
+                    <input type="file" id="singleTmplFileInput" accept=".doc,.docx" style="padding: 6px; border: 1.5px dashed #0284c7; border-radius: 4px; background: #f8fafc;">
+                </div>
+            </div>
+            <p style="font-size:0.75rem; color:#64748b; margin-top:10px;">
+                💡 <strong>Tip:</strong> Ensure your template has <code>&lt;*NAME1*&gt;</code>, <code>&lt;*DATE*&gt;</code>, <code>&lt;Age&gt;</code>, <code>&lt;Sex&gt;</code>, <code>&lt;*Consultant/Gp1*&gt;</code> in the header and is saved as <strong>.docx</strong> for 100% table and margin fidelity.
+            </p>
+            <div style="margin-top: 16px; display: flex; gap: 8px;">
+                <button type="button" class="btn-complete-reg" onclick="submitSingleTemplate()">Upload & Add Template</button>
+                <button type="button" class="btn-act btn-act-del" onclick="closeSingleTemplateModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT TEMPLATE (TITLE & CATEGORY) -->
+    <div id="editTemplateModal" class="modal">
+        <div class="modal-content" style="max-width: 550px;">
+            <div class="modal-header">
+                <h3>✏️ Edit Template Info</h3>
+                <button type="button" onclick="closeEditTemplateModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
+            <input type="hidden" id="editTmplId">
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label>Template Title / Heading *:</label>
+                    <input type="text" id="editTmplTitle" placeholder="e.g. OBSTETRIC ANOMALY SCAN">
+                </div>
+                <div class="form-group full-width">
+                    <label>Category / Modality:</label>
+                    <select id="editTmplCat">
+                        <option value="Ultrasonography">Ultrasonography (USG)</option>
+                        <option value="Digital X-Ray">Digital X-Ray</option>
+                        <option value="Color Doppler">Color Doppler</option>
+                        <option value="Echocardiography">Echocardiography (Echo)</option>
+                        <option value="Obstetrics">Obstetrics / Fetal</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-top: 16px; display: flex; gap: 8px;">
+                <button type="button" class="btn-complete-reg" onclick="submitEditTemplate()">Save Template Info</button>
+                <button type="button" class="btn-act btn-act-del" onclick="closeEditTemplateModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL 1: EDIT PATIENT & INTEGRATED FORM F -->
     <div id="editPatientModal" class="modal">
         <div class="modal-content" style="max-width: 780px;">
@@ -568,7 +604,6 @@
                 <div class="form-group full-width"><label>Address:</label><input type="text" id="editPatAddress"></div>
             </div>
 
-            <!-- Integrated Form F Toggle & Section -->
             <div class="pcpndt-panel" style="margin-top: 14px; background: #fffbeb; border: 1.5px solid #fde68a;">
                 <label class="pcpndt-checkbox-label">
                     <input type="checkbox" id="editPatPcpndtToggle" onchange="document.getElementById('editPatPcpndtFields').style.display = this.checked ? 'block' : 'none'">
@@ -717,7 +752,7 @@
             </div>
             <div id="adminPanelSection" style="display: none;">
                 <div class="card" style="background: #f0fdf4; border: 1.5px solid #86efac; margin-bottom: 16px;">
-                    <div class="card-title" id="centreFormTitle" style="color: #166534;">🏢 Add New Clinic Branch / Centre</div>
+                    <div class="card-title" id="centreFormTitle" style="color: #166534;">🏢 Add / Edit Clinic Branch & Letterhead Pattern</div>
                     <input type="hidden" id="editCentreId">
                     <div class="form-grid">
                         <div class="form-group full-width"><label>Centre Name *:</label><input type="text" id="centreNameInput" placeholder="e.g. RESQ HEART CLINIC (Branch 3)"></div>
@@ -727,8 +762,18 @@
                         <div class="form-group"><label>Contact Phone / Mobile:</label><input type="text" id="centrePhoneInput" placeholder="+91 8433838285"></div>
                         <div class="form-group"><label>Statutory PCPNDT Reg No:</label><input type="text" id="centreRegNoInput" value="RC197"></div>
                         <div class="form-group"><label>Email ID:</label><input type="email" id="centreEmailInput" placeholder="branch@resqclinic.com"></div>
-                        <div class="form-group"><label>Branch Staff PIN / Password (Default: 1234):</label><input type="text" id="centrePinInput" value="1234"></div>
+                        <div class="form-group"><label>Branch Staff PIN (Default: 1234):</label><input type="text" id="centrePinInput" value="1234"></div>
                         <div class="form-group"><label>Centre Owner Password (Default: owner123):</label><input type="text" id="centreOwnerPassInput" value="owner123"></div>
+                        
+                        <div class="form-group">
+                            <label>Preprinted Letterhead Top Margin (mm):</label>
+                            <input type="number" id="centreTopMarginInput" value="55" min="10" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Bottom Margin (mm):</label>
+                            <input type="number" id="centreBottomMarginInput" value="15" min="5" max="50">
+                        </div>
+
                         <div class="form-group full-width">
                             <label style="display:flex; align-items:center; gap:8px; font-weight:bold; color:#1e3a8a; cursor:pointer;">
                                 <input type="checkbox" id="centreIsPrivateCheck" checked>
@@ -745,7 +790,7 @@
                 <div class="card">
                     <div class="card-title">Configured Clinic Centres</div>
                     <table>
-                        <thead><tr><th>Centre Name</th><th>Place / Reg No</th><th>Privacy Status</th><th style="width: 150px;">Actions</th></tr></thead>
+                        <thead><tr><th>Centre Name</th><th>Place / Reg No</th><th>Letterhead Margins</th><th>Privacy</th><th style="width: 150px;">Actions</th></tr></thead>
                         <tbody id="adminCentresListBody"></tbody>
                     </table>
                 </div>
@@ -767,42 +812,6 @@
                     </div>
                     <button type="button" class="btn-complete-reg" style="margin-top: 10px; background: #ea580c; max-width: 250px;" onclick="changeMasterAdminPassword()">Update Admin Password</button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL 8: EDIT / CUSTOMIZE TEMPLATE -->
-    <div id="editTemplateModal" class="modal">
-        <div class="modal-content" style="max-width: 750px;">
-            <div class="modal-header">
-                <h3>✏️ Edit / Customize Report Template</h3>
-                <button type="button" onclick="closeEditTemplateModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
-            </div>
-            <input type="hidden" id="editTmplOldName">
-            <div class="form-grid">
-                <div class="form-group"><label>Template Title / Heading:</label><input type="text" id="editTmplTitle"></div>
-                <div class="form-group">
-                    <label>Category:</label>
-                    <select id="editTmplCategory">
-                        <option value="Ultrasonography">Ultrasonography</option>
-                        <option value="Echocardiography">Echocardiography</option>
-                        <option value="Color Doppler">Color Doppler</option>
-                        <option value="Digital X-Ray">Digital X-Ray</option>
-                        <option value="Obstetrics">Obstetrics</option>
-                    </select>
-                </div>
-                <div class="form-group full-width">
-                    <label>Findings / Observations Content (Free Text):</label>
-                    <textarea id="editTmplBody" rows="10" style="font-family: Consolas, monospace; padding: 8px;"></textarea>
-                </div>
-                <div class="form-group full-width">
-                    <label>Default Impression:</label>
-                    <textarea id="editTmplImpression" rows="3" style="font-family: Consolas, monospace; padding: 8px; color: #991b1b; font-weight: bold;"></textarea>
-                </div>
-            </div>
-            <div style="margin-top: 14px; display: flex; gap: 8px;">
-                <button type="button" class="btn-complete-reg" onclick="saveEditedTemplate()">Save Template Changes</button>
-                <button type="button" class="btn-act btn-act-del" onclick="closeEditTemplateModal()">Cancel</button>
             </div>
         </div>
     </div>
@@ -943,12 +952,12 @@
     <!-- CLIENT SCRIPT -->
     <script>
         const FALLBACK_CENTRES_CLIENT = [
-            { id: 'c1111111-1111-1111-1111-111111111111', centre_name: 'RESQ HEART CLINIC (Kandivali West)', tagline: 'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging', address: 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West', place: 'Kandivali West', phone: '+91 8433838285', reg_no: 'RC197', centre_password: '1234', owner_password: 'owner123', is_private: false },
-            { id: 'c2222222-2222-2222-2222-222222222222', centre_name: 'RESQ DIAGNOSTIC (Branch 2)', tagline: 'Multi-Speciality Diagnostic Imaging Services', address: 'Branch 2 Diagnostic Suite', place: 'Kandivali West', phone: '+91 8433838285', reg_no: 'RC198', centre_password: '1234', owner_password: 'owner123', is_private: false }
+            { id: 'c1111111-1111-1111-1111-111111111111', centre_name: 'RESQ HEART CLINIC (Kandivali West)', tagline: 'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging', address: 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West', place: 'Kandivali West', phone: '+91 8433838285', reg_no: 'RC197', centre_password: '1234', owner_password: 'owner123', is_private: false, top_margin_mm: 55, bottom_margin_mm: 15 },
+            { id: 'c2222222-2222-2222-2222-222222222222', centre_name: 'RESQ DIAGNOSTIC (Branch 2)', tagline: 'Multi-Speciality Diagnostic Imaging Services', address: 'Branch 2 Diagnostic Suite', place: 'Kandivali West', phone: '+91 8433838285', reg_no: 'RC198', centre_password: '1234', owner_password: 'owner123', is_private: false, top_margin_mm: 50, bottom_margin_mm: 15 }
         ];
 
         let testsList = [], doctorsList = [], centresList = [...FALLBACK_CENTRES_CLIENT], selectedBillTests = [];
-        let activeCentre = FALLBACK_CENTRES_CLIENT[0], currentSelectedTemplate = null, currentSelectedVisit = null, dropdownPatientsList = [];
+        let activeCentre = FALLBACK_CENTRES_CLIENT[0], currentSelectedTemplate = null, dropdownPatientsList = [];
         let isSuperAdmin = false, isCentreOwner = false, currentUserRole = 'branch_staff', activeEditingBillTests = [];
         let desktopTemplateCatalog = [];
 
@@ -1008,8 +1017,6 @@
 
         window.addEventListener('DOMContentLoaded', async () => {
             applyDefaultDatesEverywhere();
-            renderDesktopTemplatesList(desktopTemplateCatalog);
-
             try {
                 await loadCentres();
                 await refreshAllCentreData();
@@ -1023,23 +1030,25 @@
             try {
                 const res = await apiFetch('/api/imaging/templates');
                 const json = await res.json();
-                if (json.data && json.data.length > 0) {
-                    json.data.forEach(t => {
-                        desktopTemplateCatalog.push({
-                            id: t.id,
-                            fileName: t.template_name,
-                            title: t.title || t.template_name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
-                            category: t.category || 'Ultrasonography',
-                            view: 'All',
-                            body: t.template_body || '',
-                            impression: t.default_impression || ''
-                        });
-                    });
-                }
+                desktopTemplateCatalog = json.data || [];
             } catch (e) {
                 console.error('Error fetching templates:', e);
             }
-            filterTemplatesByUI();
+            filterTemplates();
+        }
+
+        function filterTemplates() {
+            const cat = (document.getElementById('tmplCatFilter')?.value || '').toLowerCase();
+            const search = (document.getElementById('tmplSearchBox')?.value || '').toLowerCase().trim();
+
+            let list = [...desktopTemplateCatalog];
+            if (cat) {
+                list = list.filter(t => (t.category || '').toLowerCase().includes(cat));
+            }
+            if (search) {
+                list = list.filter(t => (t.title || '').toLowerCase().includes(search) || (t.template_name || '').toLowerCase().includes(search));
+            }
+            renderDesktopTemplatesList(list);
         }
 
         async function loadCentres() {
@@ -1080,6 +1089,7 @@
             if (placeInput) placeInput.value = activeCentre.place || 'Kandivali West';
             const sel = document.getElementById('activeCentreSelector');
             if (sel) sel.value = String(activeCentre.id);
+            document.getElementById('repTopMarginMm').value = activeCentre.top_margin_mm || 55;
         }
 
         function onLockRoleChanged(role) {
@@ -1222,7 +1232,7 @@
             document.getElementById(tabId).classList.add('active');
             btn.classList.add('active');
             applyDefaultDatesEverywhere();
-            if (tabId === 'tab-imaging-reports') loadImagingVisitsDropdown();
+            if (tabId === 'tab-imaging-reports') { loadImagingVisitsDropdown(); loadTemplateCatalogFromDB(); }
             if (tabId === 'tab-pcpndt-register') loadPcpndtRegister();
             if (tabId === 'tab-reports') loadReports();
             if (tabId === 'tab-business') loadBusiness();
@@ -1303,12 +1313,13 @@
             tbody.innerHTML = '';
             centresList.forEach(c => {
                 const privBadge = c.is_private 
-                    ? `<span style="background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:0.75rem;">🔒 Private (Locked)</span>` 
+                    ? `<span style="background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:0.75rem;">🔒 Private</span>` 
                     : `<span style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:0.75rem;">🌐 Shared</span>`;
                 tbody.innerHTML += `
                     <tr>
                         <td><strong>${escapeHtml(c.centre_name)}</strong><br><small style="color:#64748b;">${escapeHtml(c.address || '')}</small></td>
                         <td>${c.place || 'Kandivali West'}<br><small>Reg: ${c.reg_no || 'RC197'}</small></td>
+                        <td><strong>${c.top_margin_mm || 55} mm</strong> top margin</td>
                         <td>${privBadge}</td>
                         <td>
                             <button type="button" class="btn-act btn-act-edit" onclick="startEditCentre('${c.id}')">✏️ Edit</button>
@@ -1332,9 +1343,11 @@
             document.getElementById('centreEmailInput').value = c.email || '';
             document.getElementById('centrePinInput').value = c.centre_password || '1234';
             document.getElementById('centreOwnerPassInput').value = c.owner_password || 'owner123';
+            document.getElementById('centreTopMarginInput').value = c.top_margin_mm !== undefined ? c.top_margin_mm : 55;
+            document.getElementById('centreBottomMarginInput').value = c.bottom_margin_mm !== undefined ? c.bottom_margin_mm : 15;
             document.getElementById('centreIsPrivateCheck').checked = Boolean(c.is_private);
 
-            document.getElementById('centreFormTitle').textContent = '✏️ Edit Clinic Branch / Centre';
+            document.getElementById('centreFormTitle').textContent = '✏️ Edit Clinic Branch & Letterhead Pattern';
             document.getElementById('btnSaveCentre').textContent = 'Update Centre';
             document.getElementById('btnCancelCentreEdit').style.display = 'inline-block';
             document.getElementById('centreNameInput').focus();
@@ -1351,9 +1364,11 @@
             document.getElementById('centreEmailInput').value = '';
             document.getElementById('centrePinInput').value = '1234';
             document.getElementById('centreOwnerPassInput').value = 'owner123';
+            document.getElementById('centreTopMarginInput').value = '55';
+            document.getElementById('centreBottomMarginInput').value = '15';
             document.getElementById('centreIsPrivateCheck').checked = true;
 
-            document.getElementById('centreFormTitle').textContent = '🏢 Add New Clinic Branch / Centre';
+            document.getElementById('centreFormTitle').textContent = '🏢 Add / Edit Clinic Branch & Letterhead Pattern';
             document.getElementById('btnSaveCentre').textContent = 'Save Centre';
             document.getElementById('btnCancelCentreEdit').style.display = 'none';
         }
@@ -1370,7 +1385,9 @@
                 email: document.getElementById('centreEmailInput').value.trim(),
                 centrePassword: document.getElementById('centrePinInput').value.trim() || '1234',
                 ownerPassword: document.getElementById('centreOwnerPassInput').value.trim() || 'owner123',
-                isPrivate: document.getElementById('centreIsPrivateCheck').checked
+                isPrivate: document.getElementById('centreIsPrivateCheck').checked,
+                topMarginMm: parseInt(document.getElementById('centreTopMarginInput').value, 10) || 55,
+                bottomMarginMm: parseInt(document.getElementById('centreBottomMarginInput').value, 10) || 15
             };
 
             if (!payload.centreName) return alert('Centre name is required.');
@@ -1680,29 +1697,13 @@
                 apiFetch(`/api/visits/${visitId}/send-bill-sms`, { method: 'POST' })
                   .then(r => r.json())
                   .then(smsRes => console.log('Bill SMS:', smsRes.message))
-                  .catch(err => console.log('SMS dispatch notice:', err));
+                  .catch(err => console.log('SMS notice:', err));
 
                 selectedBillTests = [];
                 renderSelectedTests();
                 clearPatientRegistrationForm();
                 await refreshAllCentreData();
             } else { alert('Error: ' + json.error); }
-        }
-
-        async function triggerBillSMS(visitId) {
-            try {
-                const res = await apiFetch(`/api/visits/${visitId}/send-bill-sms`, { method: 'POST' });
-                const json = await res.json();
-                alert(json.success ? '✅ ' + json.message : '❌ ' + (json.error || 'Failed to send SMS'));
-            } catch (e) { alert('SMS Error: ' + e.message); }
-        }
-
-        async function triggerReportSMS(visitId) {
-            try {
-                const res = await apiFetch(`/api/visits/${visitId}/send-report-sms`, { method: 'POST' });
-                const json = await res.json();
-                alert(json.success ? '✅ ' + json.message : '❌ ' + (json.error || 'Failed to send SMS'));
-            } catch (e) { alert('SMS Error: ' + e.message); }
         }
 
         async function printSingleInvoice(visitId) {
@@ -1873,6 +1874,22 @@
             if (document.getElementById('repCategory')) document.getElementById('repCategory').value = '';
             if (document.getElementById('repPatientSearch')) document.getElementById('repPatientSearch').value = '';
             loadReports();
+        }
+
+        async function triggerBillSMS(visitId) {
+            try {
+                const res = await apiFetch(`/api/visits/${visitId}/send-bill-sms`, { method: 'POST' });
+                const json = await res.json();
+                alert(json.success ? '✅ ' + json.message : '❌ ' + (json.error || 'Failed to send SMS'));
+            } catch (e) { alert('SMS Error: ' + e.message); }
+        }
+
+        async function triggerReportSMS(visitId) {
+            try {
+                const res = await apiFetch(`/api/visits/${visitId}/send-report-sms`, { method: 'POST' });
+                const json = await res.json();
+                alert(json.success ? '✅ ' + json.message : '❌ ' + (json.error || 'Failed to send SMS'));
+            } catch (e) { alert('SMS Error: ' + e.message); }
         }
 
         async function openEditBillModal(visitId) {
@@ -2256,58 +2273,65 @@
             const json = await res.json();
             dropdownPatientsList = json.data || [];
             const sel = document.getElementById('imagingVisitSelect');
-            sel.innerHTML = '<option value="">-- Choose Patient / Visit --</option>';
+            sel.innerHTML = '<option value="">-- Direct OPD / Choose Patient --</option>';
             dropdownPatientsList.forEach(p => {
-                sel.innerHTML += `<option value="${p.dropdown_key}">[${p.invoice_number}] ${escapeHtml(p.full_name)}</option>`;
+                sel.innerHTML += `<option value="${p.dropdown_key}">[${p.invoice_number}] ${escapeHtml(p.full_name)} (${p.age || 0} Yrs / ${p.gender || '-'})</option>`;
             });
         }
 
         function onImagingVisitSelected(dropdownKey) {
             const p = dropdownPatientsList.find(x => String(x.dropdown_key) === String(dropdownKey));
             if (p) {
-                currentSelectedVisit = p;
                 document.getElementById('fld_Pt_Name1').value = (p.full_name || '').toUpperCase();
                 document.getElementById('fld_Date1').value = new Date(p.created_at || Date.now()).toLocaleDateString('en-GB');
-                document.getElementById('fld_Age').value = p.age ? `${p.age} Years` : 'N/A';
+                document.getElementById('fld_Age').value = p.age ? `${p.age} YRS` : '';
                 document.getElementById('fld_Sex').value = (p.gender || 'F').toUpperCase().startsWith('M') ? 'MALE' : 'FEMALE';
-                document.getElementById('fld_Ref1').value = p.doctor_name || 'Direct OPD';
-                mergeFieldsIntoPreview();
+                document.getElementById('fld_Ref1').value = (p.doctor_name || 'DIRECT OPD').toUpperCase();
             }
         }
 
         function renderDesktopTemplatesList(list) {
-            const box = document.getElementById('desktopTemplatesList');
+            const box = document.getElementById('templateListContainer');
             box.innerHTML = '';
 
             if (!list || list.length === 0) {
                 box.innerHTML = `
                     <div style="padding: 20px 10px; text-align: center; color: #64748b; font-size: 0.82rem;">
-                        No templates uploaded for this centre.<br><br>
-                        Click <strong>📁 Bulk Upload Templates</strong> above to add your <code>.dot</code> / <code>.doc</code> files.
+                        No templates found.<br><br>
+                        Click <strong>➕ Add Single Template</strong> or <strong>📁 Bulk Upload (.docx)</strong> above to add templates!
                     </div>
                 `;
-                document.getElementById('desktopSelectedTmplLabel').textContent = 'No Template Selected';
-                document.getElementById('manualReportFindingsText').value = '';
-                document.getElementById('manualReportImpressionText').value = '';
+                document.getElementById('selectedTemplateBanner').textContent = 'No Template Selected';
                 return;
             }
 
             list.forEach((tmpl) => {
                 const row = document.createElement('div');
-                row.className = `cw-template-item ${currentSelectedTemplate?.fileName === tmpl.fileName ? 'selected' : ''}`;
-                row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:6px 8px; border-bottom:1px solid #edf2f7;';
+                row.className = `cw-template-item ${currentSelectedTemplate?.template_name === tmpl.template_name ? 'selected' : ''}`;
 
-                const nameSpan = document.createElement('span');
-                nameSpan.textContent = tmpl.fileName;
-                nameSpan.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; cursor:pointer; font-weight:600;';
-                nameSpan.onclick = () => selectDesktopTemplate(tmpl, row);
+                const leftInfo = document.createElement('div');
+                leftInfo.style.cssText = 'display:flex; flex-direction:column; gap:2px; flex:1; overflow:hidden; padding-right:6px;';
+                
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'tmpl-title-text';
+                titleSpan.textContent = tmpl.title || tmpl.template_name;
+                titleSpan.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+
+                const catBadge = document.createElement('span');
+                catBadge.className = 'badge-cat';
+                catBadge.textContent = tmpl.category || 'Ultrasonography';
+                catBadge.style.width = 'fit-content';
+
+                leftInfo.appendChild(titleSpan);
+                leftInfo.appendChild(catBadge);
+                row.appendChild(leftInfo);
 
                 const actionsDiv = document.createElement('div');
-                actionsDiv.style.cssText = 'display:flex; gap:6px; margin-left:6px;';
+                actionsDiv.style.cssText = 'display:flex; gap:4px; align-items:center;';
 
                 const btnEdit = document.createElement('button');
                 btnEdit.innerHTML = '✏️';
-                btnEdit.title = 'Edit Template';
+                btnEdit.title = 'Edit Title / Category';
                 btnEdit.style.cssText = 'border:none; background:transparent; cursor:pointer; font-size:0.85rem;';
                 btnEdit.onclick = (e) => { e.stopPropagation(); openEditTemplateModal(tmpl); };
 
@@ -2315,12 +2339,13 @@
                 btnDel.innerHTML = '🗑️';
                 btnDel.title = 'Delete Template';
                 btnDel.style.cssText = 'border:none; background:transparent; cursor:pointer; font-size:0.85rem; color:#dc3545;';
-                btnDel.onclick = (e) => { e.stopPropagation(); deleteTemplateByName(tmpl.fileName); };
+                btnDel.onclick = (e) => { e.stopPropagation(); deleteTemplate(tmpl.template_name); };
 
                 actionsDiv.appendChild(btnEdit);
                 actionsDiv.appendChild(btnDel);
-                row.appendChild(nameSpan);
                 row.appendChild(actionsDiv);
+
+                row.onclick = () => selectDesktopTemplate(tmpl, row);
                 box.appendChild(row);
             });
 
@@ -2333,40 +2358,57 @@
             currentSelectedTemplate = tmpl;
             document.querySelectorAll('.cw-template-item').forEach(i => i.classList.remove('selected'));
             if (el) el.classList.add('selected');
-            document.getElementById('desktopSelectedTmplLabel').textContent = tmpl.fileName;
-
-            document.getElementById('manualReportFindingsText').value = tmpl.body || '';
-            document.getElementById('manualReportImpressionText').value = tmpl.impression || '';
+            document.getElementById('selectedTemplateBanner').textContent = `✅ Ready to merge: ${tmpl.title || tmpl.template_name}`;
         }
 
-        function filterTemplatesByUI() {
-            const filterInvest = document.getElementById('chkFilterInvest')?.checked;
-            const filterView = document.getElementById('chkFilterView')?.checked;
-            const investVal = document.getElementById('tmplInvestFilter')?.value;
-            const viewVal = document.getElementById('tmplViewFilter')?.value;
-
-            let filtered = [...desktopTemplateCatalog];
-
-            if (filterInvest && investVal) {
-                filtered = filtered.filter(t => (t.category || '').toLowerCase() === investVal.toLowerCase());
-            }
-            if (filterView && viewVal) {
-                filtered = filtered.filter(t => 
-                    (t.view || '').toLowerCase() === viewVal.toLowerCase() || 
-                    (t.title || '').toLowerCase().includes(viewVal.toLowerCase()) || 
-                    (t.fileName || '').toLowerCase().includes(viewVal.toLowerCase())
-                );
-            }
-
-            renderDesktopTemplatesList(filtered);
+        // --- ADD SINGLE TEMPLATE MODAL FUNCTIONS ---
+        function openSingleTemplateModal() {
+            document.getElementById('singleTmplTitle').value = '';
+            document.getElementById('singleTmplFileInput').value = '';
+            document.getElementById('singleTemplateModal').style.display = 'flex';
         }
 
+        function closeSingleTemplateModal() {
+            document.getElementById('singleTemplateModal').style.display = 'none';
+        }
+
+        async function submitSingleTemplate() {
+            const title = document.getElementById('singleTmplTitle').value.trim();
+            const category = document.getElementById('singleTmplCategory').value;
+            const fileInput = document.getElementById('singleTmplFileInput');
+
+            if (!title) return alert('Please enter a template title.');
+            if (!fileInput.files || !fileInput.files.length) return alert('Please choose a Word template file (.docx or .doc).');
+
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('category', category);
+            formData.append('templateFile', fileInput.files[0]);
+            if (activeCentre?.id) formData.append('centreId', String(activeCentre.id));
+
+            try {
+                const res = await apiFetch('/api/imaging/templates/single', {
+                    method: 'POST',
+                    body: formData
+                });
+                const json = await res.json();
+                if (json.success) {
+                    alert(json.message);
+                    closeSingleTemplateModal();
+                    await loadTemplateCatalogFromDB();
+                } else {
+                    alert('Upload failed: ' + (json.error || 'Server error'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        // --- EDIT TEMPLATE MODAL FUNCTIONS ---
         function openEditTemplateModal(tmpl) {
-            document.getElementById('editTmplOldName').value = tmpl.fileName;
-            document.getElementById('editTmplTitle').value = tmpl.title || '';
-            document.getElementById('editTmplCategory').value = tmpl.category || 'Ultrasonography';
-            document.getElementById('editTmplBody').value = tmpl.body || '';
-            document.getElementById('editTmplImpression').value = tmpl.impression || '';
+            document.getElementById('editTmplId').value = tmpl.template_name;
+            document.getElementById('editTmplTitle').value = tmpl.title || tmpl.template_name;
+            document.getElementById('editTmplCat').value = tmpl.category || 'Ultrasonography';
             document.getElementById('editTemplateModal').style.display = 'flex';
         }
 
@@ -2374,91 +2416,115 @@
             document.getElementById('editTemplateModal').style.display = 'none';
         }
 
-        async function saveEditedTemplate() {
-            const fileName = document.getElementById('editTmplOldName').value;
-            const title = document.getElementById('editTmplTitle').value.trim();
-            const category = document.getElementById('editTmplCategory').value;
-            const templateBody = document.getElementById('editTmplBody').value;
-            const defaultImpression = document.getElementById('editTmplImpression').value;
+        async function submitEditTemplate() {
+            const tmplName = document.getElementById('editTmplId').value;
+            const newTitle = document.getElementById('editTmplTitle').value.trim();
+            const newCat = document.getElementById('editTmplCat').value;
 
-            const res = await apiFetch(`/api/imaging/templates/${encodeURIComponent(fileName)}`, {
+            if (!newTitle) return alert('Template title cannot be empty.');
+
+            const res = await apiFetch(`/api/imaging/templates/${encodeURIComponent(tmplName)}`, {
                 method: 'PUT',
-                body: JSON.stringify({ title, category, templateBody, defaultImpression })
+                body: JSON.stringify({ title: newTitle, category: newCat })
             });
             const json = await res.json();
             if (json.success) {
-                alert('Template saved!');
+                alert('Template updated!');
                 closeEditTemplateModal();
-                const item = desktopTemplateCatalog.find(t => t.fileName === fileName);
-                if (item) {
-                    item.title = title;
-                    item.category = category;
-                    item.body = templateBody;
-                    item.impression = defaultImpression;
-                    if (currentSelectedTemplate?.fileName === fileName) selectDesktopTemplate(item, null);
-                }
-                filterTemplatesByUI();
+                await loadTemplateCatalogFromDB();
             } else {
-                alert('Error: ' + json.error);
+                alert('Error updating template: ' + json.error);
             }
         }
 
-        async function deleteTemplateByName(fileName) {
-            if (!confirm(`Are you sure you want to permanently delete "${fileName}"?`)) return;
-            const res = await apiFetch(`/api/imaging/templates/${encodeURIComponent(fileName)}`, { method: 'DELETE' });
+        // --- DELETE FUNCTIONS ---
+        async function deleteTemplate(tmplName) {
+            if (!confirm(`Are you sure you want to permanently delete template "${tmplName}"?`)) return;
+            const res = await apiFetch(`/api/imaging/templates/${encodeURIComponent(tmplName)}`, { method: 'DELETE' });
             const json = await res.json();
             if (json.success) {
                 alert('Template deleted!');
-                desktopTemplateCatalog = desktopTemplateCatalog.filter(t => t.fileName !== fileName);
-                if (currentSelectedTemplate?.fileName === fileName) currentSelectedTemplate = null;
-                filterTemplatesByUI();
+                if (currentSelectedTemplate?.template_name === tmplName) currentSelectedTemplate = null;
+                await loadTemplateCatalogFromDB();
             } else {
-                alert('Error: ' + json.error);
+                alert('Error deleting template: ' + json.error);
             }
         }
 
-        function mergeFieldsIntoPreview(openPreviewDrawer = false) {
-            const ptName = (document.getElementById('fld_Pt_Name1').value || 'PATIENT NAME').toUpperCase();
+        async function deleteAllTemplates() {
+            const confirmation = prompt('⚠️ DANGER: This will permanently delete ALL templates for this centre!\n\nType "DELETE" to confirm:');
+            if (confirmation !== 'DELETE') return;
+
+            try {
+                const res = await apiFetch('/api/imaging/templates/clear-all', { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    alert(json.message);
+                    currentSelectedTemplate = null;
+                    await loadTemplateCatalogFromDB();
+                } else {
+                    alert('Failed: ' + json.error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        // --- MERGE INTO WORD ---
+        async function openReportInExternalWord() {
+            if (!currentSelectedTemplate) {
+                return alert('Please select a template from the list first.');
+            }
+
+            const ptName = (document.getElementById('fld_Pt_Name1').value || '').trim().toUpperCase();
             const dateStr = document.getElementById('fld_Date1').value || getTodayDisplayDate();
-            const age = document.getElementById('fld_Age').value || 'N/A';
+            const age = (document.getElementById('fld_Age').value || '').trim();
             const sex = (document.getElementById('fld_Sex').value || 'FEMALE').toUpperCase();
-            const refDoc = document.getElementById('fld_Ref1').value || 'Direct OPD';
-            const title = currentSelectedTemplate ? currentSelectedTemplate.title : 'DIAGNOSTIC REPORT';
+            const refDoc = (document.getElementById('fld_Ref1').value || 'DIRECT OPD').trim().toUpperCase();
+            const marginOverride = document.getElementById('repTopMarginMm').value || 55;
 
-            const findings = document.getElementById('manualReportFindingsText').value.trim();
-            const impression = document.getElementById('manualReportImpressionText').value.trim();
+            if (!ptName) return alert('Please enter or select a patient name.');
 
-            const fullReportText = `PATIENT: ${ptName} | DATE: ${dateStr} | AGE/SEX: ${age} / ${sex} | REF: ${refDoc}\n` +
-                                   `======================================================================\n` +
-                                   `[${title}]\n\n` +
-                                   `${findings}\n\n` +
-                                   `IMPRESSION :-\n${impression}\n\n` +
-                                   `DR. NIKUNJ KOTHIA\nConsultant Radiologist`;
+            try {
+                const res = await apiFetch('/api/imaging/templates/generate-doc', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        templateName: currentSelectedTemplate.template_name,
+                        patientName: ptName,
+                        date: dateStr,
+                        age: age,
+                        gender: sex,
+                        refDoctor: refDoc,
+                        marginOverrideMm: marginOverride
+                    })
+                });
 
-            const preview = document.getElementById('desktopPreviewContent');
-            if (preview) preview.textContent = fullReportText;
-            if (openPreviewDrawer) document.getElementById('liveReportPreviewDrawer').style.display = 'block';
-            return fullReportText;
-        }
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ error: 'Failed to generate Word document' }));
+                    return alert('Error: ' + (err.error || 'Server error'));
+                }
 
-        function toggleReportLivePreview() {
-            const drawer = document.getElementById('liveReportPreviewDrawer');
-            if (!drawer) return;
-            const isHidden = drawer.style.display === 'none';
-            if (isHidden) mergeFieldsIntoPreview();
-            drawer.style.display = isHidden ? 'block' : 'none';
-        }
+                const blob = await res.blob();
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                const ext = currentSelectedTemplate.template_name.endsWith('.docx') ? '.docx' : '.doc';
+                link.download = `${currentSelectedTemplate.title.replace(/[^a-zA-Z0-9]/g, '_')}_${ptName.replace(/\s+/g, '_')}${ext}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
 
-        function printReportStudio() {
-            mergeFieldsIntoPreview();
-            const drawer = document.getElementById('liveReportPreviewDrawer');
-            const isPreprinted = document.getElementById('chkPreprintedLetterhead').checked;
-            
-            if (isPreprinted) drawer.classList.add('with-55mm-margin');
-            else drawer.classList.remove('with-55mm-margin');
-            
-            drawer.style.display = 'block';
-            window.print();
+                apiFetch('/api/imaging/reports', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        visitId: null,
+                        patientId: null,
+                        templateName: currentSelectedTemplate.title,
+                        reportText: `Merged in Word with ${marginOverride}mm margin.`
+                    })
+                }).catch(() => {});
+            } catch (e) {
+                alert('Error downloading Word template: ' + e.message);
+            }
         }
 
         async function bulkDownloadCentreTemplates() {
@@ -2477,157 +2543,6 @@
                 document.body.removeChild(link);
             } catch (e) {
                 alert('Download error: ' + e.message);
-            }
-        }
-
-        async function openReportInExternalWord() {
-            if (!currentSelectedTemplate) {
-                return alert('Please select a template from the list first.');
-            }
-
-            const ptName = (document.getElementById('fld_Pt_Name1').value || '').trim().toUpperCase();
-            const dateStr = document.getElementById('fld_Date1').value || getTodayDisplayDate();
-            const age = (document.getElementById('fld_Age').value || '').trim();
-            const sex = (document.getElementById('fld_Sex').value || 'FEMALE').toUpperCase();
-            const refDoc = (document.getElementById('fld_Ref1').value || 'DIRECT OPD').trim().toUpperCase();
-            const title = (currentSelectedTemplate ? currentSelectedTemplate.title : 'SONOGRAPHY').toUpperCase();
-            const isPreprinted = document.getElementById('chkPreprintedLetterhead').checked;
-
-            try {
-                const res = await apiFetch('/api/imaging/templates/generate-doc', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        templateName: currentSelectedTemplate.fileName,
-                        patientName: ptName,
-                        date: dateStr,
-                        age: age,
-                        gender: sex,
-                        refDoctor: refDoc
-                    })
-                });
-
-                if (res.ok) {
-                    const blob = await res.blob();
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = `${currentSelectedTemplate.fileName.replace(/\.[^/.]+$/, '')}_${(ptName || 'PATIENT').replace(/\s+/g, '_')}.doc`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    recordReportHistory(title);
-                    return;
-                }
-            } catch (e) {
-                console.warn('Direct server template merge fallback to client Calibri export.');
-            }
-
-            const rawFindings = document.getElementById('manualReportFindingsText').value;
-            const rawImpression = document.getElementById('manualReportImpressionText').value;
-
-            const isObstetric = currentSelectedTemplate?.category === 'Obstetrics' || 
-                                title.includes('PREGNANCY') || 
-                                title.includes('ANOMALY') || 
-                                title.includes('OBSTETRIC') ||
-                                title.includes('TRIMESTER');
-
-            const formattedFindingsHTML = rawFindings
-                .split('\n')
-                .map(line => {
-                    const trimmed = line.trim();
-                    if (!trimmed) return '<p style="margin: 0 0 5pt 0; line-height: 1.25; font-family: Calibri, sans-serif;">&nbsp;</p>';
-                    const match = trimmed.match(/^([A-Z0-9\s&/()]+(?:\s*:-|:))\s*(.*)$/);
-                    if (match) {
-                        return `<p style="margin: 0 0 5pt 0; text-align: justify; line-height: 1.25; font-family: Calibri, sans-serif;"><b>${match[1]}</b> ${match[2]}</p>`;
-                    }
-                    return `<p style="margin: 0 0 5pt 0; text-align: justify; line-height: 1.25; font-family: Calibri, sans-serif;">${trimmed}</p>`;
-                })
-                .join('');
-
-            const formattedImpressionHTML = rawImpression.replace(/\n/g, '<br>');
-
-            const wordHTML = `
-                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-                <head>
-                    <meta charset="utf-8">
-                    <title>${title}</title>
-                    <style>
-                        @page Section1 {
-                            size: 210mm 297mm;
-                            margin: ${isPreprinted ? '55mm' : '20mm'} 15mm 15mm 15mm;
-                            mso-header-margin: 36pt;
-                            mso-footer-margin: 36pt;
-                        }
-                        div.Section1 { page: Section1; }
-                        body { font-family: Calibri, sans-serif; font-size: 11pt; color: #000; }
-                        table.patient-header { width: 100%; border-collapse: collapse; margin-bottom: 12pt; font-family: Calibri, sans-serif; font-size: 11pt; }
-                        table.patient-header td { padding: 2pt 0; vertical-align: top; }
-                        .report-title { text-align: center; font-size: 11.5pt; font-weight: bold; text-decoration: underline; margin: 10pt 0 12pt 0; font-family: Calibri, sans-serif; }
-                        .findings-section { font-family: Calibri, sans-serif; font-size: 11pt; }
-                        .impression-box { margin-top: 14pt; font-family: Calibri, sans-serif; font-size: 11pt; }
-                        .pndt-decl { margin-top: 14pt; font-size: 9.5pt; font-style: italic; border-top: 0.5pt solid #888; padding-top: 5pt; font-family: Calibri, sans-serif; }
-                        table.sign-footer { width: 100%; margin-top: 25pt; border-collapse: collapse; font-family: Calibri, sans-serif; }
-                    </style>
-                </head>
-                <body>
-                    <div class="Section1">
-                        <table class="patient-header">
-                            <tr>
-                                <td style="width: 65%;"><b>NAME :</b> ${ptName}</td>
-                                <td style="width: 35%; text-align: right;"><b>DATE :</b> ${dateStr}</td>
-                            </tr>
-                            <tr>
-                                <td><b>REF. BY DR. :</b> ${refDoc}</td>
-                                <td style="text-align: right;"><b>${age ? age + ' / ' : ''}${sex}</b></td>
-                            </tr>
-                        </table>
-                        <div class="report-title">${title}</div>
-                        <div class="findings-section">${formattedFindingsHTML}</div>
-                        <div class="impression-box">
-                            <p style="margin: 0 0 4pt 0; line-height: 1.25;"><b>IMPRESSION :-</b></p>
-                            <p style="margin: 0 0 8pt 0; font-weight: bold; line-height: 1.25;">${formattedImpressionHTML}</p>
-                        </div>
-                        ${isObstetric ? `
-                        <div class="pndt-decl">
-                            I Dr. NIKUNJ KOTHIA declare that while conducting sonography, I have neither detected nor disclosed the sex of the foetus to anybody in any manner.
-                        </div>` : ''}
-                        <table class="sign-footer">
-                            <tr>
-                                <td style="vertical-align: bottom; font-size: 10pt; font-weight: bold;">REPORT WITH COMPLIMENTS.</td>
-                                <td style="text-align: right; vertical-align: bottom;">
-                                    <b>DR. NIKUNJ KOTHIA</b><br>
-                                    <span style="font-size: 10pt;">Consultant Radiologist & Sonologist</span>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-                </body>
-                </html>
-            `;
-
-            const blob = new Blob(['\ufeff', wordHTML], { type: 'application/msword;charset=utf-8' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${ptName ? ptName.replace(/\s+/g, '_') : 'PATIENT'}.doc`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            recordReportHistory(title);
-        }
-
-        async function recordReportHistory(title) {
-            if (currentSelectedVisit?.visit_id) {
-                await apiFetch('/api/imaging/reports', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        visitId: currentSelectedVisit.visit_id,
-                        patientId: currentSelectedVisit.patient_id,
-                        templateName: title,
-                        reportText: document.getElementById('manualReportFindingsText').value,
-                        impression: document.getElementById('manualReportImpressionText').value,
-                        doctorName: 'Dr NIKUNJ KOTHIA',
-                        doctorRegNo: '2009/09/3218'
-                    })
-                });
             }
         }
 
@@ -2656,7 +2571,7 @@
             } catch (e) {
                 alert('Error uploading template files: ' + e.message);
             }
-            document.getElementById('tmplUploadFileInput').value = '';
+            document.getElementById('tmplFileInput').value = '';
         }
 
         async function loadTests() {
