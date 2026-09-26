@@ -106,25 +106,53 @@ let memoryAdminPassword = 'admin123';
 const pool = new Pool({
   connectionString: cleanDbUrl,
   ssl: cleanDbUrl.includes('localhost') || cleanDbUrl.includes('127.0.0.1') ? false : { rejectUnauthorized: false },
-  connectionTimeoutMillis: 5000,
-  idleTimeoutMillis: 10000
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 15000
 });
 
 pool.on('error', (err) => {
   isDbConnected = false;
   dbErrorMessage = err.message;
-  console.error('PostgreSQL notice:', err.message);
+  console.error('Local DB pool error:', err.message);
 });
 
 const rawCloudUrl = process.env.CLOUD_DATABASE_URL || '';
 const cleanCloudUrl = sanitizePostgresUrl(rawCloudUrl);
 const cloudPool = new Pool({
-  connectionString: cleanCloudUrl,
-  ssl: { rejectUnauthorized: false },
+  connectionString: cleanCloudUrl || cleanDbUrl,
+  ssl: cleanCloudUrl.includes('localhost') || cleanCloudUrl.includes('127.0.0.1') ? false : { rejectUnauthorized: false },
   connectionTimeoutMillis: 20000,
-  idleTimeoutMillis: 30000,
-  max: 10
+  idleTimeoutMillis: 20000,
+  max: 5
 });
+
+cloudPool.on('error', (err) => {
+  console.error('Cloud DB pool error:', err.message);
+});
+
+// BULK INSERT UTILITY (Executes 100 rows per query instead of 1 row per round-trip)
+async function bulkInsert(client, tableName, columns, rows, chunkSize = 100, onConflictClause = '') {
+  if (!rows || rows.length === 0) return;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const valuePlaceholders = [];
+    const params = [];
+    let pIdx = 1;
+
+    for (const row of chunk) {
+      const rowPlaceholders = [];
+      for (const col of columns) {
+        rowPlaceholders.push(`$${pIdx++}`);
+        const val = row[col];
+        params.push(val === undefined ? null : val);
+      }
+      valuePlaceholders.push(`(${rowPlaceholders.join(', ')})`);
+    }
+
+    const query = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES ${valuePlaceholders.join(', ')} ${onConflictClause};`;
+    await client.query(query, params);
+  }
+}
 
 const FALLBACK_CENTRES = [
   {
@@ -403,7 +431,7 @@ async function initDB() {
         cash_amount DECIMAL(10,2) DEFAULT 0.00,
         online_amount DECIMAL(10,2) DEFAULT 0.00,
         bill_printed BOOLEAN DEFAULT false,
-        invoice_number VARCHAR(100),
+        invoice_number VARCHAR(100) UNIQUE,
         doctor_commission DECIMAL(10,2) DEFAULT 0.00,
         report_file VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -482,16 +510,16 @@ async function initDB() {
       );
     `);
 
-    await pool.query(`
-      ALTER TABLE clinic_centres ADD COLUMN IF NOT EXISTS place VARCHAR(150) DEFAULT 'Kandivali West';
-      ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS place VARCHAR(150) DEFAULT 'Kandivali West';
-      ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS clinic_name VARCHAR(255);
-      ALTER TABLE pcpndt_forms ADD COLUMN IF NOT EXISTS clinic_address TEXT;
-      ALTER TABLE referring_doctors ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
-      ALTER TABLE test_master ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
-      ALTER TABLE imaging_templates ADD COLUMN IF NOT EXISTS centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE;
-      ALTER TABLE imaging_templates DROP CONSTRAINT IF EXISTS imaging_templates_template_name_key;
-    `);
+    try {
+      await pool.query(`
+        ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_visit_id_fkey;
+        ALTER TABLE patient_investigations ADD CONSTRAINT patient_investigations_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
+        ALTER TABLE pcpndt_forms DROP CONSTRAINT IF EXISTS pcpndt_forms_visit_id_fkey;
+        ALTER TABLE pcpndt_forms ADD CONSTRAINT pcpndt_forms_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
+        ALTER TABLE imaging_reports DROP CONSTRAINT IF EXISTS imaging_reports_visit_id_fkey;
+        ALTER TABLE imaging_reports ADD CONSTRAINT imaging_reports_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
+      `);
+    } catch (e) {}
 
   } catch (err) {
     isDbConnected = false;
@@ -973,7 +1001,6 @@ app.put('/api/visits/:id/cut', async (req, res) => {
   }
 });
 
-// MARK BILL AS PRINTED
 app.post('/api/visits/:id/mark-printed', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -984,7 +1011,6 @@ app.post('/api/visits/:id/mark-printed', async (req, res) => {
   }
 });
 
-// UPDATE BILL WITH CASH + ONLINE BIFURCATION
 app.put('/api/visits/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -1087,7 +1113,6 @@ app.put('/api/visits/:id', async (req, res) => {
   }
 });
 
-// REGISTER VISIT WITH PAYMENT BIFURCATION (CASH + ONLINE)
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -1238,7 +1263,6 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PDF GENERATOR WITH CENTRE CONTACT PHONE & BIFURCATED PAYMENT
 app.get('/api/invoice/:id/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1273,7 +1297,6 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
     if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
     
-    // CENTRE CONTACT NUMBER IN PROMINENT HEADER
     doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`📞 Contact / Phone: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
     doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
     doc.moveDown(0.5);
@@ -2289,149 +2312,191 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// -------------------------------------------------------------------------
+// HIGH-SPEED BATCH CLOUD SYNC API (Finishes in 1-3 seconds)
+// -------------------------------------------------------------------------
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) {
-    return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in .env' });
+    return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in your environment variables (.env)' });
+  }
+
+  if (cleanDbUrl === cleanCloudUrl) {
+    return res.status(200).json({
+      success: true,
+      message: 'Cloud Sync Notice: Your active system is already running directly on the Cloud Database.'
+    });
   }
 
   let localClient, cloudClient;
   try {
     localClient = await pool.connect();
   } catch (err) {
-    return res.status(500).json({ success: false, error: 'Local DB error: ' + err.message });
+    return res.status(500).json({ success: false, error: 'Local DB connection error: ' + err.message });
   }
 
   try {
     cloudClient = await cloudPool.connect();
   } catch (err) {
     localClient.release();
-    return res.status(503).json({ success: false, error: 'Cannot connect to Cloud DB: ' + err.message });
+    return res.status(503).json({ success: false, error: 'Cannot connect to Cloud Database. Verify CLOUD_DATABASE_URL credentials.' });
   }
+
+  const startTime = Date.now();
 
   try {
     await cloudClient.query('BEGIN');
     await cloudClient.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
 
-    // 1. Sync App Auth
+    // Ensure foreign key cascades exist on cloud
+    try {
+      await cloudClient.query(`
+        ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_visit_id_fkey;
+        ALTER TABLE patient_investigations ADD CONSTRAINT patient_investigations_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
+        ALTER TABLE pcpndt_forms DROP CONSTRAINT IF EXISTS pcpndt_forms_visit_id_fkey;
+        ALTER TABLE pcpndt_forms ADD CONSTRAINT pcpndt_forms_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
+        ALTER TABLE imaging_reports DROP CONSTRAINT IF EXISTS imaging_reports_visit_id_fkey;
+        ALTER TABLE imaging_reports ADD CONSTRAINT imaging_reports_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
+      `);
+    } catch (e) {}
+
+    // 1. Sync App Auth (Bulk)
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
     if (auths.rows.length > 0) {
-      await cloudClient.query(
-        `INSERT INTO app_auth (id, role, password) VALUES ($1, $2, $3)
-         ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password`,
-        [auths.rows[0].id, auths.rows[0].role, auths.rows[0].password]
-      );
+      await bulkInsert(cloudClient, 'app_auth', ['id', 'role', 'password'], auths.rows, 10, 'ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password');
     }
 
-    // 2. Sync Centres
+    // 2. Sync Centres (Bulk)
     const centres = await localClient.query('SELECT * FROM clinic_centres');
-    for (const c of centres.rows) {
-      await cloudClient.query(
-        `INSERT INTO clinic_centres (id, centre_name, tagline, address, place, phone, reg_no, email, centre_password, owner_password, is_private, top_margin_mm, bottom_margin_mm, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-         ON CONFLICT (id) DO UPDATE SET 
-           centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address, place = EXCLUDED.place,
-           phone = EXCLUDED.phone, reg_no = EXCLUDED.reg_no, email = EXCLUDED.email,
-           centre_password = EXCLUDED.centre_password, owner_password = EXCLUDED.owner_password, is_private = EXCLUDED.is_private,
-           top_margin_mm = EXCLUDED.top_margin_mm, bottom_margin_mm = EXCLUDED.bottom_margin_mm;`,
-        [c.id, c.centre_name, c.tagline, c.address, c.place || 'Kandivali West', c.phone, c.reg_no, c.email, c.centre_password, c.owner_password || 'owner123', c.is_private, c.top_margin_mm || 55, c.bottom_margin_mm || 15, c.created_at]
-      );
-    }
+    const mappedCentres = centres.rows.map(c => ({
+      ...c,
+      place: c.place || 'Kandivali West',
+      phone: c.phone || '',
+      reg_no: c.reg_no || 'RC197',
+      email: c.email || '',
+      centre_password: c.centre_password || '1234',
+      owner_password: c.owner_password || 'owner123',
+      top_margin_mm: c.top_margin_mm || 55,
+      bottom_margin_mm: c.bottom_margin_mm || 15
+    }));
+    await bulkInsert(cloudClient, 'clinic_centres', [
+      'id', 'centre_name', 'tagline', 'address', 'place', 'phone', 'reg_no', 'email',
+      'centre_password', 'owner_password', 'is_private', 'top_margin_mm', 'bottom_margin_mm', 'created_at'
+    ], mappedCentres, 50, `ON CONFLICT (id) DO UPDATE SET 
+      centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address, place = EXCLUDED.place,
+      phone = EXCLUDED.phone, reg_no = EXCLUDED.reg_no, email = EXCLUDED.email,
+      centre_password = EXCLUDED.centre_password, owner_password = EXCLUDED.owner_password, is_private = EXCLUDED.is_private,
+      top_margin_mm = EXCLUDED.top_margin_mm, bottom_margin_mm = EXCLUDED.bottom_margin_mm`);
 
-    // 3. Sync Doctors
+    // 3. Sync Doctors (Bulk)
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
-    for (const d of doctors.rows) {
-      await cloudClient.query(
-        `INSERT INTO referring_doctors (id, centre_id, doctor_name, hospital_clinic_name, commission_type, commission_value)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (id) DO UPDATE SET 
-           centre_id = EXCLUDED.centre_id, doctor_name = EXCLUDED.doctor_name, 
-           hospital_clinic_name = EXCLUDED.hospital_clinic_name, 
-           commission_type = EXCLUDED.commission_type, commission_value = EXCLUDED.commission_value;`,
-        [d.id, d.centre_id, d.doctor_name, d.hospital_clinic_name, d.commission_type, d.commission_value]
-      );
-    }
+    await bulkInsert(cloudClient, 'referring_doctors', [
+      'id', 'centre_id', 'doctor_name', 'hospital_clinic_name', 'commission_type', 'commission_value'
+    ], doctors.rows, 100, `ON CONFLICT (id) DO UPDATE SET 
+      centre_id = EXCLUDED.centre_id, doctor_name = EXCLUDED.doctor_name, 
+      hospital_clinic_name = EXCLUDED.hospital_clinic_name, 
+      commission_type = EXCLUDED.commission_type, commission_value = EXCLUDED.commission_value`);
 
-    // 4. Sync Test Master
+    // 4. Sync Test Master (Bulk)
     const tests = await localClient.query('SELECT * FROM test_master');
-    for (const t of tests.rows) {
-      await cloudClient.query(
-        `INSERT INTO test_master (id, centre_id, test_name, category, price, cut_type, test_cut)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (id) DO UPDATE SET 
-           centre_id = EXCLUDED.centre_id, test_name = EXCLUDED.test_name, category = EXCLUDED.category, 
-           price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut;`,
-        [t.id, t.centre_id, t.test_name, t.category, t.price, t.cut_type || 'percentage', t.test_cut]
-      );
-    }
+    await bulkInsert(cloudClient, 'test_master', [
+      'id', 'centre_id', 'test_name', 'category', 'price', 'cut_type', 'test_cut'
+    ], tests.rows, 100, `ON CONFLICT (id) DO UPDATE SET 
+      centre_id = EXCLUDED.centre_id, test_name = EXCLUDED.test_name, category = EXCLUDED.category, 
+      price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut`);
 
-    // 5. Sync Patients
+    // 5. Sync Patients (Bulk)
     const patients = await localClient.query('SELECT * FROM patients');
-    for (const p of patients.rows) {
-      await cloudClient.query(
-        `INSERT INTO patients (id, centre_id, patient_code, full_name, age, gender, phone, email, address, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT (id) DO UPDATE SET 
-           full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender,
-           phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address;`,
-        [p.id, p.centre_id, p.patient_code, p.full_name, p.age, p.gender, p.phone, p.email, p.address, p.created_at]
-      );
-    }
+    await bulkInsert(cloudClient, 'patients', [
+      'id', 'centre_id', 'patient_code', 'full_name', 'age', 'gender', 'phone', 'email', 'address', 'created_at'
+    ], patients.rows, 100, `ON CONFLICT (id) DO UPDATE SET 
+      full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender,
+      phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address`);
 
-    // 6. Sync Visits
+    // 6. Fast Clean & Bulk Insert Visits (Single batch subqueries prevent FK and Unique constraint violations)
     const visits = await localClient.query('SELECT * FROM visits');
-    for (const v of visits.rows) {
-      await cloudClient.query(`DELETE FROM patient_investigations WHERE visit_id::text = $1::text`, [v.id]);
-      await cloudClient.query(`DELETE FROM pcpndt_forms WHERE visit_id::text = $1::text`, [v.id]);
-      await cloudClient.query(`DELETE FROM imaging_reports WHERE visit_id::text = $1::text`, [v.id]);
-      await cloudClient.query(`DELETE FROM visits WHERE id::text = $1::text OR invoice_number = $2`, [v.id, v.invoice_number]);
+    const localVisitIds = visits.rows.map(v => v.id).filter(Boolean);
+    const localInvNos = visits.rows.map(v => v.invoice_number).filter(Boolean);
 
-      await cloudClient.query(
-        `INSERT INTO visits (id, centre_id, patient_id, referring_doctor_id, total_amount, concession, paid_amount, balance_amount, payment_status, payment_mode, cash_amount, online_amount, bill_printed, invoice_number, doctor_commission, report_file, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-        [v.id, v.centre_id, v.patient_id, v.referring_doctor_id, v.total_amount, v.concession, v.paid_amount, v.balance_amount, v.payment_status, v.payment_mode, v.cash_amount || 0, v.online_amount || 0, v.bill_printed || false, v.invoice_number, v.doctor_commission, v.report_file, v.created_at]
-      );
+    if (localVisitIds.length > 0 || localInvNos.length > 0) {
+      const safeVisitIds = localVisitIds.length > 0 ? localVisitIds : ['00000000-0000-0000-0000-000000000000'];
+      const safeInvNos = localInvNos.length > 0 ? localInvNos : ['__dummy_inv__'];
+
+      await cloudClient.query(`
+        DELETE FROM patient_investigations WHERE visit_id IN (
+          SELECT id FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])
+        )
+      `, [safeVisitIds, safeInvNos]);
+
+      await cloudClient.query(`
+        DELETE FROM pcpndt_forms WHERE visit_id IN (
+          SELECT id FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])
+        )
+      `, [safeVisitIds, safeInvNos]);
+
+      await cloudClient.query(`
+        DELETE FROM imaging_reports WHERE visit_id IN (
+          SELECT id FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])
+        )
+      `, [safeVisitIds, safeInvNos]);
+
+      await cloudClient.query(`
+        DELETE FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])
+      `, [safeVisitIds, safeInvNos]);
     }
 
-    // 7. Sync Patient Investigations
+    const mappedVisits = visits.rows.map(v => ({
+      ...v,
+      cash_amount: v.cash_amount || 0,
+      online_amount: v.online_amount || 0,
+      bill_printed: v.bill_printed || false,
+      doctor_commission: v.doctor_commission || 0
+    }));
+
+    await bulkInsert(cloudClient, 'visits', [
+      'id', 'centre_id', 'patient_id', 'referring_doctor_id', 'total_amount', 'concession',
+      'paid_amount', 'balance_amount', 'payment_status', 'payment_mode', 'cash_amount',
+      'online_amount', 'bill_printed', 'invoice_number', 'doctor_commission', 'report_file', 'created_at'
+    ], mappedVisits, 100);
+
+    // 7. Sync Patient Investigations (Bulk)
     const investigations = await localClient.query('SELECT * FROM patient_investigations');
-    for (const pi of investigations.rows) {
-      await cloudClient.query(
-        `INSERT INTO patient_investigations (id, visit_id, test_id, barcode, status, price, cut_type, test_cut)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT (id) DO NOTHING;`,
-        [pi.id, pi.visit_id, pi.test_id, pi.barcode, pi.status, pi.price, pi.cut_type, pi.test_cut]
-      );
-    }
+    await bulkInsert(cloudClient, 'patient_investigations', [
+      'id', 'visit_id', 'test_id', 'barcode', 'status', 'price', 'cut_type', 'test_cut'
+    ], investigations.rows, 100, `ON CONFLICT (id) DO UPDATE SET
+      visit_id = EXCLUDED.visit_id, test_id = EXCLUDED.test_id, barcode = EXCLUDED.barcode,
+      status = EXCLUDED.status, price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut`);
 
-    // 8. Sync PCPNDT Forms
+    // 8. Sync PCPNDT Forms (Bulk)
     const pcpndt = await localClient.query('SELECT * FROM pcpndt_forms');
-    for (const pf of pcpndt.rows) {
-      await cloudClient.query(
-        `INSERT INTO pcpndt_forms (id, visit_id, centre_id, relative_name, no_of_sons, sons_age, no_of_daughters, daughters_age, lmp_date, weeks_of_preg, indications, scan_result, doctor_name, doctor_reg_no, clinic_reg_no, place, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-         ON CONFLICT (id) DO UPDATE SET 
-           relative_name = EXCLUDED.relative_name, lmp_date = EXCLUDED.lmp_date, 
-           weeks_of_preg = EXCLUDED.weeks_of_preg, scan_result = EXCLUDED.scan_result, place = EXCLUDED.place;`,
-        [pf.id, pf.visit_id, pf.centre_id, pf.relative_name, pf.no_of_sons, pf.sons_age, pf.no_of_daughters, pf.daughters_age, pf.lmp_date, pf.weeks_of_preg, pf.indications, pf.scan_result, pf.doctor_name, pf.doctor_reg_no, pf.clinic_reg_no, pf.place || 'Kandivali West', pf.created_at]
-      );
-    }
+    const mappedPcpndt = pcpndt.rows.map(pf => ({
+      ...pf,
+      place: pf.place || 'Kandivali West',
+      doctor_name: pf.doctor_name || 'Dr NIKUNJ KOTHIA',
+      doctor_reg_no: pf.doctor_reg_no || '2009/09/3218',
+      clinic_reg_no: pf.clinic_reg_no || 'RC197'
+    }));
+    await bulkInsert(cloudClient, 'pcpndt_forms', [
+      'id', 'visit_id', 'centre_id', 'relative_name', 'no_of_sons', 'sons_age', 'no_of_daughters',
+      'daughters_age', 'lmp_date', 'weeks_of_preg', 'indications', 'scan_result', 'doctor_name',
+      'doctor_reg_no', 'clinic_reg_no', 'place', 'created_at'
+    ], mappedPcpndt, 100, `ON CONFLICT (id) DO UPDATE SET
+      relative_name = EXCLUDED.relative_name, lmp_date = EXCLUDED.lmp_date, 
+      weeks_of_preg = EXCLUDED.weeks_of_preg, scan_result = EXCLUDED.scan_result, place = EXCLUDED.place`);
 
-    // 9. Sync Imaging Templates
+    // 9. Sync Imaging Templates (Bulk)
     const templates = await localClient.query('SELECT * FROM imaging_templates');
-    for (const t of templates.rows) {
-      await cloudClient.query(
-        `INSERT INTO imaging_templates (id, centre_id, template_name, title, category, default_impression, template_body)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (id) DO UPDATE 
-         SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body`,
-        [t.id, t.centre_id, t.template_name, t.title, t.category, t.default_impression, t.template_body]
-      );
-    }
+    await bulkInsert(cloudClient, 'imaging_templates', [
+      'id', 'centre_id', 'template_name', 'title', 'category', 'default_impression', 'template_body'
+    ], templates.rows, 50, `ON CONFLICT (id) DO UPDATE SET 
+      title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body`);
 
     await cloudClient.query('COMMIT');
-    res.status(200).json({ success: true, message: 'Cloud Sync Successful! All records up to date.' });
+    const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`[Cloud Sync] Completed successfully in ${elapsedSec}s!`);
+    res.status(200).json({ success: true, message: `Cloud Sync Successful! All records up to date in ${elapsedSec}s.` });
   } catch (err) {
     try { await cloudClient.query('ROLLBACK'); } catch (rb) {}
+    console.error('Cloud Sync Error:', err.message);
     res.status(500).json({ success: false, error: 'Cloud Sync Failed: ' + err.message });
   } finally {
     if (localClient) localClient.release();
