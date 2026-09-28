@@ -130,7 +130,7 @@ cloudPool.on('error', (err) => {
   console.error('Cloud DB pool error:', err.message);
 });
 
-// BULK INSERT UTILITY (Executes 100 rows per query instead of 1 row per round-trip)
+// High-speed multi-row insert batcher
 async function bulkInsert(client, tableName, columns, rows, chunkSize = 100, onConflictClause = '') {
   if (!rows || rows.length === 0) return;
   for (let i = 0; i < rows.length; i += chunkSize) {
@@ -1263,6 +1263,7 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// PDF INVOICE GENERATOR
 app.get('/api/invoice/:id/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1370,6 +1371,214 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     doc.end();
   } catch (err) {
     res.status(500).send('Error generating PDF: ' + err.message);
+  }
+});
+
+// ----------------------------------------------------
+// CLINICAL REPORT STUDIO & PDF GENERATION APIS
+// ----------------------------------------------------
+
+// 1. Fetch Report Data & Templates for Visit
+app.get('/api/imaging/report-data/:visitId', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.visitId);
+    if (!validId) return res.status(400).json({ success: false, error: 'Invalid Visit ID' });
+
+    const visitRes = await pool.query(
+      `SELECT v.*, p.full_name, p.age, p.gender, p.phone, p.patient_code,
+              d.doctor_name as ref_doctor, c.centre_name, c.phone as centre_phone
+       FROM visits v
+       JOIN patients p ON v.patient_id = p.id
+       LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
+       LEFT JOIN clinic_centres c ON v.centre_id = c.id
+       WHERE v.id::text = $1::text`,
+      [validId]
+    );
+    if (visitRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Visit not found' });
+
+    const invRes = await pool.query(
+      `SELECT tm.test_name, tm.category FROM patient_investigations pi
+       LEFT JOIN test_master tm ON pi.test_id = tm.id WHERE pi.visit_id::text = $1::text`,
+      [validId]
+    );
+
+    const repRes = await pool.query(
+      `SELECT * FROM imaging_reports WHERE visit_id::text = $1::text ORDER BY created_at DESC LIMIT 1`,
+      [validId]
+    );
+
+    const tmplRes = await pool.query(
+      `SELECT id, title, template_name, category, default_impression, template_body FROM imaging_templates ORDER BY title ASC`
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        visit: visitRes.rows[0],
+        investigations: invRes.rows,
+        existingReport: repRes.rows[0] || null,
+        templates: tmplRes.rows || []
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. Save Clinical Report Manually
+app.post('/api/imaging/report-save', async (req, res) => {
+  try {
+    const { visitId, reportTitle, reportText, impression, doctorName, doctorRegNo } = req.body;
+    const validVisitId = getCleanId(visitId);
+    if (!validVisitId) return res.status(400).json({ success: false, error: 'Visit ID is required.' });
+
+    const vRes = await pool.query('SELECT patient_id, centre_id FROM visits WHERE id::text = $1::text', [validVisitId]);
+    if (vRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Visit record not found.' });
+
+    const { patient_id, centre_id } = vRes.rows[0];
+    const existing = await pool.query('SELECT id FROM imaging_reports WHERE visit_id::text = $1::text', [validVisitId]);
+    let result;
+
+    if (existing.rows.length > 0) {
+      result = await pool.query(
+        `UPDATE imaging_reports
+         SET template_name = $1, report_text = $2, impression = $3, doctor_name = $4, 
+             doctor_reg_no = $5, created_at = CURRENT_TIMESTAMP
+         WHERE visit_id::text = $6::text RETURNING *`,
+        [
+          reportTitle || 'Diagnostic Study',
+          reportText || '',
+          impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.',
+          doctorName || 'Dr NIKUNJ KOTHIA',
+          doctorRegNo || '2009/09/3218',
+          validVisitId
+        ]
+      );
+    } else {
+      result = await pool.query(
+        `INSERT INTO imaging_reports 
+           (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [
+          validVisitId,
+          patient_id,
+          centre_id,
+          reportTitle || 'Diagnostic Study',
+          reportText || '',
+          impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.',
+          doctorName || 'Dr NIKUNJ KOTHIA',
+          doctorRegNo || '2009/09/3218'
+        ]
+      );
+    }
+
+    res.status(200).json({ success: true, message: 'Report saved successfully!', data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. Generate Diagnostic Report PDF (With or Without Letterhead)
+app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.visitId);
+    const withLetterhead = req.query.letterhead !== 'false';
+
+    const visitRes = await pool.query(
+      `SELECT v.*, p.full_name, p.age, p.gender, p.phone, p.patient_code,
+              d.doctor_name as ref_doctor, c.centre_name, c.tagline as centre_tagline, 
+              c.address as centre_address, c.place as centre_place, c.phone as centre_phone, 
+              c.reg_no as centre_reg_no, c.top_margin_mm
+       FROM visits v
+       JOIN patients p ON v.patient_id = p.id
+       LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
+       LEFT JOIN clinic_centres c ON v.centre_id = c.id
+       WHERE v.id::text = $1::text`,
+      [validId]
+    );
+    if (visitRes.rows.length === 0) return res.status(404).send('Visit not found');
+    const v = visitRes.rows[0];
+
+    const repRes = await pool.query(
+      `SELECT * FROM imaging_reports WHERE visit_id::text = $1::text ORDER BY created_at DESC LIMIT 1`,
+      [validId]
+    );
+    const rep = repRes.rows[0] || {
+      template_name: 'DIAGNOSTIC ULTRASONOGRAPHY REPORT',
+      report_text: 'Study completed within normal parameters.',
+      impression: 'NO SIGNIFICANT ABNORMALITY DETECTED.',
+      doctor_name: 'Dr NIKUNJ KOTHIA',
+      doctor_reg_no: '2009/09/3218'
+    };
+
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const filename = `Report_${v.invoice_number || 'REP'}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    doc.pipe(res);
+
+    if (withLetterhead) {
+      doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
+      if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
+      doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`📞 Contact / Phone: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
+      doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
+      doc.moveDown(0.4);
+      doc.strokeColor('#cccccc').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+      doc.moveDown(0.8);
+    } else {
+      // Offset margin for pre-printed letterhead paper
+      const topPts = Math.max(40, Math.round((v.top_margin_mm || 55) * 2.83465));
+      doc.y = topPts;
+    }
+
+    // Patient Information Block
+    const metaBoxY = doc.y;
+    doc.rect(40, metaBoxY, 515, 45).fillAndStroke('#f8fafc', '#cbd5e1');
+    doc.fontSize(8.5).fillColor('#000000');
+
+    doc.font('Helvetica-Bold').text('Patient Name: ', 50, metaBoxY + 8, { continued: true })
+       .font('Helvetica').text(v.full_name.toUpperCase());
+    doc.font('Helvetica-Bold').text('Age / Sex: ', 50, metaBoxY + 24, { continued: true })
+       .font('Helvetica').text(`${v.age || 0} YRS / ${(v.gender || 'FEMALE').toUpperCase()}`);
+
+    doc.font('Helvetica-Bold').text('Date: ', 330, metaBoxY + 8, { continued: true })
+       .font('Helvetica').text(new Date(v.created_at).toLocaleDateString('en-GB'));
+    doc.font('Helvetica-Bold').text('Ref. Doctor: ', 330, metaBoxY + 24, { continued: true })
+       .font('Helvetica').text((v.ref_doctor || 'DIRECT OPD').toUpperCase());
+
+    doc.y = metaBoxY + 55;
+
+    // Study Title
+    const title = (rep.template_name || 'DIAGNOSTIC IMAGING REPORT').toUpperCase();
+    doc.fontSize(11).font('Helvetica-Bold').fillColor('#19486a').text(title, { align: 'center', underline: true });
+    doc.moveDown(0.8);
+
+    // Findings Section
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('FINDINGS:');
+    doc.moveDown(0.3);
+    doc.fontSize(9).font('Helvetica').fillColor('#111827').text(rep.report_text || 'No significant findings recorded.', {
+      lineGap: 3,
+      align: 'justify'
+    });
+    doc.moveDown(1.2);
+
+    // Impression Box
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('IMPRESSION:');
+    doc.moveDown(0.3);
+    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text(rep.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.', {
+      lineGap: 2
+    });
+
+    // Doctor Signature Stamp
+    doc.moveDown(2.5);
+    const signY = doc.y;
+    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#000000').text(rep.doctor_name || 'Dr NIKUNJ KOTHIA', 330, signY, { align: 'right' });
+    doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`Consultant Radiologist / Reg: ${rep.doctor_reg_no || '2009/09/3218'}`, 330, doc.y + 2, { align: 'right' });
+
+    doc.end();
+  } catch (err) {
+    res.status(500).send('Error generating Report PDF: ' + err.message);
   }
 });
 
@@ -2487,8 +2696,8 @@ app.post('/api/sync/cloud', async (req, res) => {
     const templates = await localClient.query('SELECT * FROM imaging_templates');
     await bulkInsert(cloudClient, 'imaging_templates', [
       'id', 'centre_id', 'template_name', 'title', 'category', 'default_impression', 'template_body'
-    ], templates.rows, 50, `ON CONFLICT (id) DO UPDATE SET 
-      title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body`);
+    ], templates.rows, 50, `ON CONFLICT (id) DO UPDATE 
+      SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body`);
 
     await cloudClient.query('COMMIT');
     const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(2);

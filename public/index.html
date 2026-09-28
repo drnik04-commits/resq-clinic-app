@@ -531,7 +531,7 @@
                             <th>Balance</th>
                             <th>Doctor Cut</th>
                             <th>Status</th>
-                            <th style="width: 480px;">Actions</th>
+                            <th style="width: 540px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="reportsTableBody"></tbody>
@@ -779,7 +779,7 @@
     <div id="patientBillsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3 id="patientBillsTitle">Bills History</h3><button type="button" onclick="closePatientBillsModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button></div>
-            <table><thead><tr><th>Invoice No</th><th>Date</th><th>Centre</th><th>Total</th><th>Paid</th><th>Balance</th><th style="width: 260px;">Actions</th></tr></thead><tbody id="patientBillsTableBody"></tbody></table>
+            <table><thead><tr><th>Invoice No</th><th>Date</th><th>Centre</th><th>Total</th><th>Paid</th><th>Balance</th><th style="width: 320px;">Actions</th></tr></thead><tbody id="patientBillsTableBody"></tbody></table>
             <button type="button" class="btn-act btn-act-del" style="margin-top: 14px;" onclick="closePatientBillsModal()">Close</button>
         </div>
     </div>
@@ -917,6 +917,60 @@
                     </div>
                     <button type="button" class="btn-complete-reg" style="margin-top: 10px; background: #ea580c; max-width: 250px;" onclick="changeMasterAdminPassword()">Update Admin Password</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CLINICAL REPORT STUDIO (MANUAL ENTRY, TEMPLATE FILL & DUAL PDF) -->
+    <div id="clinicalReportModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>📝 Diagnostic Report Studio</h3>
+                <button type="button" onclick="closeClinicalReportModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+            </div>
+
+            <div style="background:#f1f5f9; padding:8px 12px; border-radius:4px; font-weight:bold; color:#1e3a8a; margin-bottom:12px; font-size:0.9rem;" id="repModalPatHeader">
+                Loading Patient...
+            </div>
+
+            <div class="form-grid" style="margin-bottom:12px;">
+                <div class="form-group">
+                    <label>Study / Investigation Heading:</label>
+                    <input type="text" id="repModalTitle" style="font-weight:bold; color:#1e40af;">
+                </div>
+                <div class="form-group">
+                    <label>Quick Autofill from Template:</label>
+                    <select id="repModalTmplSelect" onchange="onReportModalTemplateChanged(this.value)"></select>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-weight:bold; color:#1e3a8a;">Findings:</label>
+                <textarea id="repModalFindings" rows="10" style="width:100%; padding:8px; border:1.5px solid #cbd5e1; border-radius:4px; font-family:inherit;"></textarea>
+            </div>
+
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-weight:bold; color:#1e3a8a;">Impression:</label>
+                <textarea id="repModalImpression" rows="3" style="width:100%; padding:8px; border:1.5px solid #cbd5e1; border-radius:4px; font-weight:bold; font-family:inherit;"></textarea>
+            </div>
+
+            <div class="form-grid" style="margin-bottom:14px;">
+                <div class="form-group">
+                    <label>Doctor Name:</label>
+                    <input type="text" id="repModalDoctor" value="Dr NIKUNJ KOTHIA">
+                </div>
+                <div class="form-group">
+                    <label>Registration Number:</label>
+                    <input type="text" id="repModalRegNo" value="2009/09/3218">
+                </div>
+            </div>
+
+            <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid #e2e8f0; padding-top:12px;">
+                <button type="button" class="btn-complete-reg" onclick="saveManualClinicalReport()" style="flex:1;">💾 Save Report</button>
+                <button type="button" class="btn-act" style="background:#0284c7; color:white; padding:10px 14px;" onclick="viewReportPdf(true)">📄 PDF (With Letterhead)</button>
+                <button type="button" class="btn-act" style="background:#475569; color:white; padding:10px 14px;" onclick="viewReportPdf(false)">🖨️ PDF (Without Letterhead)</button>
+                <button type="button" class="btn-act btn-act-wa" style="padding:10px 14px;" onclick="sendReportWhatsAppFromModal(true)">📱 WhatsApp (With Letterhead)</button>
+                <button type="button" class="btn-act btn-act-wa" style="background:#059669; padding:10px 14px;" onclick="sendReportWhatsAppFromModal(false)">📱 WhatsApp (Plain)</button>
             </div>
         </div>
     </div>
@@ -1067,6 +1121,8 @@
         let activeCentre = FALLBACK_CENTRES_CLIENT[0], currentSelectedTemplate = null, dropdownPatientsList = [];
         let isSuperAdmin = false, isCentreOwner = false, currentUserRole = 'branch_staff', activeEditingBillTests = [];
         let desktopTemplateCatalog = [];
+        let activeReportVisitId = null;
+        let cachedReportData = null;
 
         function escapeHtml(str) { return str ? String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;') : ''; }
 
@@ -1085,58 +1141,43 @@
             return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
         }
 
-        // DEFAULT DATES APPLIED UNIVERSALLY ON LOAD & SEARCH FILTERS
+        // Resolves localhost to your live Render public URL so WhatsApp links work on all mobile devices
+        function getPublicAppUrl() {
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                return 'https://resq-clinic-app.onrender.com';
+            }
+            return window.location.origin;
+        }
+
         function applyDefaultDatesEverywhere() {
             const todayIso = getTodayIsoDate();
             const todayMonth = getTodayMonthIso();
             const todayDisplay = getTodayDisplayDate();
 
-            // 1. Search & Filter Date Inputs (Daily Collection, Doctor Business, Daily Audit)
-            const searchDateInputs = [
-                'repStartDate',
-                'repEndDate',
-                'busStartDate',
-                'busEndDate',
-                'auditDateInput'
-            ];
+            const searchDateInputs = ['repStartDate', 'repEndDate', 'busStartDate', 'busEndDate', 'auditDateInput'];
             searchDateInputs.forEach(id => {
                 const el = document.getElementById(id);
                 if (el && !el.value) el.value = todayIso;
             });
 
-            // 2. Search & Filter Month Inputs
             const searchMonthInputs = ['repMonth', 'busMonth'];
             searchMonthInputs.forEach(id => {
                 const el = document.getElementById(id);
                 if (el && !el.value) el.value = todayMonth;
             });
 
-            // 3. Clinical & Registration Date Fields
-            const clinicalDateInputs = [
-                'pcpndtLMP',
-                'editPcpndtLmp',
-                'editPatPcpndtLmp'
-            ];
+            const clinicalDateInputs = ['pcpndtLMP', 'editPcpndtLmp', 'editPatPcpndtLmp'];
             clinicalDateInputs.forEach(id => {
                 const el = document.getElementById(id);
                 if (el && !el.value) el.value = todayIso;
             });
 
-            // 4. Imaging Merged Study Date
             const fldDate = document.getElementById('fld_Date1');
             if (fldDate && (!fldDate.value || fldDate.value === '')) {
                 fldDate.value = todayDisplay;
             }
 
-            // 5. Printable Invoices and Form F Date Spans
-            const spanDateIds = [
-                'prtDate',
-                'docDeclDate',
-                'docProcDate',
-                'docConveyDate',
-                'docSignDate',
-                'docSignDate2'
-            ];
+            const spanDateIds = ['prtDate', 'docDeclDate', 'docProcDate', 'docConveyDate', 'docSignDate', 'docSignDate2'];
             spanDateIds.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = todayDisplay;
@@ -1741,7 +1782,6 @@
             calculateFinancialTotals();
         }
 
-        // PAYMENT MODE & SPLIT PAYMENT HANDLERS
         function onPaymentModeChange(mode) {
             const isSplit = mode === 'Split';
             document.getElementById('singlePaidGroup').style.display = isSplit ? 'none' : 'block';
@@ -1870,7 +1910,6 @@
             } else { alert('Error: ' + json.error); }
         }
 
-        // PRINT INVOICE WITH LIVE PHONE NUMBER & MARK PRINTED
         async function markBillAsPrinted(visitId) {
             try {
                 await apiFetch(`/api/visits/${visitId}/mark-printed`, { method: 'POST' });
@@ -1967,15 +2006,33 @@
             printEl.classList.remove('print-active');
         }
 
+        // WhatsApp Bill Generator (Uses public URL with clean spacing for active link preview)
         async function shareWhatsAppInvoice(phone, patName, invNo, net, bal, centreName, visitId) {
             if (!phone) return alert('Mobile number missing for this patient.');
             const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
-            const pdfUrl = `${window.location.origin}/api/invoice/${visitId}/pdf`;
-            const msg = `Dear *${patName}*,\nThank you for visiting *${centreName || 'RESQ Diagnostics'}*.\n\n` +
+            const publicBase = getPublicAppUrl();
+            const pdfUrl = `${publicBase}/api/invoice/${visitId}/pdf`;
+            const msg = `Dear *${patName}*,\n` +
+                        `Thank you for visiting *${centreName || 'RESQ Diagnostics'}*.\n\n` +
                         `📋 *Invoice No:* ${invNo}\n` +
                         `💵 *Net Amount:* ₹${net}\n` +
                         `⏳ *Balance Due:* ₹${bal}\n\n` +
-                        `📄 *View / Download Your Official PDF Invoice:* \n${pdfUrl}`;
+                        `📄 *View / Download Your Official PDF Invoice:*\n` +
+                        `${pdfUrl}`;
+            window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        // WhatsApp Diagnostic Report Generator
+        async function shareWhatsAppReport(phone, patName, invNo, centreName, visitId, withLetterhead = true) {
+            if (!phone) return alert('Mobile number missing for this patient.');
+            const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
+            const publicBase = getPublicAppUrl();
+            const pdfUrl = `${publicBase}/api/imaging/report/${visitId}/pdf?letterhead=${withLetterhead}`;
+            const msg = `Dear *${patName}*,\n` +
+                        `Your diagnostic report from *${centreName || 'RESQ Diagnostics'}* is ready.\n\n` +
+                        `📋 *Invoice No:* ${invNo}\n\n` +
+                        `📄 *View / Download Your Official PDF Report:*\n` +
+                        `${pdfUrl}`;
             window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
@@ -2064,15 +2121,12 @@
                             <td>${v.payment_status === 'Paid' ? '<span style="color:#2e7d32;font-weight:bold;">Paid</span>' : '<span style="color:#c62828;font-weight:bold;">Pending</span>'}</td>
                             <td>
                                 ${getBillPrintBtnHtml(v.visit_id, v.bill_printed)}
-                                <a href="/api/invoice/${v.visit_id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 PDF</a>
-                                <button type="button" class="btn-act" style="background:#0284c7; color:white;" onclick="triggerBillSMS('${v.visit_id}')">📲 Bill SMS</button>
-                                ${isPaidFull 
-                                    ? `<button type="button" class="btn-act" style="background:#059669; color:white;" onclick="triggerReportSMS('${v.visit_id}')">📋 Report SMS</button>` 
-                                    : `<button type="button" class="btn-act" style="background:#94a3b8; color:white; cursor:not-allowed;" title="Payment Pending" disabled>🔒 Report Locked</button>`}
-                                <button type="button" class="btn-act btn-act-wa" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}', '${v.visit_id}')">📱 WA</button>
+                                <a href="/api/invoice/${v.visit_id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 Bill PDF</a>
+                                <button type="button" class="btn-act" style="background:#6366f1; color:white;" onclick="openClinicalReportModal('${v.visit_id}')">📝 Report</button>
+                                <button type="button" class="btn-act btn-act-wa" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}', '${v.visit_id}')">📱 WA Bill</button>
                                 ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.visit_id}')">📝 Form F</button>` : ''}
-                                <button type="button" class="btn-act btn-act-edit" onclick="openEditBillModal('${v.visit_id}')">✏️ Edit Bill</button>
-                                <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.visit_id}')">✕ Delete</button>
+                                <button type="button" class="btn-act btn-act-edit" onclick="openEditBillModal('${v.visit_id}')">✏️ Edit</button>
+                                <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.visit_id}')">✕ Del</button>
                             </td>
                         </tr>
                     `;
@@ -2082,7 +2136,6 @@
             }
         }
 
-        // RESET FILTERS TO TODAY'S DATE
         function resetReportsFilters() {
             const todayIso = getTodayIsoDate();
             const todayMonth = getTodayMonthIso();
@@ -2094,7 +2147,6 @@
             loadReports();
         }
 
-        // CLEAR DATES TO VIEW ALL RECORDS
         function clearReportsDateFilters() {
             if (document.getElementById('repStartDate')) document.getElementById('repStartDate').value = '';
             if (document.getElementById('repEndDate')) document.getElementById('repEndDate').value = '';
@@ -2102,20 +2154,98 @@
             loadReports();
         }
 
-        async function triggerBillSMS(visitId) {
+        // CLINICAL REPORT STUDIO LOGIC
+        async function openClinicalReportModal(visitId) {
+            activeReportVisitId = visitId;
             try {
-                const res = await apiFetch(`/api/visits/${visitId}/send-bill-sms`, { method: 'POST' });
+                const res = await apiFetch(`/api/imaging/report-data/${visitId}`);
                 const json = await res.json();
-                alert(json.success ? '✅ ' + json.message : '❌ ' + (json.error || 'Failed to send SMS'));
-            } catch (e) { alert('SMS Error: ' + e.message); }
+                if (!json.success) return alert(json.error || 'Failed to load report data');
+
+                cachedReportData = json.data;
+                const v = json.data.visit;
+                const rep = json.data.existingReport;
+                const invs = (json.data.investigations || []).map(i => i.test_name).join(', ') || 'Diagnostic Ultrasound';
+
+                document.getElementById('repModalPatHeader').textContent = 
+                    `[${v.invoice_number}] ${v.full_name} (${v.age || 0} Yrs / ${v.gender || '-'}) — Ref: ${v.ref_doctor || 'Direct OPD'}`;
+                document.getElementById('repModalTitle').value = rep?.template_name || invs.toUpperCase();
+                document.getElementById('repModalDoctor').value = rep?.doctor_name || 'Dr NIKUNJ KOTHIA';
+                document.getElementById('repModalRegNo').value = rep?.doctor_reg_no || '2009/09/3218';
+                document.getElementById('repModalFindings').value = rep?.report_text || '';
+                document.getElementById('repModalImpression').value = rep?.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.';
+
+                const tmplSelect = document.getElementById('repModalTmplSelect');
+                tmplSelect.innerHTML = '<option value="">-- Quick Load Template --</option>';
+                (json.data.templates || []).forEach(t => {
+                    tmplSelect.innerHTML += `<option value="${t.id}">${escapeHtml(t.title || t.template_name)}</option>`;
+                });
+
+                document.getElementById('clinicalReportModal').style.display = 'flex';
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
         }
 
-        async function triggerReportSMS(visitId) {
+        function onReportModalTemplateChanged(tmplId) {
+            if (!tmplId || !cachedReportData?.templates) return;
+            const t = cachedReportData.templates.find(x => String(x.id) === String(tmplId));
+            if (!t) return;
+            if (confirm(`Load findings and impression from "${t.title}"? Existing text will be updated.`)) {
+                if (t.template_body) document.getElementById('repModalFindings').value = t.template_body;
+                if (t.default_impression) document.getElementById('repModalImpression').value = t.default_impression;
+                document.getElementById('repModalTitle').value = t.title || t.template_name;
+            }
+        }
+
+        async function saveManualClinicalReport() {
+            if (!activeReportVisitId) return false;
+            const payload = {
+                visitId: activeReportVisitId,
+                reportTitle: document.getElementById('repModalTitle').value.trim(),
+                reportText: document.getElementById('repModalFindings').value.trim(),
+                impression: document.getElementById('repModalImpression').value.trim(),
+                doctorName: document.getElementById('repModalDoctor').value.trim(),
+                doctorRegNo: document.getElementById('repModalRegNo').value.trim()
+            };
+
             try {
-                const res = await apiFetch(`/api/visits/${visitId}/send-report-sms`, { method: 'POST' });
+                const res = await apiFetch('/api/imaging/report-save', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
                 const json = await res.json();
-                alert(json.success ? '✅ ' + json.message : '❌ ' + (json.error || 'Failed to send SMS'));
-            } catch (e) { alert('SMS Error: ' + e.message); }
+                if (json.success) {
+                    alert('✅ Report Saved Successfully!');
+                    return true;
+                } else {
+                    alert('Error: ' + json.error);
+                    return false;
+                }
+            } catch (e) {
+                alert('Save Error: ' + e.message);
+                return false;
+            }
+        }
+
+        function viewReportPdf(withLetterhead) {
+            if (!activeReportVisitId) return;
+            saveManualClinicalReport().then((ok) => {
+                if (ok) window.open(`/api/imaging/report/${activeReportVisitId}/pdf?letterhead=${withLetterhead}`, '_blank');
+            });
+        }
+
+        function sendReportWhatsAppFromModal(withLetterhead) {
+            if (!activeReportVisitId || !cachedReportData?.visit) return;
+            const v = cachedReportData.visit;
+            saveManualClinicalReport().then((ok) => {
+                if (ok) shareWhatsAppReport(v.phone, v.full_name, v.invoice_number, v.centre_name, activeReportVisitId, withLetterhead);
+            });
+        }
+
+        function closeClinicalReportModal() {
+            document.getElementById('clinicalReportModal').style.display = 'none';
+            activeReportVisitId = null;
         }
 
         // EDIT BILL MODAL LOGIC WITH SPLIT BIFURCATION
@@ -2273,7 +2403,6 @@
             });
         }
 
-        // STATUTORY PCPNDT FORM F SUMMARY LOGIC
         async function openPcpndtSummaryModal() {
             const res = await apiFetch('/api/pcpndt');
             const json = await res.json();
@@ -2573,7 +2702,8 @@
                             <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
                             <td>
                                 ${getBillPrintBtnHtml(v.id, v.bill_printed)}
-                                <a href="/api/invoice/${v.id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 PDF</a>
+                                <a href="/api/invoice/${v.id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 Bill PDF</a>
+                                <button type="button" class="btn-act" style="background:#6366f1; color:white;" onclick="openClinicalReportModal('${v.id}')">📝 Report</button>
                                 ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.id}')">📝 Form F</button>` : ''}
                                 <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.id}')">✕ Delete</button>
                             </td>
