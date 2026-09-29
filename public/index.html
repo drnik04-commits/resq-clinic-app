@@ -923,36 +923,62 @@
 
     <!-- MODAL: DIAGNOSTIC REPORT STUDIO (MANUAL ENTRY, ATTACH FILE FROM COMPUTER & DUAL PDF) -->
     <div id="clinicalReportModal" class="modal">
-        <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-content" style="max-width: 920px;">
             <div class="modal-header">
                 <h3>📝 Diagnostic Report Studio</h3>
                 <button type="button" onclick="closeClinicalReportModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
             </div>
 
-            <div style="background:#f1f5f9; padding:8px 12px; border-radius:4px; font-weight:bold; color:#1e3a8a; margin-bottom:12px; font-size:0.9rem;" id="repModalPatHeader">
+            <div style="background:#f1f5f9; padding:10px 14px; border-radius:4px; font-weight:bold; color:#1e3a8a; margin-bottom:12px; font-size:0.9rem;" id="repModalPatHeader">
                 Loading Patient...
             </div>
 
+            <!-- LETTERHEAD & PREPRINTED MARGIN CONFIGURATION PANEL -->
+            <div style="background:#fffbeb; border:1.5px solid #fde68a; padding:12px 14px; border-radius:6px; margin-bottom:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <label style="font-weight:bold; color:#92400e; display:block; margin-bottom:4px;">📄 Report Layout & Letterhead Preference:</label>
+                        <div style="display:flex; gap:16px; align-items:center; font-size:0.88rem; font-weight:600;">
+                            <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
+                                <input type="radio" name="modalLetterheadChoice" id="repOptWithLetterhead" value="true" checked onchange="onModalLetterheadToggle(true)">
+                                🏥 Include Clinic Letterhead (Digital PDF)
+                            </label>
+                            <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
+                                <input type="radio" name="modalLetterheadChoice" id="repOptWithoutLetterhead" value="false" onchange="onModalLetterheadToggle(false)">
+                                🖨️ Without Letterhead (For Pre-printed Stationery)
+                            </label>
+                        </div>
+                    </div>
+                    <div id="modalMarginGroup" style="display:flex; align-items:center; gap:8px;">
+                        <div>
+                            <label style="font-size:0.8rem; font-weight:bold; color:#78350f;">Top Margin (mm):</label>
+                            <input type="number" id="repModalMarginMm" value="55" min="10" max="150" style="width:80px; padding:5px 8px; font-weight:bold; text-align:center; border:1px solid #d97706; border-radius:4px;">
+                        </div>
+                        <button type="button" class="btn-act" style="background:#d97706; color:white; padding:7px 10px; margin-top:16px;" onclick="saveCurrentMarginAsCentreDefault()" title="Save as this centre's default letterhead margin">⭐ Set as Branch Default</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- SECTION A: UPLOAD SAVED FILE DIRECTLY FROM COMPUTER -->
-            <div style="background:#f0fdf4; border:1.5px solid #86efac; padding:12px; border-radius:6px; margin-bottom:14px;">
-                <label style="font-weight:bold; color:#166534; display:block; margin-bottom:4px;">
-                    📁 Option 1: Attach Saved Report File from Computer (.PDF / .DOCX / .DOC / .JPG):
+            <div style="background:#f0fdf4; border:1.5px solid #86efac; padding:12px 14px; border-radius:6px; margin-bottom:14px;">
+                <label style="font-weight:bold; color:#166534; display:block; margin-bottom:6px;">
+                    📁 Option 1: Attach Saved Report File from Computer (.PDF / .DOCX / .DOC / .JPG / .PNG):
                 </label>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                     <input type="file" id="manualDocFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="flex:1; padding:6px; background:#fff; border:1px solid #cbd5e1; border-radius:4px;">
                     <button type="button" class="btn-complete-reg" style="max-width:180px; padding:8px 14px;" onclick="uploadReportFileFromComputer()">⬆️ Upload Document</button>
                 </div>
-                <div id="attachedFileStatusBanner" style="display:none; margin-top:8px; font-size:0.85rem; font-weight:bold; color:#047857; background:#dcfce7; padding:6px 10px; border-radius:4px; justify-content:space-between; align-items:center;">
+                <div id="attachedFileStatusBanner" style="display:none; margin-top:10px; font-size:0.85rem; font-weight:bold; color:#047857; background:#dcfce7; padding:8px 12px; border-radius:4px; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                     <span id="attachedFileNameText"></span>
                     <div style="display:flex; gap:6px;">
                         <button type="button" class="btn-act btn-act-pdf" onclick="viewUploadedReportFile()">👁️ View File</button>
-                        <button type="button" class="btn-act btn-act-wa" onclick="sendUploadedReportWhatsApp()">📱 WhatsApp File</button>
+                        <button type="button" class="btn-act btn-act-wa" onclick="sendUploadedReportWhatsApp()">📱 WhatsApp Attached File</button>
                     </div>
                 </div>
             </div>
 
             <!-- SECTION B: INLINE REPORT COMPOSER WITH TEMPLATES -->
-            <div style="border-top:1.5px dashed #cbd5e1; padding-top:12px; margin-top:12px;">
+            <div style="border-top:1.5px dashed #cbd5e1; padding-top:14px; margin-top:14px;">
                 <div style="font-weight:bold; color:#1e3a8a; margin-bottom:8px;">
                     ✍️ Option 2: Compose / Edit Report Findings & Generate PDF:
                 </div>
@@ -990,146 +1016,10 @@
                 </div>
 
                 <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid #e2e8f0; padding-top:12px;">
-                    <button type="button" class="btn-complete-reg" onclick="saveManualClinicalReport()" style="flex:1;">💾 Save Findings</button>
-                    <button type="button" class="btn-act" style="background:#0284c7; color:white; padding:10px 14px;" onclick="viewReportPdf(true)">📄 PDF (With Letterhead)</button>
-                    <button type="button" class="btn-act" style="background:#475569; color:white; padding:10px 14px;" onclick="viewReportPdf(false)">🖨️ PDF (Without Letterhead)</button>
-                    <button type="button" class="btn-act btn-act-wa" style="padding:10px 14px;" onclick="sendReportWhatsAppFromModal(true)">📱 WhatsApp PDF</button>
+                    <button type="button" class="btn-complete-reg" onclick="saveManualClinicalReport()" style="flex:1;">💾 Save Report Findings</button>
+                    <button type="button" class="btn-act" style="background:#0284c7; color:white; padding:10px 14px;" onclick="viewSelectedReportPdf()">📄 Preview / Print PDF</button>
+                    <button type="button" class="btn-act btn-act-wa" style="padding:10px 14px;" onclick="sendSelectedReportWhatsApp()">📱 WhatsApp Generated Report</button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- INVOICE PRINT PAPER WITH CENTRE CONTACT NUMBER -->
-    <div id="invoicePrintArea" class="print-paper">
-        <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
-            <h2 id="prtClinicName" style="font-size: 16pt;">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
-            <p id="prtClinicAddress" style="font-size: 8.5pt;"></p>
-            <p id="prtClinicContact" style="font-size: 9pt; font-weight: bold; color: #b91c1c; margin-top: 2px;">
-                📞 Phone / Contact: <span id="prtContactNum">+91 8433838285</span>
-            </p>
-        </div>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9pt;">
-            <tr>
-                <td style="border: 1px solid #000; padding: 4px 8px; width: 50%;">
-                    <strong>Patient Name:</strong> <span id="prtPatName"></span><br>
-                    <strong>Age / Gender:</strong> <span id="prtPatMeta"></span><br>
-                    <strong>Address:</strong> <span id="prtPatAddress"></span>
-                </td>
-                <td style="border: 1px solid #000; padding: 4px 8px; width: 50%;">
-                    <strong>Invoice No:</strong> <span id="prtInvNo"></span><br>
-                    <strong>Date:</strong> <span id="prtDate"></span><br>
-                    <strong>Ref. Doctor:</strong> <span id="prtDocName"></span>
-                </td>
-            </tr>
-        </table>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
-            <thead><tr style="background: #eee;"><th style="border: 1px solid #000; padding: 6px;">Investigation / Service</th><th style="border: 1px solid #000; padding: 6px; text-align: right; width: 120px;">Amount (₹)</th></tr></thead>
-            <tbody id="prtItemsBody"></tbody>
-        </table>
-        <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-            <table style="width: 320px; font-size: 9pt; border-collapse: collapse;">
-                <tr><td style="padding: 2px;">Gross Total:</td><td style="text-align: right; font-weight: bold;">₹<span id="prtGross"></span></td></tr>
-                <tr><td style="padding: 2px;">Concession:</td><td style="text-align: right;">- ₹<span id="prtDisc"></span></td></tr>
-                <tr style="border-top: 1px solid #000;"><td style="padding: 2px; font-weight: bold;">Net Payable:</td><td style="text-align: right; font-weight: bold;">₹<span id="prtNet"></span></td></tr>
-                <tr><td style="padding: 2px;" id="prtPaidLabel">Paid Amount:</td><td style="text-align: right;">₹<span id="prtPaid"></span></td></tr>
-                <tr style="border-top: 1px solid #000; font-weight: bold; color: #c00;"><td style="padding: 2px;">Balance Due:</td><td style="text-align: right;">₹<span id="prtBal"></span></td></tr>
-            </table>
-        </div>
-    </div>
-
-    <!-- EXACT 2-PAGE STATUTORY PCPNDT FORM F DOCUMENT -->
-    <div id="exactPcpndtDoc" class="print-paper">
-        <div class="doc-page">
-            <div style="text-align:center; font-size:8.5pt; font-weight:bold; border-bottom:1.5px solid #000; padding-bottom:2px; margin-bottom:4px;">FORM FOR MAINTENANCE OF RECORD IN CASE OF PRENATAL DIAGNOSTIC TEST /PROCEDURE BY GENETIC CLINIC/ULTRASOUND CLINIC/IMAGING CENTRE</div>
-            <div style="font-weight:bold; font-size:8.8pt; margin-top:3px; text-decoration:underline;">Section A :</div>
-            <div class="doc-line-item"><div class="label">1. &nbsp; Name and Address of Clinic :</div><div class="val" id="docClinicName">RESQ HEART CLINIC AND IMAGING CENTRE Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West</div></div>
-            <div class="doc-line-item"><div class="label">2. &nbsp; Reg No :</div><div class="val" id="docClinicReg">RC197</div></div>
-            <div class="doc-line-item"><div class="label">3. &nbsp; Patient's Name :</div><div class="val" style="display:flex; justify-content:space-between;"><span id="docPatName">PATIENT NAME</span><span style="margin-right:40px;">Age : <span id="docPatAge">0</span> yrs</span></div></div>
-            <div class="doc-line-item"><div class="label">4. &nbsp; No of Children :</div><div class="val">Male : <span id="docMaleKids">0</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Female : <span id="docFemaleKids">0</span></div></div>
-            <div class="doc-line-item"><div class="label">a. No of Sons with age of each living son</div><div class="val" id="docSonsDetail">0 Son(s)</div></div>
-            <div class="doc-line-item"><div class="label">b. No of Daughters with age of each living Daughter</div><div class="val" id="docDaughtersDetail">0 Daughter(s)</div></div>
-            <div class="doc-line-item"><div class="label">5. &nbsp; Husband's/Wife's/Father's/Mother's Name :</div><div class="val" id="docRelativeName">-</div></div>
-            <div class="doc-line-item"><div class="label">6. &nbsp; Full Address with Tel No :</div><div class="val" id="docPatAddress">-</div></div>
-            <div class="doc-line-item"><div class="label">7(a). Referred by :</div><div class="val" id="docRefDoc">Direct OPD</div></div>
-            <div class="doc-line-item"><div class="label">7(b). Self Referral :</div><div class="val" id="docSelfRef">NO</div></div>
-            <div class="doc-line-item"><div class="label">8. &nbsp; Last Menstrual Period/wks of Preg :</div><div class="val"><span id="docLmp">N/A</span> / <span id="docWeeks">N/A</span></div></div>
-            <div style="font-weight:bold; font-size:8.8pt; border-top:1px solid #000; padding-top:2px; margin-top:3px; text-decoration:underline;">Section B :</div>
-            <div class="doc-line-item"><div class="label">9. &nbsp; Name of the doctor performing the procedures:</div><div class="val" id="docDoctorName">Dr NIKUNJ KOTHIA</div></div>
-            <div class="doc-line-item"><div class="label">10. Indication/s for diagnosis procedure:</div><div class="val" id="docActiveIndication" style="font-weight: bold;">Routine Antenatal Anomaly Evaluation</div></div>
-            <div class="indications-grid">
-                <div class="indication-row"><span class="ind-num">i.</span><span>To diagnose intra-uterine and/or ectopic pregnancy and confirm viability.</span></div>
-                <div class="indication-row"><span class="ind-num">ii.</span><span>Estimation of gestational age (dating).</span></div>
-                <div class="indication-row"><span class="ind-num">iii.</span><span>Detection of number of foetuses and their chorionicity.</span></div>
-                <div class="indication-row"><span class="ind-num">iv.</span><span>Suspected pregnancy with IUCD in-situ or suspected pregnancy following contraceptive failure/MTP failure.</span></div>
-                <div class="indication-row"><span class="ind-num">v.</span><span>Vaginal bleeding / leaking.</span></div>
-                <div class="indication-row"><span class="ind-num">vi.</span><span>Follow-up of cases of abortion.</span></div>
-                <div class="indication-row"><span class="ind-num">vii.</span><span>Assessment of cervical canal and diameter of internal os.</span></div>
-                <div class="indication-row"><span class="ind-num">viii.</span><span>Discrepancy between uterine size and period of amenorrhoea.</span></div>
-                <div class="indication-row"><span class="ind-num">ix.</span><span>Any suspected adenexal or uterine pathology / abnormality.</span></div>
-                <div class="indication-row"><span class="ind-num">x.</span><span>Detection of chromosomal abnormalities, foetal structural defects and other abnormalities and their follow-up.</span></div>
-                <div class="indication-row"><span class="ind-num">xi.</span><span>To evaluate foetal presentation and position.</span></div>
-                <div class="indication-row"><span class="ind-num">xii.</span><span>Assessment of liquor amnii.</span></div>
-                <div class="indication-row"><span class="ind-num">xiii.</span><span>Preterm labour / preterm premature rupture of membranes.</span></div>
-                <div class="indication-row"><span class="ind-num">xiv.</span><span>Evaluation of placental position, thickness, grading and abnormalities.</span></div>
-                <div class="indication-row"><span class="ind-num">xv.</span><span>Evaluation of umbilical cord - presentation, insertion, nuchal encirclement, number of vessels and presence of true knot.</span></div>
-                <div class="indication-row"><span class="ind-num">xvi.</span><span>Evaluation of previous Caesarean Section scars.</span></div>
-                <div class="indication-row"><span class="ind-num">xvii.</span><span>Evaluation of foetal growth parameters, foetal weight and foetal well being.</span></div>
-                <div class="indication-row"><span class="ind-num">xviii.</span><span>Colour flow mapping and duplex Doppler studies.</span></div>
-                <div class="indication-row"><span class="ind-num">xxx.</span><span>Observation of intra-partum events.</span></div>
-                <div class="indication-row"><span class="ind-num">xxii.</span><span>Medical/surgical conditions complicating pregnancy.</span></div>
-                <div class="indication-row"><span class="ind-num">xxiii.</span><span>Research/scientific studies in recognised institutions.</span></div>
-            </div>
-            <div class="doc-line-item"><div class="label">11 i. Procedures carried out (Non-Invasive) :</div><div class="val">Ultrasonography</div></div>
-            <div class="doc-line-item"><div class="label">12. Date on which declaration of preg woman /person obtai</div><div class="val" id="docDeclDate">DD/MM/YYYY</div></div>
-            <div class="doc-line-item"><div class="label">13. Date(s) on which procedures carried out:</div><div class="val" id="docProcDate">DD/MM/YYYY</div></div>
-            <div class="doc-line-item"><div class="label">14. Result of non invasive proc carried out:</div><div class="val" id="docProcResult" style="font-weight:normal;">Single live intrauterine gestation with regular cardiac activity.</div></div>
-            <div class="doc-line-item"><div class="label">15. Result conveyed on:</div><div class="val" id="docConveyDate">DD/MM/YYYY</div></div>
-            <div class="doc-line-item"><div class="label">16. Any indication for MTP as per abnormality detected:</div><div class="val">NONE</div></div>
-            <div class="doc-sign-box">
-                <div>Date - <span id="docSignDate">DD/MM/YYYY</span><br>Place - <span class="doc-dyn-place">Kandivali West</span></div>
-                <div style="text-align: right;"><strong id="docSignDocName">Dr NIKUNJ KOTHIA</strong> &nbsp; <span id="docSignDocReg">2009/09/3218</span><br><span style="font-size: 6.8pt;">Name/Sign/Reg No of Radiologist performing diagnostic procedures</span></div>
-            </div>
-            <div style="font-weight:bold; font-size:8pt; border-top:1px solid #000; padding-top:2px; margin-top:3px;">Section C : Invasive Procedures &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <u>NOT APPLICABLE</u></div>
-            <div class="sec-c-grid">
-                <div class="sec-c-row"><div class="sec-c-lbl">17. Name of doctor performing invasive procedure :</div><div class="sec-c-val">Not Applicable</div></div>
-                <div class="sec-c-row"><div class="sec-c-lbl">18. History of genetic/medical disease in family :</div><div class="sec-c-val">Not Applicable</div></div>
-                <div class="sec-c-row"><div class="sec-c-lbl">19. Indication for Diagnostic procedure :</div><div class="sec-c-val">Not Applicable</div></div>
-            </div>
-        </div>
-
-        <div class="doc-page">
-            <div class="doc-line-item"><div class="label" style="min-width:320px;">20. Date on which consent obtained in Form G :</div><div class="val">Not Applicable</div></div>
-            <div class="doc-line-item"><div class="label" style="min-width:320px;">21. Invasive procedures carried out :</div><div class="val">Not Applicable</div></div>
-            <div class="doc-line-item"><div class="label" style="min-width:320px;">22. Complication of invasive Procedure :</div><div class="val">Not Applicable</div></div>
-            <div class="doc-line-item"><div class="label" style="min-width:320px;">23. Laboratory Tests Recommended :</div><div class="val">Not Applicable</div></div>
-            <div class="doc-line-item"><div class="label" style="min-width:320px;">24. Result of procedure / tests carried out :</div><div class="val">-</div></div>
-            <div class="doc-line-item"><div class="label" style="min-width:320px;">27. Any indication for MTP :</div><div class="val">NONE</div></div>
-            <div class="doc-sign-box" style="margin-top: 6px;">
-                <div>Date - <span id="docSignDate2">DD/MM/YYYY</span><br>Place - <span class="doc-dyn-place">Kandivali West</span></div>
-                <div style="text-align: right;"><span style="font-size: 6.8pt;">Name/Sign/Reg No of Radiologist</span></div>
-            </div>
-            <div style="font-weight:bold; font-size:8.2pt; border-top:1.5px solid #000; padding-top:3px; margin-top:8px; text-align:center;">Section D : Declaration</div>
-            <div style="text-align: center; font-weight: bold; font-size: 8.2pt; margin-bottom: 5px;">DECLARATION OF THE PERSON UNDERGOING PRENATAL DIAGNOSTIC TEST / PROCEDURE</div>
-            <div style="font-size: 7.8pt; line-height: 1.35; margin-bottom: 15px;">
-                <p style="margin-bottom: 3px;">I declare that by undergoing ultrasonography /image scanning etc. I do not want to know the sex of my foetus.</p>
-                <p style="margin-bottom: 3px;">असे घोषित करते की अल्ट्रा सोनोग्राफी / प्रतिमा स्कॅनिंग करून मी माझ्या गर्भाचे लिंग जाणून घेऊ इच्छित नाही.</p>
-                <p>मैं घोषणा कर रही हूँ की अल्ट्रा-सोनोग्राफी / प्रतिमा स्कैनिंग करके मैं मेरे गर्भ के लिंग की जांच करना नहीं चाहती.</p>
-            </div>
-            <div style="text-align: right; font-size: 7.5pt; font-weight: bold; margin-bottom: 12px;">Signature / Thumb Impression of person undergoing the procedure</div>
-            <div style="border-top: 0.8px dashed #000; padding-top: 4px; font-size: 7.2pt; line-height: 1.25; margin-bottom: 8px;">
-                <strong>In case of Thumb Impression</strong><br>
-                <div style="display:flex; justify-content:space-between; margin-top:2px;"><div>Identified by (Name) : _______________________</div><div>Age : ___ &nbsp; Sex : ___</div></div>
-                <div style="margin-top:2px;">Relation : __________________ &nbsp;&nbsp;&nbsp;&nbsp; Address & Contact : _________________________________</div>
-            </div>
-            <div style="border-top: 1px solid #000; padding-top: 4px; margin-top: 6px;">
-                <div style="text-align: center; font-weight: bold; font-size: 8.2pt; margin-bottom: 4px;">DECLARATION OF THE DOCTOR CONDUCTING PRENATAL DIAGNOSTIC TEST / PROCEDURE</div>
-                <p style="font-size: 7.6pt; line-height: 1.3; margin-bottom: 18px;">
-                    I, <strong id="docDeclDoctor">Dr NIKUNJ KOTHIA</strong> <span id="docDeclDocReg">2009/09/3218</span> declare that by conducting ultrasonography/image scanning I have neither detected nor disclosed the sex of her foetus to anybody in any manner.
-                </p>
-                <div style="text-align: right; font-size: 7.6pt;"><strong>Dr NIKUNJ KOTHIA 2009/09/3218</strong><br><span style="font-size:6.8pt;">Consultant Radiologist</span></div>
-            </div>
-            <div style="border-top: 1px solid #000; padding-top: 4px; margin-top: 8px; font-size: 7.4pt;">
-                I declare that I have received a copy of the declaration from <strong id="docAckClinic">RESQ HEART CLINIC AND IMAGING CENTRE Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL. Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.</strong>
             </div>
         </div>
     </div>
@@ -1165,7 +1055,6 @@
             return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
         }
 
-        // Resolves localhost to your live Render public URL so WhatsApp links work on all mobile devices
         function getPublicAppUrl() {
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 return 'https://resq-clinic-app.onrender.com';
@@ -2047,11 +1936,11 @@
         }
 
         // WhatsApp Generated PDF Report
-        async function shareWhatsAppReport(phone, patName, invNo, centreName, visitId, withLetterhead = true) {
+        async function shareWhatsAppReport(phone, patName, invNo, centreName, visitId, withLetterhead = true, marginMm = 55) {
             if (!phone) return alert('Mobile number missing for this patient.');
             const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
             const publicBase = getPublicAppUrl();
-            const pdfUrl = `${publicBase}/api/imaging/report/${visitId}/pdf?letterhead=${withLetterhead}`;
+            const pdfUrl = `${publicBase}/api/imaging/report/${visitId}/pdf?letterhead=${withLetterhead}&margin=${marginMm}`;
             const msg = `Dear *${patName}*,\n` +
                         `Your diagnostic report from *${centreName || 'RESQ Diagnostics'}* is ready.\n\n` +
                         `📋 *Invoice No:* ${invNo}\n\n` +
@@ -2197,7 +2086,7 @@
             loadReports();
         }
 
-        // CLINICAL REPORT STUDIO & ATTACHMENT LOGIC
+        // CLINICAL REPORT STUDIO, DUAL LETTERHEAD & ATTACHMENT LOGIC
         async function openClinicalReportModal(visitId) {
             activeReportVisitId = visitId;
             try {
@@ -2219,7 +2108,16 @@
                 document.getElementById('repModalImpression').value = rep?.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.';
                 document.getElementById('manualDocFileInput').value = '';
 
-                // Show or hide attached file banner
+                // Restore saved or branch default letterhead mode and top margin
+                const hasLetterhead = v.report_has_letterhead !== false;
+                document.getElementById('repOptWithLetterhead').checked = hasLetterhead;
+                document.getElementById('repOptWithoutLetterhead').checked = !hasLetterhead;
+                
+                const effectiveMargin = v.report_margin_mm || v.centre_default_margin || activeCentre.top_margin_mm || 55;
+                document.getElementById('repModalMarginMm').value = effectiveMargin;
+                onModalLetterheadToggle(hasLetterhead);
+
+                // Show or hide attached file status banner
                 const statusBanner = document.getElementById('attachedFileStatusBanner');
                 if (v.report_file) {
                     const filename = v.report_file.split('/').pop().replace(/^\d+_/, '');
@@ -2242,6 +2140,32 @@
             }
         }
 
+        function onModalLetterheadToggle(withLetterhead) {
+            const marginBox = document.getElementById('modalMarginGroup');
+            if (marginBox) {
+                marginBox.style.opacity = withLetterhead ? '0.45' : '1';
+                marginBox.title = withLetterhead ? 'Margin setting is active for pre-printed letterheads' : 'Active margin for pre-printed paper';
+            }
+        }
+
+        async function saveCurrentMarginAsCentreDefault() {
+            const marginMm = parseInt(document.getElementById('repModalMarginMm').value, 10);
+            if (isNaN(marginMm) || marginMm <= 0) return alert('Enter a valid millimeter value (e.g. 55).');
+            if (!activeCentre?.id) return alert('No active centre selected.');
+
+            const res = await apiFetch(`/api/centres/${activeCentre.id}/default-margin`, {
+                method: 'PUT',
+                body: JSON.stringify({ marginMm })
+            });
+            const json = await res.json();
+            if (json.success) {
+                activeCentre.top_margin_mm = marginMm;
+                alert('⭐ ' + json.message);
+            } else {
+                alert('Error: ' + json.error);
+            }
+        }
+
         async function uploadReportFileFromComputer() {
             if (!activeReportVisitId) return alert('No active visit loaded.');
             const fileInput = document.getElementById('manualDocFileInput');
@@ -2249,8 +2173,13 @@
                 return alert('Please select a report document (.pdf, .docx, .doc, .jpg, .png) from your computer first.');
             }
 
+            const withLetterhead = document.getElementById('repOptWithLetterhead').checked;
+            const marginMm = parseInt(document.getElementById('repModalMarginMm').value, 10) || 55;
+
             const formData = new FormData();
             formData.append('reportFile', fileInput.files[0]);
+            formData.append('hasLetterhead', withLetterhead);
+            formData.append('marginMm', marginMm);
 
             try {
                 const res = await apiFetch(`/api/visits/${activeReportVisitId}/upload-report`, {
@@ -2262,6 +2191,8 @@
                     alert('✅ ' + json.message);
                     if (cachedReportData?.visit) {
                         cachedReportData.visit.report_file = json.data.reportFile;
+                        cachedReportData.visit.report_has_letterhead = withLetterhead;
+                        cachedReportData.visit.report_margin_mm = marginMm;
                     }
                     const filename = json.data.reportFile.split('/').pop().replace(/^\d+_/, '');
                     document.getElementById('attachedFileNameText').textContent = `✅ Attached File: ${filename}`;
@@ -2299,13 +2230,18 @@
 
         async function saveManualClinicalReport() {
             if (!activeReportVisitId) return false;
+            const withLetterhead = document.getElementById('repOptWithLetterhead').checked;
+            const marginMm = parseInt(document.getElementById('repModalMarginMm').value, 10) || 55;
+
             const payload = {
                 visitId: activeReportVisitId,
                 reportTitle: document.getElementById('repModalTitle').value.trim(),
                 reportText: document.getElementById('repModalFindings').value.trim(),
                 impression: document.getElementById('repModalImpression').value.trim(),
                 doctorName: document.getElementById('repModalDoctor').value.trim(),
-                doctorRegNo: document.getElementById('repModalRegNo').value.trim()
+                doctorRegNo: document.getElementById('repModalRegNo').value.trim(),
+                hasLetterhead: withLetterhead,
+                marginMm: marginMm
             };
 
             try {
@@ -2327,18 +2263,23 @@
             }
         }
 
-        function viewReportPdf(withLetterhead) {
+        function viewSelectedReportPdf() {
             if (!activeReportVisitId) return;
+            const withLetterhead = document.getElementById('repOptWithLetterhead').checked;
+            const marginMm = parseInt(document.getElementById('repModalMarginMm').value, 10) || 55;
             saveManualClinicalReport().then((ok) => {
-                if (ok) window.open(`/api/imaging/report/${activeReportVisitId}/pdf?letterhead=${withLetterhead}`, '_blank');
+                if (ok) window.open(`/api/imaging/report/${activeReportVisitId}/pdf?letterhead=${withLetterhead}&margin=${marginMm}`, '_blank');
             });
         }
 
-        function sendReportWhatsAppFromModal(withLetterhead) {
+        function sendSelectedReportWhatsApp() {
             if (!activeReportVisitId || !cachedReportData?.visit) return;
             const v = cachedReportData.visit;
+            const withLetterhead = document.getElementById('repOptWithLetterhead').checked;
+            const marginMm = parseInt(document.getElementById('repModalMarginMm').value, 10) || 55;
+
             saveManualClinicalReport().then((ok) => {
-                if (ok) shareWhatsAppReport(v.phone, v.full_name, v.invoice_number, v.centre_name, activeReportVisitId, withLetterhead);
+                if (ok) shareWhatsAppReport(v.phone, v.full_name, v.invoice_number, v.centre_name, activeReportVisitId, withLetterhead, marginMm);
             });
         }
 

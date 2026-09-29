@@ -433,6 +433,8 @@ async function initDB() {
         invoice_number VARCHAR(100) UNIQUE,
         doctor_commission DECIMAL(10,2) DEFAULT 0.00,
         report_file VARCHAR(255),
+        report_has_letterhead BOOLEAN DEFAULT true,
+        report_margin_mm INT DEFAULT 55,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -442,6 +444,8 @@ async function initDB() {
       ALTER TABLE visits ADD COLUMN IF NOT EXISTS online_amount DECIMAL(10,2) DEFAULT 0.00;
       ALTER TABLE visits ADD COLUMN IF NOT EXISTS bill_printed BOOLEAN DEFAULT false;
       ALTER TABLE visits ADD COLUMN IF NOT EXISTS report_file VARCHAR(255);
+      ALTER TABLE visits ADD COLUMN IF NOT EXISTS report_has_letterhead BOOLEAN DEFAULT true;
+      ALTER TABLE visits ADD COLUMN IF NOT EXISTS report_margin_mm INT DEFAULT 55;
     `);
 
     await pool.query(`
@@ -658,6 +662,24 @@ app.get('/api/centres', async (req, res) => {
     }
   } catch (err) {}
   res.status(200).json({ success: true, data: FALLBACK_CENTRES });
+});
+
+app.put('/api/centres/:id/default-margin', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    const marginMm = parseInt(req.body.marginMm, 10);
+    if (!validId || isNaN(marginMm)) return res.status(400).json({ success: false, error: 'Valid centre ID and margin required.' });
+
+    if (isDbConnected) {
+      await pool.query('UPDATE clinic_centres SET top_margin_mm = $1 WHERE id::text = $2::text', [marginMm, validId]);
+    }
+    const fc = FALLBACK_CENTRES.find(c => String(c.id) === String(validId));
+    if (fc) fc.top_margin_mm = marginMm;
+
+    res.status(200).json({ success: true, message: `Branch default letterhead margin updated to ${marginMm} mm.` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.post('/api/centres', async (req, res) => {
@@ -1021,9 +1043,14 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
     if (!req.file) return res.status(400).json({ success: false, error: 'No report file selected.' });
 
     const relPath = req.file.path.replace(/\\/g, '/');
+    const hasLetterhead = req.body.hasLetterhead !== 'false';
+    const marginMm = parseInt(req.body.marginMm, 10) || 55;
+
     const result = await pool.query(
-      'UPDATE visits SET report_file = $1 WHERE id::text = $2::text RETURNING id, report_file, invoice_number',
-      [relPath, validId]
+      `UPDATE visits 
+       SET report_file = $1, report_has_letterhead = $2, report_margin_mm = $3 
+       WHERE id::text = $4::text RETURNING id, report_file, report_has_letterhead, report_margin_mm, invoice_number`,
+      [relPath, hasLetterhead, marginMm, validId]
     );
 
     if (result.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit not found.' });
@@ -1031,7 +1058,7 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
     res.status(200).json({
       success: true,
       message: 'Report document attached to visit successfully!',
-      data: { visitId: validId, reportFile: relPath }
+      data: { visitId: validId, reportFile: relPath, hasLetterhead, marginMm }
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -1040,7 +1067,7 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
 
 app.get('/api/visits/:id/uploaded-report', async (req, res) => {
   try {
-    const validId = getCleanId(req.params.id);
+    const validId = getCleanId(req.params.visitId || req.params.id);
     const vRes = await pool.query('SELECT report_file, invoice_number FROM visits WHERE id::text = $1::text', [validId]);
     if (vRes.rows.length === 0 || !vRes.rows[0].report_file) {
       return res.status(404).send('No manual report file uploaded for this visit.');
@@ -1447,7 +1474,8 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
 
     const visitRes = await pool.query(
       `SELECT v.*, p.full_name, p.age, p.gender, p.phone, p.patient_code,
-              d.doctor_name as ref_doctor, c.centre_name, c.phone as centre_phone
+              d.doctor_name as ref_doctor, c.centre_name, c.phone as centre_phone,
+              c.top_margin_mm as centre_default_margin
        FROM visits v
        JOIN patients p ON v.patient_id = p.id
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
@@ -1488,7 +1516,7 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
 
 app.post('/api/imaging/report-save', async (req, res) => {
   try {
-    const { visitId, reportTitle, reportText, impression, doctorName, doctorRegNo } = req.body;
+    const { visitId, reportTitle, reportText, impression, doctorName, doctorRegNo, hasLetterhead, marginMm } = req.body;
     const validVisitId = getCleanId(visitId);
     if (!validVisitId) return res.status(400).json({ success: false, error: 'Visit ID is required.' });
 
@@ -1496,6 +1524,16 @@ app.post('/api/imaging/report-save', async (req, res) => {
     if (vRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Visit record not found.' });
 
     const { patient_id, centre_id } = vRes.rows[0];
+    const isLetterhead = hasLetterhead !== false && hasLetterhead !== 'false';
+    const topMargin = parseInt(marginMm, 10) || 55;
+
+    await pool.query(
+      `UPDATE visits 
+       SET report_has_letterhead = $1, report_margin_mm = $2 
+       WHERE id::text = $3::text`,
+      [isLetterhead, topMargin, validVisitId]
+    );
+
     const existing = await pool.query('SELECT id FROM imaging_reports WHERE visit_id::text = $1::text', [validVisitId]);
     let result;
 
@@ -1538,6 +1576,7 @@ app.post('/api/imaging/report-save', async (req, res) => {
   }
 });
 
+// Dynamic Diagnostic PDF generation with letterhead toggle and customizable top margin
 app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
@@ -1547,7 +1586,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       `SELECT v.*, p.full_name, p.age, p.gender, p.phone, p.patient_code,
               d.doctor_name as ref_doctor, c.centre_name, c.tagline as centre_tagline, 
               c.address as centre_address, c.place as centre_place, c.phone as centre_phone, 
-              c.reg_no as centre_reg_no, c.top_margin_mm
+              c.reg_no as centre_reg_no, c.top_margin_mm as centre_top_margin
        FROM visits v
        JOIN patients p ON v.patient_id = p.id
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
@@ -1570,6 +1609,15 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       doctor_reg_no: '2009/09/3218'
     };
 
+    let effectiveMarginMm = 55;
+    if (req.query.margin && !isNaN(parseInt(req.query.margin, 10))) {
+      effectiveMarginMm = parseInt(req.query.margin, 10);
+    } else if (v.report_margin_mm && !isNaN(parseInt(v.report_margin_mm, 10))) {
+      effectiveMarginMm = parseInt(v.report_margin_mm, 10);
+    } else if (v.centre_top_margin && !isNaN(parseInt(v.centre_top_margin, 10))) {
+      effectiveMarginMm = parseInt(v.centre_top_margin, 10);
+    }
+
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
     const filename = `Report_${v.invoice_number || 'REP'}.pdf`;
 
@@ -1586,10 +1634,11 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       doc.strokeColor('#cccccc').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
       doc.moveDown(0.8);
     } else {
-      const topPts = Math.max(40, Math.round((v.top_margin_mm || 55) * 2.83465));
+      const topPts = Math.max(20, Math.round(effectiveMarginMm * 2.83465));
       doc.y = topPts;
     }
 
+    // Patient Information Block
     const metaBoxY = doc.y;
     doc.rect(40, metaBoxY, 515, 45).fillAndStroke('#f8fafc', '#cbd5e1');
     doc.fontSize(8.5).fillColor('#000000');
@@ -2342,7 +2391,7 @@ app.get('/api/reports/collection', async (req, res) => {
     let query = `
       SELECT v.id as visit_id, v.created_at, v.total_amount, v.concession, v.paid_amount, v.balance_amount,
              v.payment_status, v.payment_mode, v.cash_amount, v.online_amount, v.bill_printed, v.invoice_number, 
-             v.report_file,
+             v.report_file, v.report_has_letterhead, v.report_margin_mm,
              COALESCE(v.doctor_commission, 0.00) as doctor_commission,
              p.full_name, p.phone, COALESCE(c.centre_name, 'Main Centre') as centre_name,
              EXISTS(SELECT 1 FROM pcpndt_forms pf WHERE pf.visit_id = v.id) as has_pcpndt,
@@ -2712,13 +2761,16 @@ app.post('/api/sync/cloud', async (req, res) => {
       online_amount: v.online_amount || 0,
       bill_printed: v.bill_printed || false,
       doctor_commission: v.doctor_commission || 0,
-      report_file: v.report_file || null
+      report_file: v.report_file || null,
+      report_has_letterhead: v.report_has_letterhead !== false,
+      report_margin_mm: v.report_margin_mm || 55
     }));
 
     await bulkInsert(cloudClient, 'visits', [
       'id', 'centre_id', 'patient_id', 'referring_doctor_id', 'total_amount', 'concession',
       'paid_amount', 'balance_amount', 'payment_status', 'payment_mode', 'cash_amount',
-      'online_amount', 'bill_printed', 'invoice_number', 'doctor_commission', 'report_file', 'created_at'
+      'online_amount', 'bill_printed', 'invoice_number', 'doctor_commission', 'report_file', 
+      'report_has_letterhead', 'report_margin_mm', 'created_at'
     ], mappedVisits, 100);
 
     // 7. Sync Patient Investigations (Bulk)
