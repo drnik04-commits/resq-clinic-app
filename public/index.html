@@ -531,7 +531,7 @@
                             <th>Balance</th>
                             <th>Doctor Cut</th>
                             <th>Status</th>
-                            <th style="width: 540px;">Actions</th>
+                            <th style="width: 580px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="reportsTableBody"></tbody>
@@ -921,7 +921,7 @@
         </div>
     </div>
 
-    <!-- MODAL: CLINICAL REPORT STUDIO (MANUAL ENTRY, TEMPLATE FILL & DUAL PDF) -->
+    <!-- MODAL: DIAGNOSTIC REPORT STUDIO (MANUAL ENTRY, ATTACH FILE FROM COMPUTER & DUAL PDF) -->
     <div id="clinicalReportModal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">
@@ -933,44 +933,68 @@
                 Loading Patient...
             </div>
 
-            <div class="form-grid" style="margin-bottom:12px;">
-                <div class="form-group">
-                    <label>Study / Investigation Heading:</label>
-                    <input type="text" id="repModalTitle" style="font-weight:bold; color:#1e40af;">
+            <!-- SECTION A: UPLOAD SAVED FILE DIRECTLY FROM COMPUTER -->
+            <div style="background:#f0fdf4; border:1.5px solid #86efac; padding:12px; border-radius:6px; margin-bottom:14px;">
+                <label style="font-weight:bold; color:#166534; display:block; margin-bottom:4px;">
+                    📁 Option 1: Attach Saved Report File from Computer (.PDF / .DOCX / .DOC / .JPG):
+                </label>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <input type="file" id="manualDocFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="flex:1; padding:6px; background:#fff; border:1px solid #cbd5e1; border-radius:4px;">
+                    <button type="button" class="btn-complete-reg" style="max-width:180px; padding:8px 14px;" onclick="uploadReportFileFromComputer()">⬆️ Upload Document</button>
                 </div>
-                <div class="form-group">
-                    <label>Quick Autofill from Template:</label>
-                    <select id="repModalTmplSelect" onchange="onReportModalTemplateChanged(this.value)"></select>
-                </div>
-            </div>
-
-            <div class="form-group" style="margin-bottom:12px;">
-                <label style="font-weight:bold; color:#1e3a8a;">Findings:</label>
-                <textarea id="repModalFindings" rows="10" style="width:100%; padding:8px; border:1.5px solid #cbd5e1; border-radius:4px; font-family:inherit;"></textarea>
-            </div>
-
-            <div class="form-group" style="margin-bottom:12px;">
-                <label style="font-weight:bold; color:#1e3a8a;">Impression:</label>
-                <textarea id="repModalImpression" rows="3" style="width:100%; padding:8px; border:1.5px solid #cbd5e1; border-radius:4px; font-weight:bold; font-family:inherit;"></textarea>
-            </div>
-
-            <div class="form-grid" style="margin-bottom:14px;">
-                <div class="form-group">
-                    <label>Doctor Name:</label>
-                    <input type="text" id="repModalDoctor" value="Dr NIKUNJ KOTHIA">
-                </div>
-                <div class="form-group">
-                    <label>Registration Number:</label>
-                    <input type="text" id="repModalRegNo" value="2009/09/3218">
+                <div id="attachedFileStatusBanner" style="display:none; margin-top:8px; font-size:0.85rem; font-weight:bold; color:#047857; background:#dcfce7; padding:6px 10px; border-radius:4px; justify-content:space-between; align-items:center;">
+                    <span id="attachedFileNameText"></span>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="btn-act btn-act-pdf" onclick="viewUploadedReportFile()">👁️ View File</button>
+                        <button type="button" class="btn-act btn-act-wa" onclick="sendUploadedReportWhatsApp()">📱 WhatsApp File</button>
+                    </div>
                 </div>
             </div>
 
-            <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid #e2e8f0; padding-top:12px;">
-                <button type="button" class="btn-complete-reg" onclick="saveManualClinicalReport()" style="flex:1;">💾 Save Report</button>
-                <button type="button" class="btn-act" style="background:#0284c7; color:white; padding:10px 14px;" onclick="viewReportPdf(true)">📄 PDF (With Letterhead)</button>
-                <button type="button" class="btn-act" style="background:#475569; color:white; padding:10px 14px;" onclick="viewReportPdf(false)">🖨️ PDF (Without Letterhead)</button>
-                <button type="button" class="btn-act btn-act-wa" style="padding:10px 14px;" onclick="sendReportWhatsAppFromModal(true)">📱 WhatsApp (With Letterhead)</button>
-                <button type="button" class="btn-act btn-act-wa" style="background:#059669; padding:10px 14px;" onclick="sendReportWhatsAppFromModal(false)">📱 WhatsApp (Plain)</button>
+            <!-- SECTION B: INLINE REPORT COMPOSER WITH TEMPLATES -->
+            <div style="border-top:1.5px dashed #cbd5e1; padding-top:12px; margin-top:12px;">
+                <div style="font-weight:bold; color:#1e3a8a; margin-bottom:8px;">
+                    ✍️ Option 2: Compose / Edit Report Findings & Generate PDF:
+                </div>
+
+                <div class="form-grid" style="margin-bottom:12px;">
+                    <div class="form-group">
+                        <label>Study / Investigation Heading:</label>
+                        <input type="text" id="repModalTitle" style="font-weight:bold; color:#1e40af;">
+                    </div>
+                    <div class="form-group">
+                        <label>Quick Autofill from Template Library:</label>
+                        <select id="repModalTmplSelect" onchange="onReportModalTemplateChanged(this.value)"></select>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-weight:bold; color:#1e3a8a;">Findings:</label>
+                    <textarea id="repModalFindings" rows="8" style="width:100%; padding:8px; border:1.5px solid #cbd5e1; border-radius:4px; font-family:inherit;"></textarea>
+                </div>
+
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-weight:bold; color:#1e3a8a;">Impression:</label>
+                    <textarea id="repModalImpression" rows="3" style="width:100%; padding:8px; border:1.5px solid #cbd5e1; border-radius:4px; font-weight:bold; font-family:inherit;"></textarea>
+                </div>
+
+                <div class="form-grid" style="margin-bottom:14px;">
+                    <div class="form-group">
+                        <label>Doctor Name:</label>
+                        <input type="text" id="repModalDoctor" value="Dr NIKUNJ KOTHIA">
+                    </div>
+                    <div class="form-group">
+                        <label>Registration Number:</label>
+                        <input type="text" id="repModalRegNo" value="2009/09/3218">
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid #e2e8f0; padding-top:12px;">
+                    <button type="button" class="btn-complete-reg" onclick="saveManualClinicalReport()" style="flex:1;">💾 Save Findings</button>
+                    <button type="button" class="btn-act" style="background:#0284c7; color:white; padding:10px 14px;" onclick="viewReportPdf(true)">📄 PDF (With Letterhead)</button>
+                    <button type="button" class="btn-act" style="background:#475569; color:white; padding:10px 14px;" onclick="viewReportPdf(false)">🖨️ PDF (Without Letterhead)</button>
+                    <button type="button" class="btn-act btn-act-wa" style="padding:10px 14px;" onclick="sendReportWhatsAppFromModal(true)">📱 WhatsApp PDF</button>
+                </div>
             </div>
         </div>
     </div>
@@ -2006,7 +2030,7 @@
             printEl.classList.remove('print-active');
         }
 
-        // WhatsApp Bill Generator (Uses public URL with clean spacing for active link preview)
+        // WhatsApp Bill Generator
         async function shareWhatsAppInvoice(phone, patName, invNo, net, bal, centreName, visitId) {
             if (!phone) return alert('Mobile number missing for this patient.');
             const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
@@ -2022,7 +2046,7 @@
             window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
-        // WhatsApp Diagnostic Report Generator
+        // WhatsApp Generated PDF Report
         async function shareWhatsAppReport(phone, patName, invNo, centreName, visitId, withLetterhead = true) {
             if (!phone) return alert('Mobile number missing for this patient.');
             const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
@@ -2033,6 +2057,20 @@
                         `📋 *Invoice No:* ${invNo}\n\n` +
                         `📄 *View / Download Your Official PDF Report:*\n` +
                         `${pdfUrl}`;
+            window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        // WhatsApp Attached Computer Document
+        async function shareWhatsAppUploadedDocument(phone, patName, invNo, centreName, visitId) {
+            if (!phone) return alert('Mobile number missing for this patient.');
+            const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
+            const publicBase = getPublicAppUrl();
+            const fileUrl = `${publicBase}/api/visits/${visitId}/uploaded-report`;
+            const msg = `Dear *${patName}*,\n` +
+                        `Your diagnostic report document from *${centreName || 'RESQ Diagnostics'}* is ready.\n\n` +
+                        `📋 *Invoice No:* ${invNo}\n\n` +
+                        `📄 *View / Download Your Official Report:*\n` +
+                        `${fileUrl}`;
             window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
@@ -2106,6 +2144,7 @@
                     }
 
                     const cutAmount = parseFloat(v.doctor_commission || 0).toFixed(2);
+                    const hasReportFile = Boolean(v.report_file);
 
                     tbody.innerHTML += `
                         <tr>
@@ -2121,8 +2160,12 @@
                             <td>${v.payment_status === 'Paid' ? '<span style="color:#2e7d32;font-weight:bold;">Paid</span>' : '<span style="color:#c62828;font-weight:bold;">Pending</span>'}</td>
                             <td>
                                 ${getBillPrintBtnHtml(v.visit_id, v.bill_printed)}
-                                <a href="/api/invoice/${v.visit_id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 Bill PDF</a>
-                                <button type="button" class="btn-act" style="background:#6366f1; color:white;" onclick="openClinicalReportModal('${v.visit_id}')">📝 Report</button>
+                                <a href="/api/invoice/${v.visit_id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 Bill</a>
+                                <button type="button" class="btn-act" style="background:#6366f1; color:white;" onclick="openClinicalReportModal('${v.visit_id}')">📝 Report Studio</button>
+                                ${hasReportFile 
+                                    ? `<a href="/api/visits/${v.visit_id}/uploaded-report" target="_blank" class="btn-act" style="background:#0f766e; color:white;">📎 File</a>
+                                       <button type="button" class="btn-act btn-act-wa" style="background:#047857;" onclick="shareWhatsAppUploadedDocument('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${escapeHtml(v.centre_name)}', '${v.visit_id}')">📱 WA File</button>`
+                                    : ''}
                                 <button type="button" class="btn-act btn-act-wa" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}', '${v.visit_id}')">📱 WA Bill</button>
                                 ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.visit_id}')">📝 Form F</button>` : ''}
                                 <button type="button" class="btn-act btn-act-edit" onclick="openEditBillModal('${v.visit_id}')">✏️ Edit</button>
@@ -2154,7 +2197,7 @@
             loadReports();
         }
 
-        // CLINICAL REPORT STUDIO LOGIC
+        // CLINICAL REPORT STUDIO & ATTACHMENT LOGIC
         async function openClinicalReportModal(visitId) {
             activeReportVisitId = visitId;
             try {
@@ -2174,7 +2217,19 @@
                 document.getElementById('repModalRegNo').value = rep?.doctor_reg_no || '2009/09/3218';
                 document.getElementById('repModalFindings').value = rep?.report_text || '';
                 document.getElementById('repModalImpression').value = rep?.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.';
+                document.getElementById('manualDocFileInput').value = '';
 
+                // Show or hide attached file banner
+                const statusBanner = document.getElementById('attachedFileStatusBanner');
+                if (v.report_file) {
+                    const filename = v.report_file.split('/').pop().replace(/^\d+_/, '');
+                    document.getElementById('attachedFileNameText').textContent = `✅ Attached File: ${filename}`;
+                    statusBanner.style.display = 'flex';
+                } else {
+                    statusBanner.style.display = 'none';
+                }
+
+                // Populate Template Dropdown
                 const tmplSelect = document.getElementById('repModalTmplSelect');
                 tmplSelect.innerHTML = '<option value="">-- Quick Load Template --</option>';
                 (json.data.templates || []).forEach(t => {
@@ -2185,6 +2240,50 @@
             } catch (e) {
                 alert('Error: ' + e.message);
             }
+        }
+
+        async function uploadReportFileFromComputer() {
+            if (!activeReportVisitId) return alert('No active visit loaded.');
+            const fileInput = document.getElementById('manualDocFileInput');
+            if (!fileInput.files || !fileInput.files.length) {
+                return alert('Please select a report document (.pdf, .docx, .doc, .jpg, .png) from your computer first.');
+            }
+
+            const formData = new FormData();
+            formData.append('reportFile', fileInput.files[0]);
+
+            try {
+                const res = await apiFetch(`/api/visits/${activeReportVisitId}/upload-report`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const json = await res.json();
+                if (json.success) {
+                    alert('✅ ' + json.message);
+                    if (cachedReportData?.visit) {
+                        cachedReportData.visit.report_file = json.data.reportFile;
+                    }
+                    const filename = json.data.reportFile.split('/').pop().replace(/^\d+_/, '');
+                    document.getElementById('attachedFileNameText').textContent = `✅ Attached File: ${filename}`;
+                    document.getElementById('attachedFileStatusBanner').style.display = 'flex';
+                    loadReports();
+                } else {
+                    alert('Upload failed: ' + (json.error || 'Server error'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        function viewUploadedReportFile() {
+            if (!activeReportVisitId) return;
+            window.open(`/api/visits/${activeReportVisitId}/uploaded-report`, '_blank');
+        }
+
+        function sendUploadedReportWhatsApp() {
+            if (!activeReportVisitId || !cachedReportData?.visit) return;
+            const v = cachedReportData.visit;
+            shareWhatsAppUploadedDocument(v.phone, v.full_name, v.invoice_number, v.centre_name, activeReportVisitId);
         }
 
         function onReportModalTemplateChanged(tmplId) {
@@ -2702,7 +2801,7 @@
                             <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
                             <td>
                                 ${getBillPrintBtnHtml(v.id, v.bill_printed)}
-                                <a href="/api/invoice/${v.id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 Bill PDF</a>
+                                <a href="/api/invoice/${v.id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 Bill</a>
                                 <button type="button" class="btn-act" style="background:#6366f1; color:white;" onclick="openClinicalReportModal('${v.id}')">📝 Report</button>
                                 ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.id}')">📝 Form F</button>` : ''}
                                 <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.id}')">✕ Delete</button>

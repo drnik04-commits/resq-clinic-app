@@ -130,7 +130,6 @@ cloudPool.on('error', (err) => {
   console.error('Cloud DB pool error:', err.message);
 });
 
-// High-speed multi-row insert batcher
 async function bulkInsert(client, tableName, columns, rows, chunkSize = 100, onConflictClause = '') {
   if (!rows || rows.length === 0) return;
   for (let i = 0; i < rows.length; i += chunkSize) {
@@ -442,6 +441,7 @@ async function initDB() {
       ALTER TABLE visits ADD COLUMN IF NOT EXISTS cash_amount DECIMAL(10,2) DEFAULT 0.00;
       ALTER TABLE visits ADD COLUMN IF NOT EXISTS online_amount DECIMAL(10,2) DEFAULT 0.00;
       ALTER TABLE visits ADD COLUMN IF NOT EXISTS bill_printed BOOLEAN DEFAULT false;
+      ALTER TABLE visits ADD COLUMN IF NOT EXISTS report_file VARCHAR(255);
     `);
 
     await pool.query(`
@@ -1011,6 +1011,70 @@ app.post('/api/visits/:id/mark-printed', async (req, res) => {
   }
 });
 
+// ----------------------------------------------------
+// MANUAL REPORT FILE UPLOAD & DIRECT SERVING APIS
+// ----------------------------------------------------
+app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    if (!validId) return res.status(400).json({ success: false, error: 'Invalid visit ID.' });
+    if (!req.file) return res.status(400).json({ success: false, error: 'No report file selected.' });
+
+    const relPath = req.file.path.replace(/\\/g, '/');
+    const result = await pool.query(
+      'UPDATE visits SET report_file = $1 WHERE id::text = $2::text RETURNING id, report_file, invoice_number',
+      [relPath, validId]
+    );
+
+    if (result.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit not found.' });
+
+    res.status(200).json({
+      success: true,
+      message: 'Report document attached to visit successfully!',
+      data: { visitId: validId, reportFile: relPath }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/visits/:id/uploaded-report', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    const vRes = await pool.query('SELECT report_file, invoice_number FROM visits WHERE id::text = $1::text', [validId]);
+    if (vRes.rows.length === 0 || !vRes.rows[0].report_file) {
+      return res.status(404).send('No manual report file uploaded for this visit.');
+    }
+    const relPath = vRes.rows[0].report_file;
+    const fullPath = path.resolve(__dirname, relPath);
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).send('Uploaded file not found on server.');
+    }
+
+    const ext = path.extname(fullPath).toLowerCase();
+    const inv = vRes.rows[0].invoice_number || 'Report';
+    if (ext === '.pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="Report_${inv}.pdf"`);
+    } else if (ext === '.docx') {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="Report_${inv}.docx"`);
+    } else if (ext === '.doc') {
+      res.setHeader('Content-Type', 'application/msword');
+      res.setHeader('Content-Disposition', `attachment; filename="Report_${inv}.doc"`);
+    } else if (ext === '.jpg' || ext === '.jpeg') {
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Content-Disposition', `inline; filename="Report_${inv}.jpg"`);
+    } else if (ext === '.png') {
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Content-Disposition', `inline; filename="Report_${inv}.png"`);
+    }
+    res.sendFile(fullPath);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
 app.put('/api/visits/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -1263,7 +1327,6 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PDF INVOICE GENERATOR
 app.get('/api/invoice/:id/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1377,8 +1440,6 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
 // ----------------------------------------------------
 // CLINICAL REPORT STUDIO & PDF GENERATION APIS
 // ----------------------------------------------------
-
-// 1. Fetch Report Data & Templates for Visit
 app.get('/api/imaging/report-data/:visitId', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
@@ -1425,7 +1486,6 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
   }
 });
 
-// 2. Save Clinical Report Manually
 app.post('/api/imaging/report-save', async (req, res) => {
   try {
     const { visitId, reportTitle, reportText, impression, doctorName, doctorRegNo } = req.body;
@@ -1478,7 +1538,6 @@ app.post('/api/imaging/report-save', async (req, res) => {
   }
 });
 
-// 3. Generate Diagnostic Report PDF (With or Without Letterhead)
 app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
@@ -1527,12 +1586,10 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       doc.strokeColor('#cccccc').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
       doc.moveDown(0.8);
     } else {
-      // Offset margin for pre-printed letterhead paper
       const topPts = Math.max(40, Math.round((v.top_margin_mm || 55) * 2.83465));
       doc.y = topPts;
     }
 
-    // Patient Information Block
     const metaBoxY = doc.y;
     doc.rect(40, metaBoxY, 515, 45).fillAndStroke('#f8fafc', '#cbd5e1');
     doc.fontSize(8.5).fillColor('#000000');
@@ -1549,12 +1606,10 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
 
     doc.y = metaBoxY + 55;
 
-    // Study Title
     const title = (rep.template_name || 'DIAGNOSTIC IMAGING REPORT').toUpperCase();
     doc.fontSize(11).font('Helvetica-Bold').fillColor('#19486a').text(title, { align: 'center', underline: true });
     doc.moveDown(0.8);
 
-    // Findings Section
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('FINDINGS:');
     doc.moveDown(0.3);
     doc.fontSize(9).font('Helvetica').fillColor('#111827').text(rep.report_text || 'No significant findings recorded.', {
@@ -1563,14 +1618,12 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     });
     doc.moveDown(1.2);
 
-    // Impression Box
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('IMPRESSION:');
     doc.moveDown(0.3);
     doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text(rep.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.', {
       lineGap: 2
     });
 
-    // Doctor Signature Stamp
     doc.moveDown(2.5);
     const signY = doc.y;
     doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#000000').text(rep.doctor_name || 'Dr NIKUNJ KOTHIA', 330, signY, { align: 'right' });
@@ -1631,7 +1684,7 @@ app.post('/api/visits/:id/send-report-sms', async (req, res) => {
 
     const reportUrl = v.report_file 
       ? `https://resq-clinic-app.onrender.com/${v.report_file.replace(/\\/g, '/')}`
-      : `https://resq-clinic-app.onrender.com/api/imaging/report/${validId}/download`;
+      : `https://resq-clinic-app.onrender.com/api/imaging/report/${validId}/pdf`;
 
     const msg = `Dear ${v.full_name}, your diagnostic report from ${v.centre_name || 'RESQ Clinic'} is ready. View/Download: ${reportUrl}`;
 
@@ -1878,7 +1931,7 @@ app.get('/api/imaging/templates', async (req, res) => {
 
     const searchDirs = [];
     if (centreId) searchDirs.push({ dir: path.join(TEMPLATES_DIR, String(centreId)), isCentre: true });
-    searchDirs.push({ dir: TEMPLATES_DIR, isCentre: false });
+    searchDirs.push(TEMPLATES_DIR);
 
     for (const entry of searchDirs) {
       if (fs.existsSync(entry.dir)) {
@@ -2289,6 +2342,7 @@ app.get('/api/reports/collection', async (req, res) => {
     let query = `
       SELECT v.id as visit_id, v.created_at, v.total_amount, v.concession, v.paid_amount, v.balance_amount,
              v.payment_status, v.payment_mode, v.cash_amount, v.online_amount, v.bill_printed, v.invoice_number, 
+             v.report_file,
              COALESCE(v.doctor_commission, 0.00) as doctor_commission,
              p.full_name, p.phone, COALESCE(c.centre_name, 'Main Centre') as centre_name,
              EXISTS(SELECT 1 FROM pcpndt_forms pf WHERE pf.visit_id = v.id) as has_pcpndt,
@@ -2522,7 +2576,7 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
 });
 
 // -------------------------------------------------------------------------
-// HIGH-SPEED BATCH CLOUD SYNC API (Finishes in 1-3 seconds)
+// HIGH-SPEED BATCH CLOUD SYNC API
 // -------------------------------------------------------------------------
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) {
@@ -2556,7 +2610,6 @@ app.post('/api/sync/cloud', async (req, res) => {
     await cloudClient.query('BEGIN');
     await cloudClient.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
 
-    // Ensure foreign key cascades exist on cloud
     try {
       await cloudClient.query(`
         ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_visit_id_fkey;
@@ -2621,7 +2674,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender,
       phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address`);
 
-    // 6. Fast Clean & Bulk Insert Visits (Single batch subqueries prevent FK and Unique constraint violations)
+    // 6. Fast Clean & Bulk Insert Visits
     const visits = await localClient.query('SELECT * FROM visits');
     const localVisitIds = visits.rows.map(v => v.id).filter(Boolean);
     const localInvNos = visits.rows.map(v => v.invoice_number).filter(Boolean);
@@ -2658,7 +2711,8 @@ app.post('/api/sync/cloud', async (req, res) => {
       cash_amount: v.cash_amount || 0,
       online_amount: v.online_amount || 0,
       bill_printed: v.bill_printed || false,
-      doctor_commission: v.doctor_commission || 0
+      doctor_commission: v.doctor_commission || 0,
+      report_file: v.report_file || null
     }));
 
     await bulkInsert(cloudClient, 'visits', [
@@ -2701,7 +2755,7 @@ app.post('/api/sync/cloud', async (req, res) => {
 
     await cloudClient.query('COMMIT');
     const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`[Cloud Sync] Completed successfully in ${elapsedSec}s!`);
+    console.log(`[Cloud Sync] Completed in ${elapsedSec}s!`);
     res.status(200).json({ success: true, message: `Cloud Sync Successful! All records up to date in ${elapsedSec}s.` });
   } catch (err) {
     try { await cloudClient.query('ROLLBACK'); } catch (rb) {}
