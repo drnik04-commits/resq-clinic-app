@@ -1204,6 +1204,7 @@ app.put('/api/visits/:id', async (req, res) => {
   }
 });
 
+// REGISTER VISIT WITH MANUAL REPORT FILE SUPPORT
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -1283,7 +1284,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
         balance_amount, payment_status, payment_mode, cash_amount, online_amount, bill_printed,
         invoice_number, doctor_commission, report_file
        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, $12, $13, $14) RETURNING id`,
-      [finalCentreId, patientId, validDoctorId, grossTotal, disc, paid, balance, payStatus, paymentMode || 'Cash', parsedCash, parsedOnline, invoiceNum, totalCommission, req.file ? req.file.path : null]
+      [finalCentreId, patientId, validDoctorId, grossTotal, disc, paid, balance, payStatus, paymentMode || 'Cash', parsedCash, parsedOnline, invoiceNum, totalCommission, req.file ? req.file.path.replace(/\\/g, '/') : null]
     );
     const visitId = visitRes.rows[0].id;
 
@@ -1354,9 +1355,13 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// PDF INVOICE GENERATOR WITH OPTIONAL LETTERHEAD TOGGLE & MARGIN
 app.get('/api/invoice/:id/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
+    const withLetterhead = req.query.letterhead !== 'false';
+    const marginMm = parseInt(req.query.margin, 10) || 55;
+
     const visitRes = await pool.query(
       `SELECT v.*, p.full_name, p.age, p.gender, p.phone, p.address, p.patient_code,
               d.doctor_name, c.centre_name, c.tagline as centre_tagline, c.address as centre_address,
@@ -1385,14 +1390,18 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     doc.pipe(res);
 
-    doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
-    if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
-    
-    doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`📞 Contact / Phone: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
-    doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
-    doc.moveDown(0.5);
-    doc.strokeColor('#cccccc').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
-    doc.moveDown(0.8);
+    if (withLetterhead) {
+      doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
+      if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
+      doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`📞 Contact / Phone: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
+      doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
+      doc.moveDown(0.5);
+      doc.strokeColor('#cccccc').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+      doc.moveDown(0.8);
+    } else {
+      const topPts = Math.max(30, Math.round(marginMm * 2.83465));
+      doc.y = topPts;
+    }
 
     const metaTop = doc.y;
     doc.fontSize(9).font('Helvetica-Bold').fillColor('#000000');
@@ -2195,30 +2204,35 @@ app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   }
 });
 
+// DYNAMIC WORD DOCUMENT GENERATOR (WITH OR WITHOUT LETTERHEAD)
 app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   try {
-    const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm } = req.body;
+    const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm, includeLetterhead } = req.body;
     const centreId = getTenantCentreId(req);
+    const withLetterhead = includeLetterhead === true || String(includeLetterhead) === 'true';
 
     if (!templateName) return res.status(400).json({ success: false, error: 'Template name is required' });
+
+    let centreObj = null;
+    if (isDbConnected && centreId) {
+      const cRes = await pool.query('SELECT * FROM clinic_centres WHERE id::text = $1::text', [String(centreId)]);
+      if (cRes.rows.length) centreObj = cRes.rows[0];
+    }
+    if (!centreObj && centreId) {
+      centreObj = FALLBACK_CENTRES.find(c => String(c.id) === String(centreId));
+    }
+    if (!centreObj) centreObj = FALLBACK_CENTRES[0];
 
     let topMarginMm = 55;
     let bottomMarginMm = 15;
 
-    if (marginOverrideMm && !isNaN(parseInt(marginOverrideMm, 10))) {
+    if (withLetterhead) {
+      topMarginMm = 15; // Clean top margin when digital letterhead is included
+    } else if (marginOverrideMm && !isNaN(parseInt(marginOverrideMm, 10))) {
       topMarginMm = parseInt(marginOverrideMm, 10);
-    } else if (isDbConnected && centreId) {
-      const cRes = await pool.query('SELECT top_margin_mm, bottom_margin_mm FROM clinic_centres WHERE id::text = $1::text', [String(centreId)]);
-      if (cRes.rows.length) {
-        topMarginMm = cRes.rows[0].top_margin_mm || 55;
-        bottomMarginMm = cRes.rows[0].bottom_margin_mm || 15;
-      }
-    } else if (centreId) {
-      const matched = FALLBACK_CENTRES.find(c => String(c.id) === String(centreId));
-      if (matched) {
-        topMarginMm = matched.top_margin_mm || 55;
-        bottomMarginMm = matched.bottom_margin_mm || 15;
-      }
+    } else if (centreObj) {
+      topMarginMm = centreObj.top_margin_mm || 55;
+      bottomMarginMm = centreObj.bottom_margin_mm || 15;
     }
 
     let targetPath = null;
@@ -2262,6 +2276,34 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
 
       docXml = docXml.replace(/(<w:pgMar[^>]*?\bw:top=")[^"]*(")/g, `$1${topDxa}$2`);
       docXml = docXml.replace(/(<w:pgMar[^>]*?\bw:bottom=")[^"]*(")/g, `$1${bottomDxa}$2`);
+
+      // If "With Letterhead" is chosen, inject the clinic header right into the Word document
+      if (withLetterhead && centreObj) {
+        const letterheadXml = `
+          <w:p>
+            <w:pPr><w:jc w:val="center"/><w:spacing w:after="40" w:line="240" w:lineRule="auto"/></w:pPr>
+            <w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:b/><w:color w:val="19486A"/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr><w:t>${escapeXml(centreObj.centre_name)}</w:t></w:r>
+          </w:p>
+          ${centreObj.tagline ? `
+          <w:p>
+            <w:pPr><w:jc w:val="center"/><w:spacing w:after="40" w:line="240" w:lineRule="auto"/></w:pPr>
+            <w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="555555"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t>${escapeXml(centreObj.tagline)}</w:t></w:r>
+          </w:p>` : ''}
+          <w:p>
+            <w:pPr><w:jc w:val="center"/><w:spacing w:after="40" w:line="240" w:lineRule="auto"/></w:pPr>
+            <w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:b/><w:color w:val="B91C1C"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t>Phone: ${escapeXml(centreObj.phone || '+91 8433838285')}</w:t></w:r>
+          </w:p>
+          <w:p>
+            <w:pPr>
+              <w:jc w:val="center"/>
+              <w:pBdr><w:bottom w:val="single" w:sz="12" w:space="6" w:color="19486A"/></w:pBdr>
+              <w:spacing w:after="240" w:line="240" w:lineRule="auto"/>
+            </w:pPr>
+            <w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="333333"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr><w:t>${escapeXml(centreObj.address || 'Kandivali West, Mumbai')} | Reg: ${escapeXml(centreObj.reg_no || 'RC197')}</w:t></w:r>
+          </w:p>
+        `;
+        docXml = docXml.replace(/(<w:body[^>]*>)/i, `$1${letterheadXml}`);
+      }
 
       docXml = docXml
         .replace(/&lt;\*NAME1\*&gt;|<\*NAME1\*>|{{NAME}}|{{PATIENT_NAME}}/g, escapeXml(ptName))

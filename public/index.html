@@ -240,7 +240,7 @@
                 </div>
 
                 <div class="form-grid" style="margin-top: 15px; border-top: 1px solid #edf2f7; padding-top: 14px;">
-                    <div class="form-group full-width"><label>Attach Report / Document (PDF/Word):</label><input type="file" id="reportFileInput" accept=".pdf,.doc,.docx"></div>
+                    <div class="form-group full-width"><label>Attach Report / Document from Computer (PDF/Word/Image):</label><input type="file" id="reportFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"></div>
                     <div class="form-group"><label>Concession / Discount (₹):</label><input type="number" id="inputDiscount" value="0" oninput="calculateFinancialTotals()"></div>
                     <div class="form-group"><label>Doctor Referral Cut Override (₹):</label><input type="number" id="inputDoctorCut" placeholder="Auto-calculated (Type to override)" oninput="recalcDisplayTotalsOnly()"></div>
                     
@@ -301,7 +301,7 @@
             </div>
         </div>
 
-        <!-- TAB 3: REPORT GENERATOR STUDIO -->
+        <!-- TAB 3: WORD REPORT GENERATOR (WITH DUAL LETTERHEAD & MARGIN CONFIG) -->
         <div id="tab-imaging-reports" class="tab-content">
             <div class="card" style="border: 2px solid #2563eb;">
                 <div class="card-title">
@@ -341,6 +341,27 @@
                             </select>
                         </div>
 
+                        <!-- WORD LETTERHEAD TOGGLE & MARGIN SELECTOR -->
+                        <div style="background:#fffbeb; border:1.5px solid #fde68a; padding:12px 14px; border-radius:6px;">
+                            <label style="color:#92400e; font-weight:bold; display:block; margin-bottom:6px;">📄 Word Document Letterhead & Margin Settings:</label>
+                            <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; font-size:0.88rem; font-weight:600; margin-bottom:8px;">
+                                <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
+                                    <input type="radio" name="wordLetterheadChoice" id="wordOptWithLetterhead" value="true" onchange="onWordLetterheadToggle(true)">
+                                    🏥 Include Clinic Letterhead (Digital Word Doc)
+                                </label>
+                                <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
+                                    <input type="radio" name="wordLetterheadChoice" id="wordOptWithoutLetterhead" value="false" checked onchange="onWordLetterheadToggle(false)">
+                                    🖨️ Without Letterhead (For Pre-printed Stationery)
+                                </label>
+                            </div>
+                            <div id="wordMarginGroup" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <label style="font-size:0.82rem; font-weight:bold; color:#78350f;">Pre-printed Top Margin:</label>
+                                <input type="number" id="repTopMarginMm" value="55" min="10" max="150" style="width: 80px; font-weight:bold; font-size:1rem; padding:4px 8px; text-align:center;">
+                                <span style="font-size:0.82rem; color:#78350f;">mm (starts report text right below your branch printed header)</span>
+                                <button type="button" class="btn-act" style="background:#d97706; color:white; padding:6px 10px;" onclick="saveWordMarginAsCentreDefault()">⭐ Set as Branch Default</button>
+                            </div>
+                        </div>
+
                         <div class="form-grid" style="background: #ffffff; padding: 14px; border: 1px solid var(--border); border-radius: 6px;">
                             <div class="form-group full-width">
                                 <label>PATIENT FULL NAME:</label>
@@ -365,13 +386,6 @@
                             <div class="form-group">
                                 <label>REFERRING DOCTOR:</label>
                                 <input type="text" id="fld_Ref1" placeholder="Dr. Full Name / DIRECT OPD">
-                            </div>
-                            <div class="form-group full-width" style="background:#fef3c7; border:1px solid #fde68a; padding:10px; border-radius:4px;">
-                                <label style="color:#92400e; font-weight:bold;">🖨️ Preprinted Letterhead Top Margin (mm):</label>
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <input type="number" id="repTopMarginMm" value="55" style="width: 100px; font-weight:bold; font-size:1rem;">
-                                    <span style="font-size:0.82rem; color:#78350f;">millimeters (starts text right below your branch printed header)</span>
-                                </div>
                             </div>
                         </div>
 
@@ -1024,6 +1038,141 @@
         </div>
     </div>
 
+    <!-- INVOICE PRINT PAPER WITH CENTRE CONTACT NUMBER -->
+    <div id="invoicePrintArea" class="print-paper">
+        <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
+            <h2 id="prtClinicName" style="font-size: 16pt;">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
+            <p id="prtClinicAddress" style="font-size: 8.5pt;"></p>
+            <p id="prtClinicContact" style="font-size: 9pt; font-weight: bold; color: #b91c1c; margin-top: 2px;">
+                📞 Phone / Contact: <span id="prtContactNum">+91 8433838285</span>
+            </p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9pt;">
+            <tr>
+                <td style="border: 1px solid #000; padding: 4px 8px; width: 50%;">
+                    <strong>Patient Name:</strong> <span id="prtPatName"></span><br>
+                    <strong>Age / Gender:</strong> <span id="prtPatMeta"></span><br>
+                    <strong>Address:</strong> <span id="prtPatAddress"></span>
+                </td>
+                <td style="border: 1px solid #000; padding: 4px 8px; width: 50%;">
+                    <strong>Invoice No:</strong> <span id="prtInvNo"></span><br>
+                    <strong>Date:</strong> <span id="prtDate"></span><br>
+                    <strong>Ref. Doctor:</strong> <span id="prtDocName"></span>
+                </td>
+            </tr>
+        </table>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
+            <thead><tr style="background: #eee;"><th style="border: 1px solid #000; padding: 6px;">Investigation / Service</th><th style="border: 1px solid #000; padding: 6px; text-align: right; width: 120px;">Amount (₹)</th></tr></thead>
+            <tbody id="prtItemsBody"></tbody>
+        </table>
+        <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+            <table style="width: 320px; font-size: 9pt; border-collapse: collapse;">
+                <tr><td style="padding: 2px;">Gross Total:</td><td style="text-align: right; font-weight: bold;">₹<span id="prtGross"></span></td></tr>
+                <tr><td style="padding: 2px;">Concession:</td><td style="text-align: right;">- ₹<span id="prtDisc"></span></td></tr>
+                <tr style="border-top: 1px solid #000;"><td style="padding: 2px; font-weight: bold;">Net Payable:</td><td style="text-align: right; font-weight: bold;">₹<span id="prtNet"></span></td></tr>
+                <tr><td style="padding: 2px;" id="prtPaidLabel">Paid Amount:</td><td style="text-align: right;">₹<span id="prtPaid"></span></td></tr>
+                <tr style="border-top: 1px solid #000; font-weight: bold; color: #c00;"><td style="padding: 2px;">Balance Due:</td><td style="text-align: right;">₹<span id="prtBal"></span></td></tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- EXACT 2-PAGE STATUTORY PCPNDT FORM F DOCUMENT -->
+    <div id="exactPcpndtDoc" class="print-paper">
+        <div class="doc-page">
+            <div style="text-align:center; font-size:8.5pt; font-weight:bold; border-bottom:1.5px solid #000; padding-bottom:2px; margin-bottom:4px;">FORM FOR MAINTENANCE OF RECORD IN CASE OF PRENATAL DIAGNOSTIC TEST /PROCEDURE BY GENETIC CLINIC/ULTRASOUND CLINIC/IMAGING CENTRE</div>
+            <div style="font-weight:bold; font-size:8.8pt; margin-top:3px; text-decoration:underline;">Section A :</div>
+            <div class="doc-line-item"><div class="label">1. &nbsp; Name and Address of Clinic :</div><div class="val" id="docClinicName">RESQ HEART CLINIC AND IMAGING CENTRE Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West</div></div>
+            <div class="doc-line-item"><div class="label">2. &nbsp; Reg No :</div><div class="val" id="docClinicReg">RC197</div></div>
+            <div class="doc-line-item"><div class="label">3. &nbsp; Patient's Name :</div><div class="val" style="display:flex; justify-content:space-between;"><span id="docPatName">PATIENT NAME</span><span style="margin-right:40px;">Age : <span id="docPatAge">0</span> yrs</span></div></div>
+            <div class="doc-line-item"><div class="label">4. &nbsp; No of Children :</div><div class="val">Male : <span id="docMaleKids">0</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Female : <span id="docFemaleKids">0</span></div></div>
+            <div class="doc-line-item"><div class="label">a. No of Sons with age of each living son</div><div class="val" id="docSonsDetail">0 Son(s)</div></div>
+            <div class="doc-line-item"><div class="label">b. No of Daughters with age of each living Daughter</div><div class="val" id="docDaughtersDetail">0 Daughter(s)</div></div>
+            <div class="doc-line-item"><div class="label">5. &nbsp; Husband's/Wife's/Father's/Mother's Name :</div><div class="val" id="docRelativeName">-</div></div>
+            <div class="doc-line-item"><div class="label">6. &nbsp; Full Address with Tel No :</div><div class="val" id="docPatAddress">-</div></div>
+            <div class="doc-line-item"><div class="label">7(a). Referred by :</div><div class="val" id="docRefDoc">Direct OPD</div></div>
+            <div class="doc-line-item"><div class="label">7(b). Self Referral :</div><div class="val" id="docSelfRef">NO</div></div>
+            <div class="doc-line-item"><div class="label">8. &nbsp; Last Menstrual Period/wks of Preg :</div><div class="val"><span id="docLmp">N/A</span> / <span id="docWeeks">N/A</span></div></div>
+            <div style="font-weight:bold; font-size:8.8pt; border-top:1px solid #000; padding-top:2px; margin-top:3px; text-decoration:underline;">Section B :</div>
+            <div class="doc-line-item"><div class="label">9. &nbsp; Name of the doctor performing the procedures:</div><div class="val" id="docDoctorName">Dr NIKUNJ KOTHIA</div></div>
+            <div class="doc-line-item"><div class="label">10. Indication/s for diagnosis procedure:</div><div class="val" id="docActiveIndication" style="font-weight: bold;">Routine Antenatal Anomaly Evaluation</div></div>
+            <div class="indications-grid">
+                <div class="indication-row"><span class="ind-num">i.</span><span>To diagnose intra-uterine and/or ectopic pregnancy and confirm viability.</span></div>
+                <div class="indication-row"><span class="ind-num">ii.</span><span>Estimation of gestational age (dating).</span></div>
+                <div class="indication-row"><span class="ind-num">iii.</span><span>Detection of number of foetuses and their chorionicity.</span></div>
+                <div class="indication-row"><span class="ind-num">iv.</span><span>Suspected pregnancy with IUCD in-situ or suspected pregnancy following contraceptive failure/MTP failure.</span></div>
+                <div class="indication-row"><span class="ind-num">v.</span><span>Vaginal bleeding / leaking.</span></div>
+                <div class="indication-row"><span class="ind-num">vi.</span><span>Follow-up of cases of abortion.</span></div>
+                <div class="indication-row"><span class="ind-num">vii.</span><span>Assessment of cervical canal and diameter of internal os.</span></div>
+                <div class="indication-row"><span class="ind-num">viii.</span><span>Discrepancy between uterine size and period of amenorrhoea.</span></div>
+                <div class="indication-row"><span class="ind-num">ix.</span><span>Any suspected adenexal or uterine pathology / abnormality.</span></div>
+                <div class="indication-row"><span class="ind-num">x.</span><span>Detection of chromosomal abnormalities, foetal structural defects and other abnormalities and their follow-up.</span></div>
+                <div class="indication-row"><span class="ind-num">xi.</span><span>To evaluate foetal presentation and position.</span></div>
+                <div class="indication-row"><span class="ind-num">xii.</span><span>Assessment of liquor amnii.</span></div>
+                <div class="indication-row"><span class="ind-num">xiii.</span><span>Preterm labour / preterm premature rupture of membranes.</span></div>
+                <div class="indication-row"><span class="ind-num">xiv.</span><span>Evaluation of placental position, thickness, grading and abnormalities.</span></div>
+                <div class="indication-row"><span class="ind-num">xv.</span><span>Evaluation of umbilical cord - presentation, insertion, nuchal encirclement, number of vessels and presence of true knot.</span></div>
+                <div class="indication-row"><span class="ind-num">xvi.</span><span>Evaluation of previous Caesarean Section scars.</span></div>
+                <div class="indication-row"><span class="ind-num">xvii.</span><span>Evaluation of foetal growth parameters, foetal weight and foetal well being.</span></div>
+                <div class="indication-row"><span class="ind-num">xviii.</span><span>Colour flow mapping and duplex Doppler studies.</span></div>
+                <div class="indication-row"><span class="ind-num">xxx.</span><span>Observation of intra-partum events.</span></div>
+                <div class="indication-row"><span class="ind-num">xxii.</span><span>Medical/surgical conditions complicating pregnancy.</span></div>
+                <div class="indication-row"><span class="ind-num">xxiii.</span><span>Research/scientific studies in recognised institutions.</span></div>
+            </div>
+            <div class="doc-line-item"><div class="label">11 i. Procedures carried out (Non-Invasive) :</div><div class="val">Ultrasonography</div></div>
+            <div class="doc-line-item"><div class="label">12. Date on which declaration of preg woman /person obtai</div><div class="val" id="docDeclDate">DD/MM/YYYY</div></div>
+            <div class="doc-line-item"><div class="label">13. Date(s) on which procedures carried out:</div><div class="val" id="docProcDate">DD/MM/YYYY</div></div>
+            <div class="doc-line-item"><div class="label">14. Result of non invasive proc carried out:</div><div class="val" id="docProcResult" style="font-weight:normal;">Single live intrauterine gestation with regular cardiac activity.</div></div>
+            <div class="doc-line-item"><div class="label">15. Result conveyed on:</div><div class="val" id="docConveyDate">DD/MM/YYYY</div></div>
+            <div class="doc-line-item"><div class="label">16. Any indication for MTP as per abnormality detected:</div><div class="val">NONE</div></div>
+            <div class="doc-sign-box">
+                <div>Date - <span id="docSignDate">DD/MM/YYYY</span><br>Place - <span class="doc-dyn-place">Kandivali West</span></div>
+                <div style="text-align: right;"><strong id="docSignDocName">Dr NIKUNJ KOTHIA</strong> &nbsp; <span id="docSignDocReg">2009/09/3218</span><br><span style="font-size: 6.8pt;">Name/Sign/Reg No of Radiologist performing diagnostic procedures</span></div>
+            </div>
+            <div style="font-weight:bold; font-size:8pt; border-top:1px solid #000; padding-top:2px; margin-top:3px;">Section C : Invasive Procedures &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <u>NOT APPLICABLE</u></div>
+            <div class="sec-c-grid">
+                <div class="sec-c-row"><div class="sec-c-lbl">17. Name of doctor performing invasive procedure :</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">18. History of genetic/medical disease in family :</div><div class="sec-c-val">Not Applicable</div></div>
+                <div class="sec-c-row"><div class="sec-c-lbl">19. Indication for Diagnostic procedure :</div><div class="sec-c-val">Not Applicable</div></div>
+            </div>
+        </div>
+
+        <div class="doc-page">
+            <div class="doc-line-item"><div class="label" style="min-width:320px;">20. Date on which consent obtained in Form G :</div><div class="val">Not Applicable</div></div>
+            <div class="doc-line-item"><div class="label" style="min-width:320px;">21. Invasive procedures carried out :</div><div class="val">Not Applicable</div></div>
+            <div class="doc-line-item"><div class="label" style="min-width:320px;">22. Complication of invasive Procedure :</div><div class="val">Not Applicable</div></div>
+            <div class="doc-line-item"><div class="label" style="min-width:320px;">23. Laboratory Tests Recommended :</div><div class="val">Not Applicable</div></div>
+            <div class="doc-line-item"><div class="label" style="min-width:320px;">24. Result of procedure / tests carried out :</div><div class="val">-</div></div>
+            <div class="doc-line-item"><div class="label" style="min-width:320px;">27. Any indication for MTP :</div><div class="val">NONE</div></div>
+            <div class="doc-sign-box" style="margin-top: 6px;">
+                <div>Date - <span id="docSignDate2">DD/MM/YYYY</span><br>Place - <span class="doc-dyn-place">Kandivali West</span></div>
+                <div style="text-align: right;"><span style="font-size: 6.8pt;">Name/Sign/Reg No of Radiologist</span></div>
+            </div>
+            <div style="font-weight:bold; font-size:8.2pt; border-top:1.5px solid #000; padding-top:3px; margin-top:8px; text-align:center;">Section D : Declaration</div>
+            <div style="text-align: center; font-weight: bold; font-size: 8.2pt; margin-bottom: 5px;">DECLARATION OF THE PERSON UNDERGOING PRENATAL DIAGNOSTIC TEST / PROCEDURE</div>
+            <div style="font-size: 7.8pt; line-height: 1.35; margin-bottom: 15px;">
+                <p style="margin-bottom: 3px;">I declare that by undergoing ultrasonography /image scanning etc. I do not want to know the sex of my foetus.</p>
+                <p style="margin-bottom: 3px;">असे घोषित करते की अल्ट्रा सोनोग्राफी / प्रतिमा स्कॅनिंग करून मी माझ्या गर्भाचे लिंग जाणून घेऊ इच्छित नाही.</p>
+                <p>मैं घोषणा कर रही हूँ की अल्ट्रा-सोनोग्राफी / प्रतिमा स्कैनिंग करके मैं मेरे गर्भ के लिंग की जांच करना नहीं चाहती.</p>
+            </div>
+            <div style="text-align: right; font-size: 7.5pt; font-weight: bold; margin-bottom: 12px;">Signature / Thumb Impression of person undergoing the procedure</div>
+            <div style="border-top: 0.8px dashed #000; padding-top: 4px; font-size: 7.2pt; line-height: 1.25; margin-bottom: 8px;">
+                <strong>In case of Thumb Impression</strong><br>
+                <div style="display:flex; justify-content:space-between; margin-top:2px;"><div>Identified by (Name) : _______________________</div><div>Age : ___ &nbsp; Sex : ___</div></div>
+                <div style="margin-top:2px;">Relation : __________________ &nbsp;&nbsp;&nbsp;&nbsp; Address & Contact : _________________________________</div>
+            </div>
+            <div style="border-top: 1px solid #000; padding-top: 4px; margin-top: 6px;">
+                <div style="text-align: center; font-weight: bold; font-size: 8.2pt; margin-bottom: 4px;">DECLARATION OF THE DOCTOR CONDUCTING PRENATAL DIAGNOSTIC TEST / PROCEDURE</div>
+                <p style="font-size: 7.6pt; line-height: 1.3; margin-bottom: 18px;">
+                    I, <strong id="docDeclDoctor">Dr NIKUNJ KOTHIA</strong> <span id="docDeclDocReg">2009/09/3218</span> declare that by conducting ultrasonography/image scanning I have neither detected nor disclosed the sex of her foetus to anybody in any manner.
+                </p>
+                <div style="text-align: right; font-size: 7.6pt;"><strong>Dr NIKUNJ KOTHIA 2009/09/3218</strong><br><span style="font-size:6.8pt;">Consultant Radiologist</span></div>
+            </div>
+            <div style="border-top: 1px solid #000; padding-top: 4px; margin-top: 8px; font-size: 7.4pt;">
+                I declare that I have received a copy of the declaration from <strong id="docAckClinic">RESQ HEART CLINIC AND IMAGING CENTRE Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL. Mahavir Nagar Dahanukarwadi Kandivali West Mumbai -400 067.</strong>
+            </div>
+        </div>
+    </div>
+
     <!-- CLIENT SCRIPT -->
     <script>
         const FALLBACK_CENTRES_CLIENT = [
@@ -1180,7 +1329,11 @@
             if (placeInput) placeInput.value = activeCentre.place || 'Kandivali West';
             const sel = document.getElementById('activeCentreSelector');
             if (sel) sel.value = String(activeCentre.id);
-            document.getElementById('repTopMarginMm').value = activeCentre.top_margin_mm || 55;
+            
+            const defMargin = activeCentre.top_margin_mm || 55;
+            if (document.getElementById('repTopMarginMm')) document.getElementById('repTopMarginMm').value = defMargin;
+            if (document.getElementById('repModalMarginMm')) document.getElementById('repModalMarginMm').value = defMargin;
+            
             const contactEl = document.getElementById('prtContactNum');
             if (contactEl) contactEl.textContent = activeCentre.phone || '+91 8433838285';
         }
@@ -1761,6 +1914,7 @@
             document.getElementById('dispDocCut').textContent = `₹${cutVal.toFixed(2)}`;
         }
 
+        // VISIT REGISTRATION & INVOICE GENERATION (FIXED & TESTED)
         async function processVisit(printInv) {
             const fullName = document.getElementById('patientFullName').value.trim();
             if (!fullName) return alert('Patient Full Name is required.');
@@ -1783,6 +1937,11 @@
             formData.append('cashAmount', document.getElementById('inputSplitCash')?.value || 0);
             formData.append('onlineAmount', document.getElementById('inputSplitOnline')?.value || 0);
 
+            const fileInput = document.getElementById('reportFileInput');
+            if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                formData.append('reportFile', fileInput.files[0]);
+            }
+
             const isPcpndt = document.getElementById('pcpndtToggle').checked;
             formData.append('isPcpndt', isPcpndt);
             if (isPcpndt) {
@@ -1801,26 +1960,36 @@
                 formData.append('clinicRegNo', document.getElementById('pcpndtClinicReg').value.trim());
             }
 
-            const res = await apiFetch('/api/register-visit', { method: 'POST', body: formData });
-            const json = await res.json();
-            if (json.success) {
-                const visitId = json.data.visitId;
-                alert(`Saved! Invoice: ${json.data.invoiceNumber}`);
-                if (printInv) {
-                    printSingleInvoice(visitId);
-                    if (isPcpndt) printPCPNDTForm(visitId);
+            try {
+                const res = await apiFetch('/api/register-visit', { method: 'POST', body: formData });
+                const json = await res.json();
+                if (json.success) {
+                    const visitId = json.data.visitId;
+                    alert(`✅ Saved Successfully! Invoice: ${json.data.invoiceNumber}`);
+                    
+                    if (printInv) {
+                        // Open PDF invoice in new window instantly
+                        window.open(`/api/invoice/${visitId}/pdf`, '_blank');
+                        if (isPcpndt) {
+                            setTimeout(() => { printPCPNDTForm(visitId); }, 600);
+                        }
+                    }
+
+                    apiFetch(`/api/visits/${visitId}/send-bill-sms`, { method: 'POST' })
+                      .then(r => r.json())
+                      .then(smsRes => console.log('Bill SMS:', smsRes.message))
+                      .catch(err => console.log('SMS notice:', err));
+
+                    selectedBillTests = [];
+                    renderSelectedTests();
+                    clearPatientRegistrationForm();
+                    await refreshAllCentreData();
+                } else {
+                    alert('Error saving visit: ' + (json.error || 'Server error'));
                 }
-
-                apiFetch(`/api/visits/${visitId}/send-bill-sms`, { method: 'POST' })
-                  .then(r => r.json())
-                  .then(smsRes => console.log('Bill SMS:', smsRes.message))
-                  .catch(err => console.log('SMS notice:', err));
-
-                selectedBillTests = [];
-                renderSelectedTests();
-                clearPatientRegistrationForm();
-                await refreshAllCentreData();
-            } else { alert('Error: ' + json.error); }
+            } catch (err) {
+                alert('Request failed: ' + err.message);
+            }
         }
 
         async function markBillAsPrinted(visitId) {
@@ -1965,7 +2134,7 @@
 
         function getBillPrintBtnHtml(visitId, isPrinted) {
             const printedClass = isPrinted ? 'btn-act-bill-printed' : 'btn-act-bill-unprinted';
-            const label = isPrinted ? '🖨️ Bill ✔️' : '🖨️ Bill';
+            const label = isPrinted ? '🖨️ Slip ✔️' : '🖨️ Slip';
             return `<button type="button" class="btn-act ${printedClass} btn-prt-visit-${visitId}" onclick="printSingleInvoice('${visitId}')">${label}</button>`;
         }
 
@@ -2048,8 +2217,8 @@
                             <td style="color:#7c3aed; font-weight:bold;">₹${cutAmount}</td>
                             <td>${v.payment_status === 'Paid' ? '<span style="color:#2e7d32;font-weight:bold;">Paid</span>' : '<span style="color:#c62828;font-weight:bold;">Pending</span>'}</td>
                             <td>
+                                <a href="/api/invoice/${v.visit_id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 Invoice PDF</a>
                                 ${getBillPrintBtnHtml(v.visit_id, v.bill_printed)}
-                                <a href="/api/invoice/${v.visit_id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 Bill</a>
                                 <button type="button" class="btn-act" style="background:#6366f1; color:white;" onclick="openClinicalReportModal('${v.visit_id}')">📝 Report Studio</button>
                                 ${hasReportFile 
                                     ? `<a href="/api/visits/${v.visit_id}/uploaded-report" target="_blank" class="btn-act" style="background:#0f766e; color:white;">📎 File</a>
@@ -2084,6 +2253,34 @@
             if (document.getElementById('repEndDate')) document.getElementById('repEndDate').value = '';
             if (document.getElementById('repMonth')) document.getElementById('repMonth').value = '';
             loadReports();
+        }
+
+        // WORD DOCUMENT LETTERHEAD TOGGLE & MARGIN SELECTOR
+        function onWordLetterheadToggle(withLetterhead) {
+            const box = document.getElementById('wordMarginGroup');
+            if (box) {
+                box.style.opacity = withLetterhead ? '0.45' : '1';
+                box.title = withLetterhead ? 'Margin setting is active for pre-printed letterheads' : 'Active margin for pre-printed paper';
+            }
+        }
+
+        async function saveWordMarginAsCentreDefault() {
+            const marginMm = parseInt(document.getElementById('repTopMarginMm').value, 10);
+            if (isNaN(marginMm) || marginMm <= 0) return alert('Enter a valid millimeter value (e.g. 55).');
+            if (!activeCentre?.id) return alert('No active centre selected.');
+
+            const res = await apiFetch(`/api/centres/${activeCentre.id}/default-margin`, {
+                method: 'PUT',
+                body: JSON.stringify({ marginMm })
+            });
+            const json = await res.json();
+            if (json.success) {
+                activeCentre.top_margin_mm = marginMm;
+                if (document.getElementById('repModalMarginMm')) document.getElementById('repModalMarginMm').value = marginMm;
+                alert('⭐ ' + json.message);
+            } else {
+                alert('Error: ' + json.error);
+            }
         }
 
         // CLINICAL REPORT STUDIO, DUAL LETTERHEAD & ATTACHMENT LOGIC
@@ -2160,6 +2357,7 @@
             const json = await res.json();
             if (json.success) {
                 activeCentre.top_margin_mm = marginMm;
+                if (document.getElementById('repTopMarginMm')) document.getElementById('repTopMarginMm').value = marginMm;
                 alert('⭐ ' + json.message);
             } else {
                 alert('Error: ' + json.error);
@@ -2741,8 +2939,8 @@
                             <td>₹${parseFloat(v.paid_amount).toFixed(2)}</td>
                             <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
                             <td>
+                                <a href="/api/invoice/${v.id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 Invoice PDF</a>
                                 ${getBillPrintBtnHtml(v.id, v.bill_printed)}
-                                <a href="/api/invoice/${v.id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 Bill</a>
                                 <button type="button" class="btn-act" style="background:#6366f1; color:white;" onclick="openClinicalReportModal('${v.id}')">📝 Report</button>
                                 ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.id}')">📝 Form F</button>` : ''}
                                 <button type="button" class="btn-act btn-act-del" onclick="deleteBill('${v.id}')">✕ Delete</button>
@@ -2965,6 +3163,7 @@
             }
         }
 
+        // DYNAMIC MERGE WITH LETTERHEAD OR PREPRINTED STATIONERY OPTION
         async function openReportInExternalWord() {
             if (!currentSelectedTemplate) {
                 return alert('Please select a template from the list first.');
@@ -2975,6 +3174,8 @@
             const age = (document.getElementById('fld_Age').value || '').trim();
             const sex = (document.getElementById('fld_Sex').value || 'FEMALE').toUpperCase();
             const refDoc = (document.getElementById('fld_Ref1').value || 'DIRECT OPD').trim().toUpperCase();
+            
+            const withLetterhead = document.getElementById('wordOptWithLetterhead').checked;
             const marginOverride = document.getElementById('repTopMarginMm').value || 55;
 
             if (!ptName) return alert('Please enter or select a patient name.');
@@ -2989,7 +3190,8 @@
                         age: age,
                         gender: sex,
                         refDoctor: refDoc,
-                        marginOverrideMm: marginOverride
+                        marginOverrideMm: marginOverride,
+                        includeLetterhead: withLetterhead
                     })
                 });
 
@@ -3013,7 +3215,7 @@
                         visitId: null,
                         patientId: null,
                         templateName: currentSelectedTemplate.title,
-                        reportText: `Merged in Word with ${marginOverride}mm margin.`
+                        reportText: `Merged in Word ${withLetterhead ? 'with letterhead' : `with ${marginOverride}mm margin`}.`
                     })
                 }).catch(() => {});
             } catch (e) {
