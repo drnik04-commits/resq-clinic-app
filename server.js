@@ -532,9 +532,7 @@ async function initDB() {
   }
 }
 
-// ----------------------------------------------------
 // AUTH & MULTI-CENTRE APIS
-// ----------------------------------------------------
 app.get('/api/health', (req, res) => {
   res.json({ success: true, dbConnected: isDbConnected, dbError: dbErrorMessage || 'Connected to DB' });
 });
@@ -774,9 +772,7 @@ app.delete('/api/centres/:id', async (req, res) => {
   }
 });
 
-// ----------------------------------------------------
 // PATIENTS & BILLING APIS
-// ----------------------------------------------------
 app.get('/api/patients', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1033,9 +1029,7 @@ app.post('/api/visits/:id/mark-printed', async (req, res) => {
   }
 });
 
-// ----------------------------------------------------
 // MANUAL REPORT FILE UPLOAD & DIRECT SERVING APIS
-// ----------------------------------------------------
 app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1473,9 +1467,7 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
   }
 });
 
-// ----------------------------------------------------
 // CLINICAL REPORT STUDIO & PDF GENERATION APIS
-// ----------------------------------------------------
 app.get('/api/imaging/report-data/:visitId', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
@@ -1585,7 +1577,7 @@ app.post('/api/imaging/report-save', async (req, res) => {
   }
 });
 
-// Dynamic Diagnostic PDF generation with letterhead toggle and customizable top margin
+// Dynamic Diagnostic PDF generation
 app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
@@ -1647,7 +1639,6 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       doc.y = topPts;
     }
 
-    // Patient Information Block
     const metaBoxY = doc.y;
     doc.rect(40, metaBoxY, 515, 45).fillAndStroke('#f8fafc', '#cbd5e1');
     doc.fontSize(8.5).fillColor('#000000');
@@ -1808,7 +1799,7 @@ app.post('/api/tests/bulk-import', async (req, res) => {
         await pool.query(
           `INSERT INTO test_master (centre_id, test_name, category, price, cut_type, test_cut)
            VALUES ($1, $2, $3, $4, $5, $6)`,
-          [targetCentreId, t.testName.trim(), t.category || 'Imaging', parseFloat(t.price) || 0, t.cutType || 'percentage', parsedCut]
+          [targetCentreId, t.testName.trim(), t.category || 'Imaging', parseFloat(t.price) || 0, t.cut_type || 'percentage', parsedCut]
         );
         count++;
       }
@@ -1940,9 +1931,7 @@ app.delete('/api/doctors/:id', async (req, res) => {
   }
 });
 
-// -------------------------------------------------------------------------
 // TEMPLATE ENGINE APIS
-// -------------------------------------------------------------------------
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2204,7 +2193,7 @@ app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   }
 });
 
-// DYNAMIC WORD DOCUMENT GENERATOR (WITH OR WITHOUT LETTERHEAD)
+// DYNAMIC WORD DOCUMENT GENERATOR
 app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   try {
     const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm, includeLetterhead } = req.body;
@@ -2227,7 +2216,7 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
     let bottomMarginMm = 15;
 
     if (withLetterhead) {
-      topMarginMm = 15; // Clean top margin when digital letterhead is included
+      topMarginMm = 15;
     } else if (marginOverrideMm && !isNaN(parseInt(marginOverrideMm, 10))) {
       topMarginMm = parseInt(marginOverrideMm, 10);
     } else if (centreObj) {
@@ -2277,7 +2266,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
       docXml = docXml.replace(/(<w:pgMar[^>]*?\bw:top=")[^"]*(")/g, `$1${topDxa}$2`);
       docXml = docXml.replace(/(<w:pgMar[^>]*?\bw:bottom=")[^"]*(")/g, `$1${bottomDxa}$2`);
 
-      // If "With Letterhead" is chosen, inject the clinic header right into the Word document
       if (withLetterhead && centreObj) {
         const letterheadXml = `
           <w:p>
@@ -2422,9 +2410,9 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// ----------------------------------------------------
 // REPORTS & STATUTORY PCPNDT APIS
-// ----------------------------------------------------
+
+// 1. Shows Doctor Name instead of Doctor Cut
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2435,6 +2423,7 @@ app.get('/api/reports/collection', async (req, res) => {
              v.payment_status, v.payment_mode, v.cash_amount, v.online_amount, v.bill_printed, v.invoice_number, 
              v.report_file, v.report_has_letterhead, v.report_margin_mm,
              COALESCE(v.doctor_commission, 0.00) as doctor_commission,
+             COALESCE(d.doctor_name, 'Direct OPD / Self') as referring_doctor_name,
              p.full_name, p.phone, COALESCE(c.centre_name, 'Main Centre') as centre_name,
              EXISTS(SELECT 1 FROM pcpndt_forms pf WHERE pf.visit_id = v.id) as has_pcpndt,
              COALESCE((
@@ -2445,6 +2434,7 @@ app.get('/api/reports/collection', async (req, res) => {
              ), 'General') as categories
       FROM visits v
       JOIN patients p ON v.patient_id = p.id
+      LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
       LEFT JOIN clinic_centres c ON v.centre_id = c.id
       WHERE 1=1
     `;
@@ -2500,13 +2490,16 @@ app.get('/api/reports/collection', async (req, res) => {
   }
 });
 
+// 2. Shows Final Paid Amount along with Doctor Cut and Business Gross
 app.get('/api/reports/doctor-detailed', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
     const { doctorId, startDate, endDate, month, patientName } = req.query;
 
     let query = `
-      SELECT v.id as visit_id, v.created_at, v.total_amount, 
+      SELECT v.id as visit_id, v.created_at, v.total_amount, v.concession,
+             COALESCE(v.paid_amount, 0.00) as paid_amount,
+             COALESCE(v.balance_amount, 0.00) as balance_amount,
              COALESCE(v.doctor_commission, 0.00) as doctor_commission, 
              v.invoice_number, p.full_name,
              COALESCE(d.doctor_name, 'Direct OPD / Self') as doctor_name,
@@ -2666,9 +2659,7 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// -------------------------------------------------------------------------
 // HIGH-SPEED BATCH CLOUD SYNC API
-// -------------------------------------------------------------------------
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) {
     return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in your environment variables (.env)' });
@@ -2712,13 +2703,11 @@ app.post('/api/sync/cloud', async (req, res) => {
       `);
     } catch (e) {}
 
-    // 1. Sync App Auth (Bulk)
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
     if (auths.rows.length > 0) {
       await bulkInsert(cloudClient, 'app_auth', ['id', 'role', 'password'], auths.rows, 10, 'ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password');
     }
 
-    // 2. Sync Centres (Bulk)
     const centres = await localClient.query('SELECT * FROM clinic_centres');
     const mappedCentres = centres.rows.map(c => ({
       ...c,
@@ -2740,7 +2729,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       centre_password = EXCLUDED.centre_password, owner_password = EXCLUDED.owner_password, is_private = EXCLUDED.is_private,
       top_margin_mm = EXCLUDED.top_margin_mm, bottom_margin_mm = EXCLUDED.bottom_margin_mm`);
 
-    // 3. Sync Doctors (Bulk)
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
     await bulkInsert(cloudClient, 'referring_doctors', [
       'id', 'centre_id', 'doctor_name', 'hospital_clinic_name', 'commission_type', 'commission_value'
@@ -2749,7 +2737,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       hospital_clinic_name = EXCLUDED.hospital_clinic_name, 
       commission_type = EXCLUDED.commission_type, commission_value = EXCLUDED.commission_value`);
 
-    // 4. Sync Test Master (Bulk)
     const tests = await localClient.query('SELECT * FROM test_master');
     await bulkInsert(cloudClient, 'test_master', [
       'id', 'centre_id', 'test_name', 'category', 'price', 'cut_type', 'test_cut'
@@ -2757,7 +2744,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       centre_id = EXCLUDED.centre_id, test_name = EXCLUDED.test_name, category = EXCLUDED.category, 
       price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut`);
 
-    // 5. Sync Patients (Bulk)
     const patients = await localClient.query('SELECT * FROM patients');
     await bulkInsert(cloudClient, 'patients', [
       'id', 'centre_id', 'patient_code', 'full_name', 'age', 'gender', 'phone', 'email', 'address', 'created_at'
@@ -2765,7 +2751,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender,
       phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address`);
 
-    // 6. Fast Clean & Bulk Insert Visits
     const visits = await localClient.query('SELECT * FROM visits');
     const localVisitIds = visits.rows.map(v => v.id).filter(Boolean);
     const localInvNos = visits.rows.map(v => v.invoice_number).filter(Boolean);
@@ -2815,7 +2800,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       'report_has_letterhead', 'report_margin_mm', 'created_at'
     ], mappedVisits, 100);
 
-    // 7. Sync Patient Investigations (Bulk)
     const investigations = await localClient.query('SELECT * FROM patient_investigations');
     await bulkInsert(cloudClient, 'patient_investigations', [
       'id', 'visit_id', 'test_id', 'barcode', 'status', 'price', 'cut_type', 'test_cut'
@@ -2823,7 +2807,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       visit_id = EXCLUDED.visit_id, test_id = EXCLUDED.test_id, barcode = EXCLUDED.barcode,
       status = EXCLUDED.status, price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut`);
 
-    // 8. Sync PCPNDT Forms (Bulk)
     const pcpndt = await localClient.query('SELECT * FROM pcpndt_forms');
     const mappedPcpndt = pcpndt.rows.map(pf => ({
       ...pf,
@@ -2840,7 +2823,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       relative_name = EXCLUDED.relative_name, lmp_date = EXCLUDED.lmp_date, 
       weeks_of_preg = EXCLUDED.weeks_of_preg, scan_result = EXCLUDED.scan_result, place = EXCLUDED.place`);
 
-    // 9. Sync Imaging Templates (Bulk)
     const templates = await localClient.query('SELECT * FROM imaging_templates');
     await bulkInsert(cloudClient, 'imaging_templates', [
       'id', 'centre_id', 'template_name', 'title', 'category', 'default_impression', 'template_body'
