@@ -187,14 +187,14 @@ const FALLBACK_CENTRES = [
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// ROBUST TEXT EXTRACTOR SUPPORTING DOCX & DOC
-function extractTextFromUploadedFile(filePath) {
+// ROBUST MEDICAL TEXT EXTRACTOR (FILTERS DEMOGRAPHICS, EXTRACTS STUDY & IMPRESSION)
+function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDoctorName = '') {
   if (!fs.existsSync(filePath)) return { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '' };
   try {
     const rawBuffer = fs.readFileSync(filePath);
     let textContent = '';
 
-    // Handle DOCX via AdmZip
+    // 1. DOCX Extraction via AdmZip
     if (rawBuffer[0] === 0x50 && rawBuffer[1] === 0x4b && AdmZip) {
       try {
         const zip = new AdmZip(filePath);
@@ -217,7 +217,7 @@ function extractTextFromUploadedFile(filePath) {
       } catch (ze) {}
     }
 
-    // Binary ASCII fallback for .doc
+    // 2. Binary ASCII Fallback for older .doc files
     if (!textContent || textContent.trim().length === 0) {
       const asciiRuns = [];
       let currentRun = '';
@@ -246,34 +246,71 @@ function extractTextFromUploadedFile(filePath) {
       .map(l => l.trim())
       .filter(l => l.length > 0);
 
+    const normPtName = knownPatientName.trim().toLowerCase().replace(/^(mr|mrs|ms|mast|dr)\.?\s+/i, '');
+    const normDocName = knownDoctorName.trim().toLowerCase().replace(/^(dr|doctor)\.?\s+/i, '');
     const contentLines = [];
+
     for (const line of lines) {
-      // Exclude template demographic header tokens
-      if (/^(NAME\b|DATE\b|AGE\b|SEX\b|GENDER\b|REF\.?\s*BY\b)/i.test(line)) continue;
-      if (/^[|\t\s-]+$/.test(line)) continue;
+      const lower = line.toLowerCase();
+
+      // Filter lines matching known patient name
+      if (normPtName && normPtName.length >= 3 && lower.includes(normPtName)) continue;
+
+      // Filter lines matching known referring doctor (in header context)
+      if (normDocName && normDocName.length >= 3 && lower.includes(normDocName) && contentLines.length < 8) continue;
+
+      // Filter demographic tokens and standalone values leaked from Word tables
+      if (/^(NAME|DATE|AGE|SEX|GENDER|REF\.?\s*BY|REFERRING|PATIENT|IPD|OPD|UHID|REG\.?\s*NO)\b/i.test(line)) continue;
+      if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(line)) continue;
+      if (/^\d{1,3}\s*(YRS?|YEARS?|Y|MONTHS?|DAYS?)?(\s*[\/|]\s*(M|F|MALE|FEMALE))?$/i.test(line)) continue;
+      if (/^(MALE|FEMALE|OTHER|M|F)$/i.test(line)) continue;
+      if (/^(DR\.?|DOCTOR)\s+[A-Z\s.]+$/i.test(line) && contentLines.length < 6) continue;
+      if (/^[|\t\s\-_=]+$/.test(line)) continue;
+
       contentLines.push(line);
     }
 
-    const cleanText = contentLines.join('\n');
-    let body = cleanText;
-    let impression = 'NO SIGNIFICANT ABNORMALITY DETECTED.';
-    let title = 'DIAGNOSTIC IMAGING REPORT';
+    let joined = contentLines.join('\n').trim();
 
-    const impRegex = /(?:IMPRESSION|CONCLUSION|OPINION)\s*[:-]?\s*([\s\S]*)/i;
-    const match = cleanText.match(impRegex);
+    // 3. Extract IMPRESSION / REMARKS / CONCLUSION
+    let impression = 'NO SIGNIFICANT ABNORMALITY DETECTED.';
+    let body = joined;
+
+    const impRegex = /(?:^|\n)\s*(?:IMPRESSION|CONCLUSION|OPINION|REMARKS|FINAL\s+OPINION)\s*[:-]?\s*([\s\S]*)$/i;
+    const match = joined.match(impRegex);
     if (match) {
-      impression = match[1].replace(/DR\.?\s*[A-Z\s.]+(?:CONSULTANT|CONS\.?\s*RADIOLOGIST)?/gi, '').trim();
-      body = cleanText.substring(0, match.index).trim();
+      impression = match[1].trim();
+      body = joined.substring(0, match.index).trim();
     }
 
-    // Identify study heading from the first line
-    const firstLine = (body.split('\n')[0] || '').trim();
-    if (firstLine && firstLine.length <= 80 && !firstLine.includes(':')) {
-      if (/^(X-RAY|RADIOGRAPHS?|USG|ULTRASONOGRAPHY|MRI|CT|2D ECHO|COLOR DOPPLER|OBSTETRIC|PELVIS|CHEST|KUB|ABDOMEN)/i.test(firstLine) || firstLine === firstLine.toUpperCase()) {
-        title = firstLine;
-        body = body.substring(firstLine.length).trim();
+    // Strip duplicate trailing doctor signatures from Impression and Body
+    const stripDocSign = (str) => {
+      return str
+        .replace(/(?:\n|^)\s*(?:DR\.?|DR\s)\s*[A-Z\s.]+(?:\n|\r|\s)+(?:CONSULTANT|RADIOLOGIST|SONOLOGIST|PATHOLOGIST|MBBS|MD|DMRD|DNB)[\s\S]*$/i, '')
+        .replace(/(?:\n|^)\s*(?:DR\.?|DR\s)\s*[A-Z\s.]+\s*$/i, '')
+        .trim();
+    };
+    body = stripDocSign(body);
+    impression = stripDocSign(impression);
+
+    // 4. Extract Real Study Title
+    const studyKeywords = /\b(X-RAY|RADIOGRAPHS?|USG|ULTRASONOGRAPHY|ULTRASOUND|SONOGRAPHY|MRI|CT|SCAN|2D\s*ECHO|ECHOCARDIOGRAPHY|COLOR\s*DOPPLER|DOPPLER|MAMMOGRAPHY|BARIUM|CHEST|KUB|ABDOMEN|PELVIS|SPINE|CERVICAL|LUMBAR|DORSAL|KNEE|JOINT|SHOULDER|WRIST|ANKLE|FOOT|HAND|ELBOW|HIP|SKULL|PNS|ORBIT|NECK|THYROID|SCROTAL|OBSTETRIC|ANOMALY|NT\s*SCAN|FOETAL|FETAL)\b/i;
+
+    let title = 'DIAGNOSTIC IMAGING REPORT';
+    const bodyLines = body.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+    for (let i = 0; i < Math.min(bodyLines.length, 6); i++) {
+      const candidate = bodyLines[i];
+      if (candidate.length <= 90 && !candidate.includes(':') && (studyKeywords.test(candidate) || candidate.endsWith('VIEWS') || candidate.endsWith('VIEW') || candidate.endsWith('STUDY'))) {
+        title = candidate.toUpperCase();
+        bodyLines.splice(i, 1);
+        body = bodyLines.join('\n').trim();
+        break;
       }
     }
+
+    // Strip leading "FINDINGS:" or "OBSERVATIONS:" tag if present
+    body = body.replace(/^(FINDINGS|OBSERVATIONS)\s*[:-]?\s*/i, '').trim();
 
     return {
       title: title || 'DIAGNOSTIC IMAGING REPORT',
@@ -892,7 +929,6 @@ app.get('/api/patients/:id/pcpndt-status', async (req, res) => {
   }
 });
 
-// NO AUTOMATIC DEFAULT FOR PCPNDT CLINICAL INDICATIONS
 app.put('/api/patients/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -1081,7 +1117,7 @@ app.post('/api/visits/:id/mark-printed', async (req, res) => {
   }
 });
 
-// REPORT FILE UPLOAD IN REPORT STUDIO (EXTRACTS FINDINGS & IMPRESSION AUTOMATICALLY)
+// REPORT FILE UPLOAD IN REPORT STUDIO (EXTRACTS FINDINGS, STUDY & IMPRESSION AUTOMATICALLY)
 app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1092,21 +1128,30 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
     const hasLetterhead = req.body.hasLetterhead !== 'false';
     const marginMm = parseInt(req.body.marginMm, 10) || 55;
 
+    // Fetch patient name & doctor name to clean demographics out of findings
     const vResult = await pool.query(
-      `UPDATE visits 
-       SET report_file = $1, report_has_letterhead = $2, report_margin_mm = $3 
-       WHERE id::text = $4::text 
-       RETURNING id, patient_id, centre_id, report_file, report_has_letterhead, report_margin_mm, invoice_number`,
-      [relPath, hasLetterhead, marginMm, validId]
+      `SELECT v.id, v.patient_id, v.centre_id, v.invoice_number, p.full_name, d.doctor_name as ref_doctor_name
+       FROM visits v
+       JOIN patients p ON v.patient_id = p.id
+       LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
+       WHERE v.id::text = $1::text`,
+      [validId]
     );
 
     if (vResult.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit not found.' });
     const vRow = vResult.rows[0];
 
+    await pool.query(
+      `UPDATE visits 
+       SET report_file = $1, report_has_letterhead = $2, report_margin_mm = $3 
+       WHERE id::text = $4::text`,
+      [relPath, hasLetterhead, marginMm, validId]
+    );
+
     const ext = path.extname(req.file.originalname).toLowerCase();
     let parsed = { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '' };
     if (ext === '.docx' || ext === '.doc') {
-      parsed = extractTextFromUploadedFile(req.file.path);
+      parsed = extractTextFromUploadedFile(req.file.path, vRow.full_name || '', vRow.ref_doctor_name || '');
 
       const existingRep = await pool.query('SELECT id FROM imaging_reports WHERE visit_id::text = $1::text', [validId]);
       if (existingRep.rows.length > 0) {
@@ -1599,12 +1644,11 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
       [validId]
     );
 
-    // If report is not yet created, but a report_file exists, attempt extraction
     let existingRep = repRes.rows[0] || null;
     if (!existingRep && visitRes.rows[0].report_file) {
       const fullPath = path.resolve(__dirname, visitRes.rows[0].report_file);
       if (fs.existsSync(fullPath)) {
-        const parsed = extractTextFromUploadedFile(fullPath);
+        const parsed = extractTextFromUploadedFile(fullPath, visitRes.rows[0].full_name || '', visitRes.rows[0].ref_doctor || '');
         existingRep = {
           template_name: parsed.title,
           report_text: parsed.body,
@@ -1695,7 +1739,7 @@ app.post('/api/imaging/report-save', async (req, res) => {
   }
 });
 
-// DYNAMIC DIAGNOSTIC PDF GENERATION (PRODUCES FULL BRANDED LETTERHEAD ON DEMAND)
+// DYNAMIC DIAGNOSTIC PDF GENERATION (HIGH-FIDELITY MEDICAL FORMATTING)
 app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
@@ -1725,7 +1769,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     if (!rep) {
       if (v.report_file) {
         const fullPath = path.resolve(__dirname, v.report_file);
-        const parsed = extractTextFromUploadedFile(fullPath);
+        const parsed = extractTextFromUploadedFile(fullPath, v.full_name || '', v.ref_doctor || '');
         rep = {
           template_name: parsed.title,
           report_text: parsed.body,
@@ -1759,12 +1803,11 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     doc.pipe(res);
 
     if (withLetterhead) {
-      // Centre letterhead header
-      doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
+      doc.fontSize(15).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
       if (v.centre_tagline) {
         doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
       }
-      doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`Phone / Contact: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
+      doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#b91c1c').text(`Phone / Contact: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
       doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
       doc.moveDown(0.4);
       doc.strokeColor('#19486a').lineWidth(1.2).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
@@ -1774,6 +1817,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       doc.y = topPts;
     }
 
+    // Patient demographics card
     const metaBoxY = doc.y;
     doc.rect(40, metaBoxY, 515, 45).fillAndStroke('#f8fafc', '#cbd5e1');
     doc.fontSize(8.5).fillColor('#000000');
@@ -1790,28 +1834,68 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
 
     doc.y = metaBoxY + 55;
 
-    const title = (rep.template_name || 'DIAGNOSTIC IMAGING REPORT').toUpperCase();
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#19486a').text(title, { align: 'center', underline: true });
+    // Study Title: strictly prevent collision with patient name
+    let displayTitle = (rep.template_name || 'DIAGNOSTIC IMAGING REPORT').toUpperCase();
+    if (displayTitle === v.full_name.toUpperCase() || displayTitle.length < 4) {
+      displayTitle = 'DIAGNOSTIC IMAGING REPORT';
+    }
+
+    doc.fontSize(11).font('Helvetica-Bold').fillColor('#19486a').text(displayTitle, { align: 'center', underline: true });
     doc.moveDown(0.8);
 
+    // Findings section
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('FINDINGS:');
     doc.moveDown(0.3);
-    doc.fontSize(9).font('Helvetica').fillColor('#111827').text(rep.report_text || 'No significant findings recorded.', {
-      lineGap: 3,
-      align: 'justify'
-    });
-    doc.moveDown(1.2);
 
+    const findingsLines = (rep.report_text || 'No significant abnormality recorded.').split('\n');
+    doc.fontSize(9).fillColor('#111827');
+
+    for (const fLine of findingsLines) {
+      const trimmed = fLine.trim();
+      if (!trimmed) {
+        doc.moveDown(0.3);
+        continue;
+      }
+
+      // Format capitalized anatomical subheadings (e.g. "BONES:", "LIVER:") in bold
+      if (/^[A-Z\s/-]{2,30}:$/i.test(trimmed)) {
+        doc.moveDown(0.3);
+        doc.font('Helvetica-Bold').text(trimmed);
+        doc.font('Helvetica');
+      } else {
+        doc.font('Helvetica').text(trimmed, { lineGap: 2.5, align: 'left' });
+      }
+
+      // Handle page overflow cleanly
+      if (doc.y > 720) {
+        doc.addPage();
+        doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
+      }
+    }
+
+    doc.moveDown(1.0);
+
+    // Impression Box
+    if (doc.y > 670) doc.addPage();
+
+    const impBoxY = doc.y;
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('IMPRESSION:');
     doc.moveDown(0.3);
-    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text(rep.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.', {
+
+    const impText = rep.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.';
+    doc.rect(40, doc.y - 2, 515, 34).fillAndStroke('#f1f5f9', '#94a3b8');
+    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text(impText.toUpperCase(), 48, doc.y + 6, {
+      width: 500,
       lineGap: 2
     });
 
-    doc.moveDown(2.5);
-    const signY = doc.y;
+    // Doctor Signature Block (Orphan Guard Protected)
+    doc.y = Math.max(doc.y + 14, impBoxY + 54);
+    if (doc.y > 730) doc.addPage();
+
+    const signY = Math.max(doc.y + 20, 720);
     doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#000000').text(rep.doctor_name || 'Dr NIKUNJ KOTHIA', 330, signY, { align: 'right' });
-    doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`Consultant Radiologist / Reg: ${rep.doctor_reg_no || '2009/09/3218'}`, 330, doc.y + 2, { align: 'right' });
+    doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`Consultant Radiologist / Reg: ${rep.doctor_reg_no || '2009/09/3218'}`, 330, signY + 14, { align: 'right' });
 
     doc.end();
   } catch (err) {
@@ -2325,7 +2409,7 @@ app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   }
 });
 
-// CLEAN WORD DOCUMENT MERGE GENERATOR (PRESERVES EXACT WORD LAYOUT WITHOUT INJECTING HEADERS)
+// CLEAN WORD DOCUMENT MERGE GENERATOR
 app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   try {
     const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm, centreId: explicitCentreId } = req.body;
@@ -2387,7 +2471,7 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
 
     if (ext === '.docx' || isZip) {
       const zip = new AdmZip(targetPath);
-      const docEntry = zip.getEntry('word/document.xml') || zip.getEntries().find(e => e.entryName.toLowerCase() === 'word/document.xml');
+      const docEntry = zip.getEntry('word/document.xml') || zip.getEntries().find(e => e.entryName.toLowerCase().includes('word/document.xml'));
       if (!docEntry) throw new Error('Invalid Word document structure: word/document.xml not found');
 
       let docXml = docEntry.getData().toString('utf-8');
@@ -2513,8 +2597,6 @@ app.post('/api/imaging/reports', async (req, res) => {
 });
 
 // REPORTS & STATUTORY PCPNDT APIS
-
-// 1. Collections & Departmental Invoices Summary (Supports Pending Filter)
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2595,7 +2677,6 @@ app.get('/api/reports/collection', async (req, res) => {
   }
 });
 
-// 2. Doctor Detailed Report
 app.get('/api/reports/doctor-detailed', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
