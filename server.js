@@ -841,6 +841,7 @@ app.get('/api/patients/:id/pcpndt-status', async (req, res) => {
   }
 });
 
+// NO AUTOMATIC DEFAULT FOR PCPNDT CLINICAL INDICATIONS
 app.put('/api/patients/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -889,7 +890,7 @@ app.put('/api/patients/:id', async (req, res) => {
             centreId, pcpndtData.relativeName || '', pcpndtData.lmpDate || '', pcpndtData.weeksOfPreg || '',
             parseInt(pcpndtData.noOfSons, 10) || 0, pcpndtData.sonsAge || '',
             parseInt(pcpndtData.noOfDaughters, 10) || 0, pcpndtData.daughtersAge || '',
-            pcpndtData.indications || 'Routine Antenatal Anomaly Evaluation',
+            pcpndtData.indications || '',
             pcpndtData.scanResult || '', pcpndtData.doctorName || 'Dr NIKUNJ KOTHIA',
             pcpndtData.doctorRegNo || '2009/09/3218', pcpndtData.clinicRegNo || 'RC197',
             pcpndtData.place || 'Kandivali West', visitId
@@ -903,7 +904,7 @@ app.put('/api/patients/:id', async (req, res) => {
             visitId, centreId, pcpndtData.relativeName || '', pcpndtData.lmpDate || '', pcpndtData.weeksOfPreg || '',
             parseInt(pcpndtData.noOfSons, 10) || 0, pcpndtData.sonsAge || '',
             parseInt(pcpndtData.noOfDaughters, 10) || 0, pcpndtData.daughtersAge || '',
-            pcpndtData.indications || 'Routine Antenatal Anomaly Evaluation',
+            pcpndtData.indications || '',
             pcpndtData.scanResult || '', pcpndtData.doctorName || 'Dr NIKUNJ KOTHIA',
             pcpndtData.doctorRegNo || '2009/09/3218', pcpndtData.clinicRegNo || 'RC197',
             pcpndtData.place || 'Kandivali West'
@@ -1029,7 +1030,6 @@ app.post('/api/visits/:id/mark-printed', async (req, res) => {
   }
 });
 
-// MANUAL REPORT FILE UPLOAD & DIRECT SERVING APIS
 app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1198,7 +1198,7 @@ app.put('/api/visits/:id', async (req, res) => {
   }
 });
 
-// REGISTER VISIT WITH MANUAL REPORT FILE SUPPORT
+// REGISTER VISIT
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -1349,12 +1349,17 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PDF INVOICE GENERATOR WITH OPTIONAL LETTERHEAD TOGGLE & MARGIN
+// PDF INVOICE GENERATOR WITH PRINTED STAMP
 app.get('/api/invoice/:id/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
     const withLetterhead = req.query.letterhead !== 'false';
     const marginMm = parseInt(req.query.margin, 10) || 55;
+    const shouldMarkPrinted = req.query.markPrinted === 'true';
+
+    if (shouldMarkPrinted && validId) {
+      await pool.query('UPDATE visits SET bill_printed = true WHERE id::text = $1::text', [validId]);
+    }
 
     const visitRes = await pool.query(
       `SELECT v.*, p.full_name, p.age, p.gender, p.phone, p.address, p.patient_code,
@@ -1370,6 +1375,8 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     if (visitRes.rows.length === 0) return res.status(404).send('Invoice not found');
 
     const v = visitRes.rows[0];
+    const isPrinted = v.bill_printed || shouldMarkPrinted;
+
     const invRes = await pool.query(
       `SELECT pi.*, tm.test_name, tm.category FROM patient_investigations pi
        LEFT JOIN test_master tm ON pi.test_id = tm.id WHERE pi.visit_id::text = $1::text`,
@@ -1387,7 +1394,7 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     if (withLetterhead) {
       doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
       if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
-      doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`📞 Contact / Phone: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
+      doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`Phone / Contact: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
       doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
       doc.moveDown(0.5);
       doc.strokeColor('#cccccc').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
@@ -1395,6 +1402,13 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     } else {
       const topPts = Math.max(30, Math.round(marginMm * 2.83465));
       doc.y = topPts;
+    }
+
+    if (isPrinted) {
+      doc.save();
+      doc.rect(435, doc.y - 10, 120, 18).fillAndStroke('#ecfdf5', '#059669');
+      doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#047857').text('✓ PRINTED INVOICE', 435, doc.y - 7, { width: 120, align: 'center' });
+      doc.restore();
     }
 
     const metaTop = doc.y;
@@ -1476,7 +1490,7 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
     const visitRes = await pool.query(
       `SELECT v.*, p.full_name, p.age, p.gender, p.phone, p.patient_code,
               d.doctor_name as ref_doctor, c.centre_name, c.phone as centre_phone,
-              c.top_margin_mm as centre_default_margin
+              COALESCE(c.top_margin_mm, 55) as centre_default_margin
        FROM visits v
        JOIN patients p ON v.patient_id = p.id
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
@@ -1587,7 +1601,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       `SELECT v.*, p.full_name, p.age, p.gender, p.phone, p.patient_code,
               d.doctor_name as ref_doctor, c.centre_name, c.tagline as centre_tagline, 
               c.address as centre_address, c.place as centre_place, c.phone as centre_phone, 
-              c.reg_no as centre_reg_no, c.top_margin_mm as centre_top_margin
+              c.reg_no as centre_reg_no, COALESCE(c.top_margin_mm, 55) as centre_top_margin
        FROM visits v
        JOIN patients p ON v.patient_id = p.id
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
@@ -1610,13 +1624,11 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       doctor_reg_no: '2009/09/3218'
     };
 
-    let effectiveMarginMm = 55;
+    let effectiveMarginMm = v.centre_top_margin || 55;
     if (req.query.margin && !isNaN(parseInt(req.query.margin, 10))) {
       effectiveMarginMm = parseInt(req.query.margin, 10);
     } else if (v.report_margin_mm && !isNaN(parseInt(v.report_margin_mm, 10))) {
       effectiveMarginMm = parseInt(v.report_margin_mm, 10);
-    } else if (v.centre_top_margin && !isNaN(parseInt(v.centre_top_margin, 10))) {
-      effectiveMarginMm = parseInt(v.centre_top_margin, 10);
     }
 
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
@@ -1629,7 +1641,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     if (withLetterhead) {
       doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
       if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
-      doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`📞 Contact / Phone: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
+      doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`Phone / Contact: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
       doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
       doc.moveDown(0.4);
       doc.strokeColor('#cccccc').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
@@ -2193,11 +2205,11 @@ app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   }
 });
 
-// DYNAMIC WORD DOCUMENT GENERATOR
+// DYNAMIC WORD DOCUMENT GENERATOR (WITH ROBUST OPENXML LETTERHEAD STRUCTURE)
 app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   try {
-    const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm, includeLetterhead } = req.body;
-    const centreId = getTenantCentreId(req);
+    const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm, includeLetterhead, centreId: explicitCentreId } = req.body;
+    const centreId = explicitCentreId || getTenantCentreId(req);
     const withLetterhead = includeLetterhead === true || String(includeLetterhead) === 'true';
 
     if (!templateName) return res.status(400).json({ success: false, error: 'Template name is required' });
@@ -2212,16 +2224,13 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
     }
     if (!centreObj) centreObj = FALLBACK_CENTRES[0];
 
-    let topMarginMm = 55;
-    let bottomMarginMm = 15;
+    let topMarginMm = centreObj.top_margin_mm || 55;
+    let bottomMarginMm = centreObj.bottom_margin_mm || 15;
 
     if (withLetterhead) {
       topMarginMm = 15;
     } else if (marginOverrideMm && !isNaN(parseInt(marginOverrideMm, 10))) {
       topMarginMm = parseInt(marginOverrideMm, 10);
-    } else if (centreObj) {
-      topMarginMm = centreObj.top_margin_mm || 55;
-      bottomMarginMm = centreObj.bottom_margin_mm || 15;
     }
 
     let targetPath = null;
@@ -2261,7 +2270,10 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
 
     if (ext === '.docx' || isZip) {
       const zip = new AdmZip(targetPath);
-      let docXml = zip.readAsText('word/document.xml');
+      const docEntry = zip.getEntry('word/document.xml') || zip.getEntries().find(e => e.entryName.toLowerCase() === 'word/document.xml');
+      if (!docEntry) throw new Error('Invalid Word document structure: word/document.xml not found');
+
+      let docXml = docEntry.getData().toString('utf-8');
 
       docXml = docXml.replace(/(<w:pgMar[^>]*?\bw:top=")[^"]*(")/g, `$1${topDxa}$2`);
       docXml = docXml.replace(/(<w:pgMar[^>]*?\bw:bottom=")[^"]*(")/g, `$1${bottomDxa}$2`);
@@ -2269,25 +2281,68 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
       if (withLetterhead && centreObj) {
         const letterheadXml = `
           <w:p>
-            <w:pPr><w:jc w:val="center"/><w:spacing w:after="40" w:line="240" w:lineRule="auto"/></w:pPr>
-            <w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:b/><w:color w:val="19486A"/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr><w:t>${escapeXml(centreObj.centre_name)}</w:t></w:r>
+            <w:pPr>
+              <w:spacing w:before="0" w:after="40" w:line="240" w:lineRule="auto"/>
+              <w:jc w:val="center"/>
+            </w:pPr>
+            <w:r>
+              <w:rPr>
+                <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
+                <w:b/>
+                <w:color w:val="19486A"/>
+                <w:sz w:val="32"/>
+                <w:szCs w:val="32"/>
+              </w:rPr>
+              <w:t xml:space="preserve">${escapeXml(centreObj.centre_name)}</w:t>
+            </w:r>
           </w:p>
           ${centreObj.tagline ? `
           <w:p>
-            <w:pPr><w:jc w:val="center"/><w:spacing w:after="40" w:line="240" w:lineRule="auto"/></w:pPr>
-            <w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="555555"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t>${escapeXml(centreObj.tagline)}</w:t></w:r>
+            <w:pPr>
+              <w:spacing w:before="0" w:after="40" w:line="240" w:lineRule="auto"/>
+              <w:jc w:val="center"/>
+            </w:pPr>
+            <w:r>
+              <w:rPr>
+                <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
+                <w:color w:val="555555"/>
+                <w:sz w:val="18"/>
+                <w:szCs w:val="18"/>
+              </w:rPr>
+              <w:t xml:space="preserve">${escapeXml(centreObj.tagline)}</w:t>
+            </w:r>
           </w:p>` : ''}
           <w:p>
-            <w:pPr><w:jc w:val="center"/><w:spacing w:after="40" w:line="240" w:lineRule="auto"/></w:pPr>
-            <w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:b/><w:color w:val="B91C1C"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t>Phone: ${escapeXml(centreObj.phone || '+91 8433838285')}</w:t></w:r>
+            <w:pPr>
+              <w:spacing w:before="0" w:after="40" w:line="240" w:lineRule="auto"/>
+              <w:jc w:val="center"/>
+            </w:pPr>
+            <w:r>
+              <w:rPr>
+                <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
+                <w:b/>
+                <w:color w:val="B91C1C"/>
+                <w:sz w:val="18"/>
+                <w:szCs w:val="18"/>
+              </w:rPr>
+              <w:t xml:space="preserve">Phone / Contact: ${escapeXml(centreObj.phone || '+91 8433838285')}</w:t>
+            </w:r>
           </w:p>
           <w:p>
             <w:pPr>
-              <w:jc w:val="center"/>
               <w:pBdr><w:bottom w:val="single" w:sz="12" w:space="6" w:color="19486A"/></w:pBdr>
-              <w:spacing w:after="240" w:line="240" w:lineRule="auto"/>
+              <w:spacing w:before="0" w:after="240" w:line="240" w:lineRule="auto"/>
+              <w:jc w:val="center"/>
             </w:pPr>
-            <w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="333333"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr><w:t>${escapeXml(centreObj.address || 'Kandivali West, Mumbai')} | Reg: ${escapeXml(centreObj.reg_no || 'RC197')}</w:t></w:r>
+            <w:r>
+              <w:rPr>
+                <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
+                <w:color w:val="333333"/>
+                <w:sz w:val="16"/>
+                <w:szCs w:val="16"/>
+              </w:rPr>
+              <w:t xml:space="preserve">${escapeXml(centreObj.address || 'Kandivali West, Mumbai')} | Reg: ${escapeXml(centreObj.reg_no || 'RC197')}</w:t>
+            </w:r>
           </w:p>
         `;
         docXml = docXml.replace(/(<w:body[^>]*>)/i, `$1${letterheadXml}`);
@@ -2306,7 +2361,7 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
         .replace(/(\d+\s*YRS?\s*\/\s*[MF])/i, `${escapeXml(ag)} / ${escapeXml(sx)}`)
         .replace(/(REF\.?\s*BY\s*DR\.?\s*)([A-Z\s.]{0,30})(?=(SONOGRAPHY|OBSTETRIC|TECHNIQUE|LIVER|<\/w:t>))/i, `$1${escapeXml(doc)} `);
 
-      zip.updateFile('word/document.xml', Buffer.from(docXml, 'utf-8'));
+      zip.updateFile(docEntry.entryName, Buffer.from(docXml, 'utf-8'));
       const outputBuffer = zip.toBuffer();
 
       const safeName = ptName.replace(/[^a-zA-Z0-9]/g, '_');
@@ -2412,11 +2467,11 @@ app.post('/api/imaging/reports', async (req, res) => {
 
 // REPORTS & STATUTORY PCPNDT APIS
 
-// 1. Shows Doctor Name instead of Doctor Cut
+// 1. Collections & Departmental Invoices Summary (Pending Filter supported)
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
-    const { category, startDate, endDate, month, patientName } = req.query;
+    const { category, startDate, endDate, month, patientName, pendingOnly } = req.query;
 
     let query = `
       SELECT v.id as visit_id, v.created_at, v.total_amount, v.concession, v.paid_amount, v.balance_amount,
@@ -2443,6 +2498,9 @@ app.get('/api/reports/collection', async (req, res) => {
     if (centreId) {
       params.push(String(centreId));
       query += ` AND (v.centre_id::text = $${params.length}::text OR v.centre_id IS NULL)`;
+    }
+    if (pendingOnly === 'true' || pendingOnly === true) {
+      query += ` AND v.balance_amount > 0`;
     }
     if (startDate && startDate.trim()) {
       params.push(startDate.trim());
@@ -2490,7 +2548,7 @@ app.get('/api/reports/collection', async (req, res) => {
   }
 });
 
-// 2. Shows Final Paid Amount along with Doctor Cut and Business Gross
+// 2. Doctor Detailed Report
 app.get('/api/reports/doctor-detailed', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);

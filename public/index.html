@@ -207,7 +207,7 @@
                             <div class="form-group"><label>Weeks of Gestation:</label><input type="text" id="pcpndtWeeks" placeholder="e.g. 28 Weeks"></div>
                             <div class="form-group"><label>Living Sons & Age:</label><div style="display:flex;gap:6px;"><input type="number" id="pcpndtNoOfSons" placeholder="Count" style="width:80px;"><input type="text" id="pcpndtSonsAge" placeholder="Ages"></div></div>
                             <div class="form-group"><label>Living Daughters & Age:</label><div style="display:flex;gap:6px;"><input type="number" id="pcpndtNoOfDaughters" placeholder="Count" style="width:80px;"><input type="text" id="pcpndtDaughtersAge" placeholder="Ages"></div></div>
-                            <div class="form-group full-width"><label>Indications:</label><input type="text" id="pcpndtIndication" value="Routine Antenatal Anomaly Evaluation"></div>
+                            <div class="form-group full-width"><label>Indications:</label><input type="text" id="pcpndtIndication" placeholder="Enter clinical indication if any..."></div>
                             <div class="form-group full-width"><label>Observations / Findings:</label><textarea id="pcpndtFindings" rows="2"></textarea></div>
                             <div class="form-group"><label>Doctor:</label><input type="text" id="pcpndtDoctor" value="Dr NIKUNJ KOTHIA"></div>
                             <div class="form-group"><label>Doctor Reg:</label><input type="text" id="pcpndtDoctorReg" value="2009/09/3218"></div>
@@ -346,11 +346,11 @@
                             <label style="color:#92400e; font-weight:bold; display:block; margin-bottom:6px;">📄 Word Document Letterhead & Margin Settings:</label>
                             <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; font-size:0.88rem; font-weight:600; margin-bottom:8px;">
                                 <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
-                                    <input type="radio" name="wordLetterheadChoice" id="wordOptWithLetterhead" value="true" onchange="onWordLetterheadToggle(true)">
+                                    <input type="radio" name="wordLetterheadChoice" id="wordOptWithLetterhead" value="true" checked onchange="onWordLetterheadToggle(true)">
                                     🏥 Include Clinic Letterhead (Digital Word Doc)
                                 </label>
                                 <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
-                                    <input type="radio" name="wordLetterheadChoice" id="wordOptWithoutLetterhead" value="false" checked onchange="onWordLetterheadToggle(false)">
+                                    <input type="radio" name="wordLetterheadChoice" id="wordOptWithoutLetterhead" value="false" onchange="onWordLetterheadToggle(false)">
                                     🖨️ Without Letterhead (For Pre-printed Stationery)
                                 </label>
                             </div>
@@ -486,7 +486,7 @@
             </div>
         </div>
 
-        <!-- TAB 7: COLLECTIONS & REPORTS (DOCTOR NAME INSTEAD OF CUT) -->
+        <!-- TAB 7: COLLECTIONS & REPORTS -->
         <div id="tab-reports" class="tab-content">
             <div class="card">
                 <div class="card-title"><span>Collections & Departmental Invoices Summary</span></div>
@@ -505,8 +505,9 @@
                         </select>
                     </div>
                     <div><label style="font-size:0.8rem; font-weight:bold; color:#475569;">Search Patient / Inv:</label><br><input type="text" id="repPatientSearch" placeholder="Name, Mobile, Inv..." style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
-                    <div style="display:flex; gap:6px;">
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
                         <button type="button" class="btn-search" onclick="loadReports()">🔍 Filter</button>
+                        <button type="button" id="btnTogglePending" class="btn-act" style="background:#e11d48; color:white; padding:7px 11px;" onclick="togglePendingBillsFilter()">⏳ Pending Bills Only</button>
                         <button type="button" class="btn-act btn-act-edit" onclick="resetReportsFilters()">📅 Reset to Today</button>
                         <button type="button" class="btn-act" style="background:#64748b; color:white;" onclick="clearReportsDateFilters()">🌐 Show All Time</button>
                         <button type="button" class="btn-act btn-act-bill-unprinted" onclick="window.print()">🖨️ Print Summary</button>
@@ -553,7 +554,7 @@
             </div>
         </div>
 
-        <!-- TAB 8: DOCTOR BUSINESS (WITH FINAL PAID AMOUNT & PRINT STATEMENT) -->
+        <!-- TAB 8: DOCTOR BUSINESS -->
         <div id="tab-business" class="tab-content">
             <div class="card">
                 <div class="card-title">
@@ -693,7 +694,7 @@
                         <div class="form-group"><label>Weeks of Gestation:</label><input type="text" id="editPatPcpndtWeeks" placeholder="e.g. 24 Weeks"></div>
                         <div class="form-group"><label>Living Sons & Age:</label><div style="display:flex;gap:6px;"><input type="number" id="editPatPcpndtSonsCount" style="width:70px;"><input type="text" id="editPatPcpndtSonsAge" placeholder="Ages"></div></div>
                         <div class="form-group"><label>Living Daughters & Age:</label><div style="display:flex;gap:6px;"><input type="number" id="editPatPcpndtDaughtersCount" style="width:70px;"><input type="text" id="editPatPcpndtDaughtersAge" placeholder="Ages"></div></div>
-                        <div class="form-group full-width"><label>Clinical Indications:</label><input type="text" id="editPatPcpndtIndications" value="Routine Antenatal Anomaly Evaluation"></div>
+                        <div class="form-group full-width"><label>Clinical Indications:</label><input type="text" id="editPatPcpndtIndications" placeholder="Enter clinical indication if any..."></div>
                         <div class="form-group full-width"><label>Scan Observations / Results:</label><textarea id="editPatPcpndtResults" rows="2"></textarea></div>
                         <div class="form-group"><label>Doctor Name:</label><input type="text" id="editPatPcpndtDocName" value="Dr NIKUNJ KOTHIA"></div>
                         <div class="form-group"><label>Doctor Reg No:</label><input type="text" id="editPatPcpndtDocReg" value="2009/09/3218"></div>
@@ -725,7 +726,7 @@
                 <div class="form-group"><label>Weeks of Gestation:</label><input type="text" id="editPcpndtWeeks"></div>
                 <div class="form-group"><label>Living Sons & Age:</label><div style="display:flex;gap:6px;"><input type="number" id="editPcpndtSonsCount" style="width:70px;"><input type="text" id="editPcpndtSonsAge"></div></div>
                 <div class="form-group"><label>Living Daughters & Age:</label><div style="display:flex;gap:6px;"><input type="number" id="editPcpndtDaughtersCount" style="width:70px;"><input type="text" id="editPcpndtDaughtersAge"></div></div>
-                <div class="form-group full-width"><label>Clinical Indications:</label><input type="text" id="editPcpndtIndications"></div>
+                <div class="form-group full-width"><label>Clinical Indications:</label><input type="text" id="editPcpndtIndications" placeholder="Enter clinical indication if any..."></div>
                 <div class="form-group full-width"><label>Scan Observations / Results:</label><textarea id="editPcpndtResults" rows="3"></textarea></div>
                 <div class="form-group"><label>Doctor Name:</label><input type="text" id="editPcpndtDocName" value="Dr NIKUNJ KOTHIA"></div>
                 <div class="form-group"><label>Doctor Reg No:</label><input type="text" id="editPcpndtDocReg" value="2009/09/3218"></div>
@@ -1108,7 +1109,7 @@
             <div class="doc-line-item"><div class="label">8. &nbsp; Last Menstrual Period/wks of Preg :</div><div class="val"><span id="docLmp">N/A</span> / <span id="docWeeks">N/A</span></div></div>
             <div style="font-weight:bold; font-size:8.8pt; border-top:1px solid #000; padding-top:2px; margin-top:3px; text-decoration:underline;">Section B :</div>
             <div class="doc-line-item"><div class="label">9. &nbsp; Name of the doctor performing the procedures:</div><div class="val" id="docDoctorName">Dr NIKUNJ KOTHIA</div></div>
-            <div class="doc-line-item"><div class="label">10. Indication/s for diagnosis procedure:</div><div class="val" id="docActiveIndication" style="font-weight: bold;">Routine Antenatal Anomaly Evaluation</div></div>
+            <div class="doc-line-item"><div class="label">10. Indication/s for diagnosis procedure:</div><div class="val" id="docActiveIndication" style="font-weight: bold;"></div></div>
             <div class="indications-grid">
                 <div class="indication-row"><span class="ind-num">i.</span><span>To diagnose intra-uterine and/or ectopic pregnancy and confirm viability.</span></div>
                 <div class="indication-row"><span class="ind-num">ii.</span><span>Estimation of gestational age (dating).</span></div>
@@ -1201,6 +1202,7 @@
         let activeReportVisitId = null;
         let cachedReportData = null;
         let currentBusinessData = [];
+        let isPendingOnlyFilterActive = false;
 
         function escapeHtml(str) { return str ? String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;') : ''; }
 
@@ -1399,7 +1401,7 @@
                 if (loginType === 'owner' && (password === 'owner123' || password === 'admin123')) {
                     isCentreOwner = true;
                     currentUserRole = 'centre_owner';
-                    document.getElementById('userRoleBadge').textContent = '👨‍⚕️ Centre Owner Access';
+                    document.getElementById('userRoleBadge').textContent = '👨‍‍⚕️ Centre Owner Access';
                     document.getElementById('userRoleBadge').style.background = '#7c3aed';
                     document.getElementById('appLockScreen').style.display = 'none';
                     await refreshAllCentreData();
@@ -1493,7 +1495,13 @@
             document.getElementById(tabId).classList.add('active');
             btn.classList.add('active');
             applyDefaultDatesEverywhere();
-            if (tabId === 'tab-imaging-reports') { loadImagingVisitsDropdown(); loadTemplateCatalogFromDB(); }
+            if (tabId === 'tab-imaging-reports') { 
+                loadImagingVisitsDropdown(); 
+                loadTemplateCatalogFromDB();
+                if (document.getElementById('repTopMarginMm') && activeCentre) {
+                    document.getElementById('repTopMarginMm').value = activeCentre.top_margin_mm || 55;
+                }
+            }
             if (tabId === 'tab-pcpndt-register') loadPcpndtRegister();
             if (tabId === 'tab-reports') loadReports();
             if (tabId === 'tab-business') loadBusiness();
@@ -1983,7 +1991,7 @@
                     alert(`✅ Saved Successfully! Invoice: ${json.data.invoiceNumber}`);
                     
                     if (printInv) {
-                        window.open(`/api/invoice/${visitId}/pdf`, '_blank');
+                        openInvoicePdf(visitId);
                         if (isPcpndt) {
                             setTimeout(() => { printPCPNDTForm(visitId); }, 600);
                         }
@@ -2013,7 +2021,16 @@
                     btn.className = 'btn-act btn-act-bill-printed';
                     btn.innerHTML = '🖨️ Bill ✔️';
                 });
+                document.querySelectorAll(`.btn-pdf-visit-${visitId}`).forEach(btn => {
+                    btn.innerHTML = '📄 Invoice PDF ✔️';
+                });
             } catch (e) {}
+        }
+
+        function openInvoicePdf(visitId) {
+            if (!visitId) return;
+            window.open(`/api/invoice/${visitId}/pdf?markPrinted=true`, '_blank');
+            markBillAsPrinted(visitId);
         }
 
         async function printSingleInvoice(visitId) {
@@ -2082,6 +2099,7 @@
             document.getElementById('docLmp').textContent = f.lmp_date || 'N/A';
             document.getElementById('docWeeks').textContent = f.weeks_of_preg || 'N/A';
             document.getElementById('docDoctorName').textContent = f.doctor_name || 'Dr NIKUNJ KOTHIA';
+            document.getElementById('docActiveIndication').textContent = f.indications || '';
             document.getElementById('docDeclDate').textContent = formattedDate;
             document.getElementById('docProcDate').textContent = formattedDate;
             document.getElementById('docProcResult').textContent = f.scan_result || 'Single live intrauterine gestation with regular cardiac activity.';
@@ -2102,7 +2120,6 @@
             printEl.classList.remove('print-active');
         }
 
-        // WhatsApp Bill Generator
         async function shareWhatsAppInvoice(phone, patName, invNo, net, bal, centreName, visitId) {
             if (!phone) return alert('Mobile number missing for this patient.');
             const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
@@ -2118,7 +2135,6 @@
             window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
-        // WhatsApp Generated PDF Report
         async function shareWhatsAppReport(phone, patName, invNo, centreName, visitId, withLetterhead = true, marginMm = 55) {
             if (!phone) return alert('Mobile number missing for this patient.');
             const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
@@ -2132,7 +2148,6 @@
             window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
-        // WhatsApp Attached Computer Document
         async function shareWhatsAppUploadedDocument(phone, patName, invNo, centreName, visitId) {
             if (!phone) return alert('Mobile number missing for this patient.');
             const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
@@ -2152,7 +2167,21 @@
             return `<button type="button" class="btn-act ${printedClass} btn-prt-visit-${visitId}" onclick="printSingleInvoice('${visitId}')">${label}</button>`;
         }
 
-        // UPDATED LOAD REPORTS: Displays Doctor Name instead of cut amount
+        function togglePendingBillsFilter() {
+            isPendingOnlyFilterActive = !isPendingOnlyFilterActive;
+            const btn = document.getElementById('btnTogglePending');
+            if (btn) {
+                if (isPendingOnlyFilterActive) {
+                    btn.style.background = '#9f1239';
+                    btn.innerHTML = '✅ Showing Pending Only';
+                } else {
+                    btn.style.background = '#e11d48';
+                    btn.innerHTML = '⏳ Pending Bills Only';
+                }
+            }
+            loadReports();
+        }
+
         async function loadReports() {
             const startDate = document.getElementById('repStartDate')?.value || '';
             const endDate = document.getElementById('repEndDate')?.value || '';
@@ -2161,6 +2190,7 @@
             const patientName = document.getElementById('repPatientSearch')?.value?.trim() || '';
 
             let url = `/api/reports/collection?1=1`;
+            if (isPendingOnlyFilterActive) url += `&pendingOnly=true`;
             if (startDate) url += `&startDate=${encodeURIComponent(startDate)}`;
             if (endDate) url += `&endDate=${encodeURIComponent(endDate)}`;
             if (month && !startDate && !endDate) url += `&month=${encodeURIComponent(month)}`;
@@ -2217,6 +2247,7 @@
 
                     const docName = v.referring_doctor_name || 'Direct OPD / Self';
                     const hasReportFile = Boolean(v.report_file);
+                    const pdfBtnLabel = v.bill_printed ? '📄 Invoice PDF ✔️' : '📄 Invoice PDF';
 
                     tbody.innerHTML += `
                         <tr>
@@ -2231,7 +2262,7 @@
                             <td><strong style="color:#1e3a8a;">${escapeHtml(docName)}</strong></td>
                             <td>${v.payment_status === 'Paid' ? '<span style="color:#2e7d32;font-weight:bold;">Paid</span>' : '<span style="color:#c62828;font-weight:bold;">Pending</span>'}</td>
                             <td>
-                                <a href="/api/invoice/${v.visit_id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 Invoice PDF</a>
+                                <button type="button" class="btn-act btn-act-pdf btn-pdf-visit-${v.visit_id}" onclick="openInvoicePdf('${v.visit_id}')">${pdfBtnLabel}</button>
                                 ${getBillPrintBtnHtml(v.visit_id, v.bill_printed)}
                                 <button type="button" class="btn-act" style="background:#6366f1; color:white;" onclick="openClinicalReportModal('${v.visit_id}')">📝 Report Studio</button>
                                 ${hasReportFile 
@@ -2252,6 +2283,12 @@
         }
 
         function resetReportsFilters() {
+            isPendingOnlyFilterActive = false;
+            const btn = document.getElementById('btnTogglePending');
+            if (btn) {
+                btn.style.background = '#e11d48';
+                btn.innerHTML = '⏳ Pending Bills Only';
+            }
             const todayIso = getTodayIsoDate();
             const todayMonth = getTodayMonthIso();
             if (document.getElementById('repStartDate')) document.getElementById('repStartDate').value = todayIso;
@@ -2269,7 +2306,6 @@
             loadReports();
         }
 
-        // WORD DOCUMENT LETTERHEAD TOGGLE & MARGIN SELECTOR
         function onWordLetterheadToggle(withLetterhead) {
             const box = document.getElementById('wordMarginGroup');
             if (box) {
@@ -2297,7 +2333,6 @@
             }
         }
 
-        // CLINICAL REPORT STUDIO, DUAL LETTERHEAD & ATTACHMENT LOGIC
         async function openClinicalReportModal(visitId) {
             activeReportVisitId = visitId;
             try {
@@ -2497,7 +2532,6 @@
             activeReportVisitId = null;
         }
 
-        // EDIT BILL MODAL LOGIC WITH SPLIT BIFURCATION
         function onEditBillModeChanged(mode) {
             const isSplit = mode === 'Split';
             document.getElementById('editSinglePaidGroup').style.display = isSplit ? 'none' : 'block';
@@ -2678,7 +2712,7 @@
                             <td>${row.lmp_date || '-'}<br>${row.weeks_of_preg || '-'}</td>
                             <td>${row.no_of_sons || 0} (${row.sons_age || '-'})</td>
                             <td>${row.no_of_daughters || 0} (${row.daughters_age || '-'})</td>
-                            <td>${escapeHtml(row.indications || 'Routine USG')}</td>
+                            <td>${escapeHtml(row.indications || '')}</td>
                             <td>${escapeHtml(row.scan_result || 'Single Live Intrauterine')}</td>
                         </tr>
                     `;
@@ -2747,7 +2781,7 @@
                 document.getElementById('editPcpndtSonsAge').value = f.sons_age || '';
                 document.getElementById('editPcpndtDaughtersCount').value = f.no_of_daughters || 0;
                 document.getElementById('editPcpndtDaughtersAge').value = f.daughters_age || '';
-                document.getElementById('editPcpndtIndications').value = f.indications || 'Routine Antenatal Anomaly Evaluation';
+                document.getElementById('editPcpndtIndications').value = f.indications || '';
                 document.getElementById('editPcpndtResults').value = f.scan_result || '';
                 document.getElementById('editPcpndtDocName').value = f.doctor_name || 'Dr NIKUNJ KOTHIA';
                 document.getElementById('editPcpndtDocReg').value = f.doctor_reg_no || '2009/09/3218';
@@ -2860,7 +2894,7 @@
                     document.getElementById('editPatPcpndtSonsAge').value = f.sons_age || '';
                     document.getElementById('editPatPcpndtDaughtersCount').value = f.no_of_daughters || 0;
                     document.getElementById('editPatPcpndtDaughtersAge').value = f.daughters_age || '';
-                    document.getElementById('editPatPcpndtIndications').value = f.indications || 'Routine Antenatal Anomaly Evaluation';
+                    document.getElementById('editPatPcpndtIndications').value = f.indications || '';
                     document.getElementById('editPatPcpndtResults').value = f.scan_result || '';
                     document.getElementById('editPatPcpndtDocName').value = f.doctor_name || 'Dr NIKUNJ KOTHIA';
                     document.getElementById('editPatPcpndtDocReg').value = f.doctor_reg_no || '2009/09/3218';
@@ -2870,6 +2904,7 @@
                     document.getElementById('editPatPcpndtFields').style.display = 'none';
                     document.getElementById('editPatPcpndtPlace').value = activeCentre.place || 'Kandivali West';
                     document.getElementById('editPatPcpndtLmp').value = getTodayIsoDate();
+                    document.getElementById('editPatPcpndtIndications').value = '';
                     document.getElementById('editPatPcpndtDocName').value = 'Dr NIKUNJ KOTHIA';
                     document.getElementById('editPatPcpndtDocReg').value = '2009/09/3218';
                     document.getElementById('editPatPcpndtClinicReg').value = activeCentre.reg_no || 'RC197';
@@ -2941,6 +2976,7 @@
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:12px; color:#888;">No historical bills found for this patient.</td></tr>';
             } else {
                 visits.forEach(v => {
+                    const pdfBtnLabel = v.bill_printed ? '📄 Invoice PDF ✔️' : '📄 Invoice PDF';
                     tbody.innerHTML += `
                         <tr>
                             <td><strong>${v.invoice_number}</strong></td>
@@ -2950,7 +2986,7 @@
                             <td>₹${parseFloat(v.paid_amount).toFixed(2)}</td>
                             <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
                             <td>
-                                <a href="/api/invoice/${v.id}/pdf" target="_blank" class="btn-act btn-act-pdf">📄 Invoice PDF</a>
+                                <button type="button" class="btn-act btn-act-pdf btn-pdf-visit-${v.id}" onclick="openInvoicePdf('${v.id}')">${pdfBtnLabel}</button>
                                 ${getBillPrintBtnHtml(v.id, v.bill_printed)}
                                 <button type="button" class="btn-act" style="background:#6366f1; color:white;" onclick="openClinicalReportModal('${v.id}')">📝 Report</button>
                                 ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.id}')">📝 Form F</button>` : ''}
@@ -3174,7 +3210,7 @@
             }
         }
 
-        // DYNAMIC MERGE WITH LETTERHEAD OR PREPRINTED STATIONERY OPTION
+        // DYNAMIC WORD MERGE WITH EXPLICIT CENTRE HEADERS
         async function openReportInExternalWord() {
             if (!currentSelectedTemplate) {
                 return alert('Please select a template from the list first.');
@@ -3187,7 +3223,7 @@
             const refDoc = (document.getElementById('fld_Ref1').value || 'DIRECT OPD').trim().toUpperCase();
             
             const withLetterhead = document.getElementById('wordOptWithLetterhead').checked;
-            const marginOverride = document.getElementById('repTopMarginMm').value || 55;
+            const marginOverride = document.getElementById('repTopMarginMm').value || (activeCentre?.top_margin_mm || 55);
 
             if (!ptName) return alert('Please enter or select a patient name.');
 
@@ -3202,7 +3238,8 @@
                         gender: sex,
                         refDoctor: refDoc,
                         marginOverrideMm: marginOverride,
-                        includeLetterhead: withLetterhead
+                        includeLetterhead: withLetterhead,
+                        centreId: activeCentre?.id
                     })
                 });
 
@@ -3553,7 +3590,6 @@
             await loadDoctors();
         }
 
-        // LOAD BUSINESS & REFERRAL CUTS
         async function loadBusiness() {
             const docId = document.getElementById('busDocSelect')?.value || '';
             const start = document.getElementById('busStartDate')?.value || '';
@@ -3634,7 +3670,6 @@
             }
         }
 
-        // PRINT DOCTOR REFERRAL CUTS & BUSINESS STATEMENT
         function printDoctorCutsStatement() {
             if (!currentBusinessData || currentBusinessData.length === 0) {
                 return alert('No business/cuts records loaded to print.');
