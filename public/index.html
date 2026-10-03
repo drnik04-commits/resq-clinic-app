@@ -341,23 +341,12 @@
                             </select>
                         </div>
 
-                        <!-- WORD LETTERHEAD TOGGLE & MARGIN SELECTOR -->
+                        <!-- WORD PRE-PRINTED STATIONERY MARGIN SETTING -->
                         <div style="background:#fffbeb; border:1.5px solid #fde68a; padding:12px 14px; border-radius:6px;">
-                            <label style="color:#92400e; font-weight:bold; display:block; margin-bottom:6px;">📄 Word Document Letterhead & Margin Settings:</label>
-                            <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; font-size:0.88rem; font-weight:600; margin-bottom:8px;">
-                                <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
-                                    <input type="radio" name="wordLetterheadChoice" id="wordOptWithLetterhead" value="true" checked onchange="onWordLetterheadToggle(true)">
-                                    🏥 Include Clinic Letterhead (Digital Word Doc)
-                                </label>
-                                <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
-                                    <input type="radio" name="wordLetterheadChoice" id="wordOptWithoutLetterhead" value="false" onchange="onWordLetterheadToggle(false)">
-                                    🖨️ Without Letterhead (For Pre-printed Stationery)
-                                </label>
-                            </div>
-                            <div id="wordMarginGroup" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                <label style="font-size:0.82rem; font-weight:bold; color:#78350f;">Pre-printed Top Margin:</label>
+                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <label style="font-size:0.85rem; font-weight:bold; color:#78350f;">📄 Pre-printed Stationery Top Margin:</label>
                                 <input type="number" id="repTopMarginMm" value="55" min="10" max="150" style="width: 80px; font-weight:bold; font-size:1rem; padding:4px 8px; text-align:center;">
-                                <span style="font-size:0.82rem; color:#78350f;">mm (starts report text right below your branch printed header)</span>
+                                <span style="font-size:0.82rem; color:#78350f;">mm (starts findings below your branch printed header)</span>
                                 <button type="button" class="btn-act" style="background:#d97706; color:white; padding:6px 10px;" onclick="saveWordMarginAsCentreDefault()">⭐ Set as Branch Default</button>
                             </div>
                         </div>
@@ -933,7 +922,7 @@
                 </div>
 
                 <div class="card" style="background: #f0f9ff; border: 1.5px solid #bae6fd; margin-top: 16px;">
-                    <div class="card-title" style="color: #0369a1;">👨‍⚕️ Change Active Centre Owner Password</div>
+                    <div class="card-title" style="color: #0369a1;">👨‍‍⚕️ Change Active Centre Owner Password</div>
                     <div class="form-grid">
                         <div class="form-group"><label>Current Owner Password:</label><input type="password" id="curOwnerPass"></div>
                         <div class="form-group"><label>New Owner Password:</label><input type="password" id="newOwnerPass"></div>
@@ -992,24 +981,23 @@
 
             <div style="background:#f0fdf4; border:1.5px solid #86efac; padding:12px 14px; border-radius:6px; margin-bottom:14px;">
                 <label style="font-weight:bold; color:#166534; display:block; margin-bottom:6px;">
-                    📁 Option 1: Attach Saved Report File from Computer (.PDF / .DOCX / .DOC / .JPG / .PNG):
+                    📁 Option 1: Attach Saved Report File from Computer (.DOCX / .DOC / .PDF / .JPG / .PNG):
                 </label>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                     <input type="file" id="manualDocFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="flex:1; padding:6px; background:#fff; border:1px solid #cbd5e1; border-radius:4px;">
-                    <button type="button" class="btn-complete-reg" style="max-width:180px; padding:8px 14px;" onclick="uploadReportFileFromComputer()">⬆️ Upload Document</button>
+                    <button type="button" class="btn-complete-reg" style="max-width:220px; padding:8px 14px;" onclick="uploadReportFileFromComputer()">⬆️ Upload & Sync Content</button>
                 </div>
                 <div id="attachedFileStatusBanner" style="display:none; margin-top:10px; font-size:0.85rem; font-weight:bold; color:#047857; background:#dcfce7; padding:8px 12px; border-radius:4px; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                     <span id="attachedFileNameText"></span>
                     <div style="display:flex; gap:6px;">
-                        <button type="button" class="btn-act btn-act-pdf" onclick="viewUploadedReportFile()">👁️ View File</button>
-                        <button type="button" class="btn-act btn-act-wa" onclick="sendUploadedReportWhatsApp()">📱 WhatsApp Attached File</button>
+                        <button type="button" class="btn-act btn-act-pdf" onclick="viewUploadedReportFile()">👁️ View Uploaded File</button>
                     </div>
                 </div>
             </div>
 
             <div style="border-top:1.5px dashed #cbd5e1; padding-top:14px; margin-top:14px;">
                 <div style="font-weight:bold; color:#1e3a8a; margin-bottom:8px;">
-                    ✍️ Option 2: Compose / Edit Report Findings & Generate PDF:
+                    ✍️ Option 2: Report Content (Synced from Upload or Edited below):
                 </div>
 
                 <div class="form-grid" style="margin-bottom:12px;">
@@ -1045,9 +1033,9 @@
                 </div>
 
                 <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid #e2e8f0; padding-top:12px;">
-                    <button type="button" class="btn-complete-reg" onclick="saveManualClinicalReport()" style="flex:1;">💾 Save Report Findings</button>
-                    <button type="button" class="btn-act" style="background:#0284c7; color:white; padding:10px 14px;" onclick="viewSelectedReportPdf()">📄 Preview / Print PDF</button>
-                    <button type="button" class="btn-act btn-act-wa" style="padding:10px 14px;" onclick="sendSelectedReportWhatsApp()">📱 WhatsApp Generated Report</button>
+                    <button type="button" class="btn-complete-reg" onclick="saveManualClinicalReport()" style="flex:1;">💾 Save Report Details</button>
+                    <button type="button" class="btn-act" style="background:#0284c7; color:white; padding:10px 14px;" onclick="viewSelectedReportPdf()">📄 Preview / Print PDF (with Letterhead)</button>
+                    <button type="button" class="btn-act btn-act-wa" style="padding:10px 14px;" onclick="sendSelectedReportWhatsApp()">📱 WhatsApp Report (with Letterhead)</button>
                 </div>
             </div>
         </div>
@@ -1401,7 +1389,7 @@
                 if (loginType === 'owner' && (password === 'owner123' || password === 'admin123')) {
                     isCentreOwner = true;
                     currentUserRole = 'centre_owner';
-                    document.getElementById('userRoleBadge').textContent = '👨‍‍⚕️ Centre Owner Access';
+                    document.getElementById('userRoleBadge').textContent = '👨‍⚕️ Centre Owner Access';
                     document.getElementById('userRoleBadge').style.background = '#7c3aed';
                     document.getElementById('appLockScreen').style.display = 'none';
                     await refreshAllCentreData();
@@ -2143,7 +2131,7 @@
             const msg = `Dear *${patName}*,\n` +
                         `Your diagnostic report from *${centreName || 'RESQ Diagnostics'}* is ready.\n\n` +
                         `📋 *Invoice No:* ${invNo}\n\n` +
-                        `📄 *View / Download Your Official PDF Report:*\n` +
+                        `📄 *View / Download Your Official PDF Report (with Letterhead):*\n` +
                         `${pdfUrl}`;
             window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
@@ -2163,7 +2151,7 @@
 
         function getBillPrintBtnHtml(visitId, isPrinted) {
             const printedClass = isPrinted ? 'btn-act-bill-printed' : 'btn-act-bill-unprinted';
-            const label = isPrinted ? '🖨️ Slip ✔️' : '🖨️ Slip';
+            const label = isPrinted ? '🖨️️ Slip ✔️' : '🖨️ Slip';
             return `<button type="button" class="btn-act ${printedClass} btn-prt-visit-${visitId}" onclick="printSingleInvoice('${visitId}')">${label}</button>`;
         }
 
@@ -2246,7 +2234,6 @@
                     }
 
                     const docName = v.referring_doctor_name || 'Direct OPD / Self';
-                    const hasReportFile = Boolean(v.report_file);
                     const pdfBtnLabel = v.bill_printed ? '📄 Invoice PDF ✔️' : '📄 Invoice PDF';
 
                     tbody.innerHTML += `
@@ -2265,10 +2252,8 @@
                                 <button type="button" class="btn-act btn-act-pdf btn-pdf-visit-${v.visit_id}" onclick="openInvoicePdf('${v.visit_id}')">${pdfBtnLabel}</button>
                                 ${getBillPrintBtnHtml(v.visit_id, v.bill_printed)}
                                 <button type="button" class="btn-act" style="background:#6366f1; color:white;" onclick="openClinicalReportModal('${v.visit_id}')">📝 Report Studio</button>
-                                ${hasReportFile 
-                                    ? `<a href="/api/visits/${v.visit_id}/uploaded-report" target="_blank" class="btn-act" style="background:#0f766e; color:white;">📎 File</a>
-                                       <button type="button" class="btn-act btn-act-wa" style="background:#047857;" onclick="shareWhatsAppUploadedDocument('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${escapeHtml(v.centre_name)}', '${v.visit_id}')">📱 WA File</button>`
-                                    : ''}
+                                <button type="button" class="btn-act" style="background:#0f766e; color:white;" onclick="window.open('/api/imaging/report/${v.visit_id}/pdf?letterhead=true', '_blank')">📑 Report PDF</button>
+                                <button type="button" class="btn-act btn-act-wa" style="background:#047857;" onclick="shareWhatsAppReport('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${escapeHtml(v.centre_name)}', '${v.visit_id}', true, 55)">📱 WA Report</button>
                                 <button type="button" class="btn-act btn-act-wa" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}', '${v.visit_id}')">📱 WA Bill</button>
                                 ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.visit_id}')">📝 Form F</button>` : ''}
                                 <button type="button" class="btn-act btn-act-edit" onclick="openEditBillModal('${v.visit_id}')">✏️ Edit</button>
@@ -2306,14 +2291,6 @@
             loadReports();
         }
 
-        function onWordLetterheadToggle(withLetterhead) {
-            const box = document.getElementById('wordMarginGroup');
-            if (box) {
-                box.style.opacity = withLetterhead ? '0.45' : '1';
-                box.title = withLetterhead ? 'Margin setting is active for pre-printed letterheads' : 'Active margin for pre-printed paper';
-            }
-        }
-
         async function saveWordMarginAsCentreDefault() {
             const marginMm = parseInt(document.getElementById('repTopMarginMm').value, 10);
             if (isNaN(marginMm) || marginMm <= 0) return alert('Enter a valid millimeter value (e.g. 55).');
@@ -2343,7 +2320,7 @@
                 cachedReportData = json.data;
                 const v = json.data.visit;
                 const rep = json.data.existingReport;
-                const invs = (json.data.investigations || []).map(i => i.test_name).join(', ') || 'Diagnostic Ultrasound';
+                const invs = (json.data.investigations || []).map(i => i.test_name).join(', ') || 'Diagnostic Study';
 
                 document.getElementById('repModalPatHeader').textContent = 
                     `[${v.invoice_number}] ${v.full_name} (${v.age || 0} Yrs / ${v.gender || '-'}) — Ref: ${v.ref_doctor || 'Direct OPD'}`;
@@ -2414,7 +2391,7 @@
             if (!activeReportVisitId) return alert('No active visit loaded.');
             const fileInput = document.getElementById('manualDocFileInput');
             if (!fileInput.files || !fileInput.files.length) {
-                return alert('Please select a report document (.pdf, .docx, .doc, .jpg, .png) from your computer first.');
+                return alert('Please select a report document (.docx, .doc, .pdf, .jpg, .png) from your computer first.');
             }
 
             const withLetterhead = document.getElementById('repOptWithLetterhead').checked;
@@ -2441,6 +2418,14 @@
                     const filename = json.data.reportFile.split('/').pop().replace(/^\d+_/, '');
                     document.getElementById('attachedFileNameText').textContent = `✅ Attached File: ${filename}`;
                     document.getElementById('attachedFileStatusBanner').style.display = 'flex';
+
+                    // Automatically update Option 2 fields with extracted text
+                    if (json.data.extracted) {
+                        if (json.data.extracted.title) document.getElementById('repModalTitle').value = json.data.extracted.title;
+                        if (json.data.extracted.body) document.getElementById('repModalFindings').value = json.data.extracted.body;
+                        if (json.data.extracted.impression) document.getElementById('repModalImpression').value = json.data.extracted.impression;
+                    }
+
                     loadReports();
                 } else {
                     alert('Upload failed: ' + (json.error || 'Server error'));
@@ -2453,12 +2438,6 @@
         function viewUploadedReportFile() {
             if (!activeReportVisitId) return;
             window.open(`/api/visits/${activeReportVisitId}/uploaded-report`, '_blank');
-        }
-
-        function sendUploadedReportWhatsApp() {
-            if (!activeReportVisitId || !cachedReportData?.visit) return;
-            const v = cachedReportData.visit;
-            shareWhatsAppUploadedDocument(v.phone, v.full_name, v.invoice_number, v.centre_name, activeReportVisitId);
         }
 
         function onReportModalTemplateChanged(tmplId) {
@@ -3210,7 +3189,7 @@
             }
         }
 
-        // DYNAMIC WORD MERGE WITH EXPLICIT CENTRE HEADERS
+        // CLEAN WORD DOCUMENT MERGE (NO ADDED HEADERS)
         async function openReportInExternalWord() {
             if (!currentSelectedTemplate) {
                 return alert('Please select a template from the list first.');
@@ -3221,8 +3200,6 @@
             const age = (document.getElementById('fld_Age').value || '').trim();
             const sex = (document.getElementById('fld_Sex').value || 'FEMALE').toUpperCase();
             const refDoc = (document.getElementById('fld_Ref1').value || 'DIRECT OPD').trim().toUpperCase();
-            
-            const withLetterhead = document.getElementById('wordOptWithLetterhead').checked;
             const marginOverride = document.getElementById('repTopMarginMm').value || (activeCentre?.top_margin_mm || 55);
 
             if (!ptName) return alert('Please enter or select a patient name.');
@@ -3238,7 +3215,6 @@
                         gender: sex,
                         refDoctor: refDoc,
                         marginOverrideMm: marginOverride,
-                        includeLetterhead: withLetterhead,
                         centreId: activeCentre?.id
                     })
                 });
@@ -3263,7 +3239,7 @@
                         visitId: null,
                         patientId: null,
                         templateName: currentSelectedTemplate.title,
-                        reportText: `Merged in Word ${withLetterhead ? 'with letterhead' : `with ${marginOverride}mm margin`}.`
+                        reportText: `Merged in Word with ${marginOverride}mm margin.`
                     })
                 }).catch(() => {});
             } catch (e) {

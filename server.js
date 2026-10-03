@@ -187,50 +187,101 @@ const FALLBACK_CENTRES = [
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+// ROBUST TEXT EXTRACTOR SUPPORTING DOCX & DOC
 function extractTextFromUploadedFile(filePath) {
-  if (!fs.existsSync(filePath)) return { body: '', impression: '' };
+  if (!fs.existsSync(filePath)) return { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '' };
   try {
     const rawBuffer = fs.readFileSync(filePath);
-    const asciiRuns = [];
-    let currentRun = '';
+    let textContent = '';
 
-    for (let i = 0; i < rawBuffer.length; i++) {
-      const byte = rawBuffer[i];
-      if ((byte >= 32 && byte <= 126) || byte === 10 || byte === 13 || byte === 9) {
-        currentRun += String.fromCharCode(byte);
-      } else {
-        if (currentRun.trim().length >= 2) asciiRuns.push(currentRun.trim());
-        currentRun = '';
+    // Handle DOCX via AdmZip
+    if (rawBuffer[0] === 0x50 && rawBuffer[1] === 0x4b && AdmZip) {
+      try {
+        const zip = new AdmZip(filePath);
+        const docXmlEntry = zip.getEntry('word/document.xml') || zip.getEntries().find(e => e.entryName.toLowerCase().includes('word/document.xml'));
+        if (docXmlEntry) {
+          const xml = docXmlEntry.getData().toString('utf-8');
+          const formatted = xml
+            .replace(/<\/w:p>/gi, '\n')
+            .replace(/<\/w:tr>/gi, '\n')
+            .replace(/<w:tab[^>]*\/>/gi, '\t')
+            .replace(/<w:br[^>]*\/>/gi, '\n');
+          textContent = formatted
+            .replace(/<[^>]+>/g, '')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'");
+        }
+      } catch (ze) {}
+    }
+
+    // Binary ASCII fallback for .doc
+    if (!textContent || textContent.trim().length === 0) {
+      const asciiRuns = [];
+      let currentRun = '';
+      for (let i = 0; i < rawBuffer.length; i++) {
+        const byte = rawBuffer[i];
+        if ((byte >= 32 && byte <= 126) || byte === 10 || byte === 13 || byte === 9) {
+          currentRun += String.fromCharCode(byte);
+        } else {
+          if (currentRun.trim().length >= 2) asciiRuns.push(currentRun.trim());
+          currentRun = '';
+        }
       }
+      if (currentRun.trim().length >= 2) asciiRuns.push(currentRun.trim());
+
+      const cleanLines = [];
+      for (const run of asciiRuns) {
+        if (/^(bjbj|theme|\[Content_Types\]|_rels|Microsoft|Normal\.dot|DocumentSummaryInformation|CompObj)/i.test(run)) continue;
+        if (/^<\?xml|<a:clrMap|<w:|<m:|<\/|<b:/i.test(run)) continue;
+        if (run.length >= 2) cleanLines.push(run);
+      }
+      textContent = cleanLines.join('\n');
     }
-    if (currentRun.trim().length >= 2) asciiRuns.push(currentRun.trim());
 
-    const cleanLines = [];
-    for (const run of asciiRuns) {
-      if (/^(bjbj|theme|\[Content_Types\]|_rels|Microsoft|Normal\.dot|DocumentSummaryInformation|CompObj)/i.test(run)) continue;
-      if (/^<\?xml|<a:clrMap|<w:|<m:|<\/|<b:/i.test(run)) continue;
-      if (run.length >= 2) cleanLines.push(run);
+    const lines = textContent
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
+
+    const contentLines = [];
+    for (const line of lines) {
+      // Exclude template demographic header tokens
+      if (/^(NAME\b|DATE\b|AGE\b|SEX\b|GENDER\b|REF\.?\s*BY\b)/i.test(line)) continue;
+      if (/^[|\t\s-]+$/.test(line)) continue;
+      contentLines.push(line);
     }
 
-    const textContent = cleanLines.join('\n\n')
-      .replace(/\0/g, ' ')
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
-
-    let body = textContent;
+    const cleanText = contentLines.join('\n');
+    let body = cleanText;
     let impression = 'NO SIGNIFICANT ABNORMALITY DETECTED.';
-    const impRegex = /(?:IMPRESSION|CONCLUSION|OPINION)\s*[:-]\s*([\s\S]*)/i;
-    const match = textContent.match(impRegex);
+    let title = 'DIAGNOSTIC IMAGING REPORT';
+
+    const impRegex = /(?:IMPRESSION|CONCLUSION|OPINION)\s*[:-]?\s*([\s\S]*)/i;
+    const match = cleanText.match(impRegex);
     if (match) {
-      impression = match[1].trim();
-      body = textContent.substring(0, match.index).trim();
+      impression = match[1].replace(/DR\.?\s*[A-Z\s.]+(?:CONSULTANT|CONS\.?\s*RADIOLOGIST)?/gi, '').trim();
+      body = cleanText.substring(0, match.index).trim();
+    }
+
+    // Identify study heading from the first line
+    const firstLine = (body.split('\n')[0] || '').trim();
+    if (firstLine && firstLine.length <= 80 && !firstLine.includes(':')) {
+      if (/^(X-RAY|RADIOGRAPHS?|USG|ULTRASONOGRAPHY|MRI|CT|2D ECHO|COLOR DOPPLER|OBSTETRIC|PELVIS|CHEST|KUB|ABDOMEN)/i.test(firstLine) || firstLine === firstLine.toUpperCase()) {
+        title = firstLine;
+        body = body.substring(firstLine.length).trim();
+      }
     }
 
     return {
-      body: body || 'FINDINGS:\nStudy completed within normal limits.',
+      title: title || 'DIAGNOSTIC IMAGING REPORT',
+      body: body || 'Study completed within normal parameters.',
       impression: impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.'
     };
   } catch (err) {
-    return { body: 'FINDINGS:\nStudy completed.', impression: 'NO SIGNIFICANT ABNORMALITY DETECTED.' };
+    return { title: 'DIAGNOSTIC IMAGING REPORT', body: 'Study completed.', impression: 'NO SIGNIFICANT ABNORMALITY DETECTED.' };
   }
 }
 
@@ -1030,6 +1081,7 @@ app.post('/api/visits/:id/mark-printed', async (req, res) => {
   }
 });
 
+// REPORT FILE UPLOAD IN REPORT STUDIO (EXTRACTS FINDINGS & IMPRESSION AUTOMATICALLY)
 app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1040,19 +1092,55 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
     const hasLetterhead = req.body.hasLetterhead !== 'false';
     const marginMm = parseInt(req.body.marginMm, 10) || 55;
 
-    const result = await pool.query(
+    const vResult = await pool.query(
       `UPDATE visits 
        SET report_file = $1, report_has_letterhead = $2, report_margin_mm = $3 
-       WHERE id::text = $4::text RETURNING id, report_file, report_has_letterhead, report_margin_mm, invoice_number`,
+       WHERE id::text = $4::text 
+       RETURNING id, patient_id, centre_id, report_file, report_has_letterhead, report_margin_mm, invoice_number`,
       [relPath, hasLetterhead, marginMm, validId]
     );
 
-    if (result.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit not found.' });
+    if (vResult.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit not found.' });
+    const vRow = vResult.rows[0];
+
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    let parsed = { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '' };
+    if (ext === '.docx' || ext === '.doc') {
+      parsed = extractTextFromUploadedFile(req.file.path);
+
+      const existingRep = await pool.query('SELECT id FROM imaging_reports WHERE visit_id::text = $1::text', [validId]);
+      if (existingRep.rows.length > 0) {
+        await pool.query(
+          `UPDATE imaging_reports 
+           SET template_name = $1, report_text = $2, impression = $3, created_at = CURRENT_TIMESTAMP
+           WHERE visit_id::text = $4::text`,
+          [parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body, parsed.impression, validId]
+        );
+      } else {
+        await pool.query(
+          `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            validId, vRow.patient_id, vRow.centre_id, 
+            parsed.title || 'DIAGNOSTIC IMAGING REPORT', 
+            parsed.body || 'Study completed.', 
+            parsed.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.', 
+            'Dr NIKUNJ KOTHIA', '2009/09/3218'
+          ]
+        );
+      }
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Report document attached to visit successfully!',
-      data: { visitId: validId, reportFile: relPath, hasLetterhead, marginMm }
+      message: 'Report attached & clinical details extracted successfully!',
+      data: { 
+        visitId: validId, 
+        reportFile: relPath, 
+        hasLetterhead, 
+        marginMm,
+        extracted: parsed
+      }
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -1506,10 +1594,26 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
       [validId]
     );
 
-    const repRes = await pool.query(
+    let repRes = await pool.query(
       `SELECT * FROM imaging_reports WHERE visit_id::text = $1::text ORDER BY created_at DESC LIMIT 1`,
       [validId]
     );
+
+    // If report is not yet created, but a report_file exists, attempt extraction
+    let existingRep = repRes.rows[0] || null;
+    if (!existingRep && visitRes.rows[0].report_file) {
+      const fullPath = path.resolve(__dirname, visitRes.rows[0].report_file);
+      if (fs.existsSync(fullPath)) {
+        const parsed = extractTextFromUploadedFile(fullPath);
+        existingRep = {
+          template_name: parsed.title,
+          report_text: parsed.body,
+          impression: parsed.impression,
+          doctor_name: 'Dr NIKUNJ KOTHIA',
+          doctor_reg_no: '2009/09/3218'
+        };
+      }
+    }
 
     const tmplRes = await pool.query(
       `SELECT id, title, template_name, category, default_impression, template_body FROM imaging_templates ORDER BY title ASC`
@@ -1520,7 +1624,7 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
       data: {
         visit: visitRes.rows[0],
         investigations: invRes.rows,
-        existingReport: repRes.rows[0] || null,
+        existingReport: existingRep,
         templates: tmplRes.rows || []
       }
     });
@@ -1591,7 +1695,7 @@ app.post('/api/imaging/report-save', async (req, res) => {
   }
 });
 
-// Dynamic Diagnostic PDF generation
+// DYNAMIC DIAGNOSTIC PDF GENERATION (PRODUCES FULL BRANDED LETTERHEAD ON DEMAND)
 app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
@@ -1616,13 +1720,29 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       `SELECT * FROM imaging_reports WHERE visit_id::text = $1::text ORDER BY created_at DESC LIMIT 1`,
       [validId]
     );
-    const rep = repRes.rows[0] || {
-      template_name: 'DIAGNOSTIC ULTRASONOGRAPHY REPORT',
-      report_text: 'Study completed within normal parameters.',
-      impression: 'NO SIGNIFICANT ABNORMALITY DETECTED.',
-      doctor_name: 'Dr NIKUNJ KOTHIA',
-      doctor_reg_no: '2009/09/3218'
-    };
+
+    let rep = repRes.rows[0];
+    if (!rep) {
+      if (v.report_file) {
+        const fullPath = path.resolve(__dirname, v.report_file);
+        const parsed = extractTextFromUploadedFile(fullPath);
+        rep = {
+          template_name: parsed.title,
+          report_text: parsed.body,
+          impression: parsed.impression,
+          doctor_name: 'Dr NIKUNJ KOTHIA',
+          doctor_reg_no: '2009/09/3218'
+        };
+      } else {
+        rep = {
+          template_name: 'DIAGNOSTIC IMAGING REPORT',
+          report_text: 'Study completed within normal parameters.',
+          impression: 'NO SIGNIFICANT ABNORMALITY DETECTED.',
+          doctor_name: 'Dr NIKUNJ KOTHIA',
+          doctor_reg_no: '2009/09/3218'
+        };
+      }
+    }
 
     let effectiveMarginMm = v.centre_top_margin || 55;
     if (req.query.margin && !isNaN(parseInt(req.query.margin, 10))) {
@@ -1639,12 +1759,15 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     doc.pipe(res);
 
     if (withLetterhead) {
+      // Centre letterhead header
       doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
-      if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
+      if (v.centre_tagline) {
+        doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
+      }
       doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`Phone / Contact: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
       doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
       doc.moveDown(0.4);
-      doc.strokeColor('#cccccc').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+      doc.strokeColor('#19486a').lineWidth(1.2).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
       doc.moveDown(0.8);
     } else {
       const topPts = Math.max(20, Math.round(effectiveMarginMm * 2.83465));
@@ -1655,14 +1778,14 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     doc.rect(40, metaBoxY, 515, 45).fillAndStroke('#f8fafc', '#cbd5e1');
     doc.fontSize(8.5).fillColor('#000000');
 
-    doc.font('Helvetica-Bold').text('Patient Name: ', 50, metaBoxY + 8, { continued: true })
+    doc.font('Helvetica-Bold').text('PATIENT NAME: ', 50, metaBoxY + 8, { continued: true })
        .font('Helvetica').text(v.full_name.toUpperCase());
-    doc.font('Helvetica-Bold').text('Age / Sex: ', 50, metaBoxY + 24, { continued: true })
+    doc.font('Helvetica-Bold').text('AGE / SEX: ', 50, metaBoxY + 24, { continued: true })
        .font('Helvetica').text(`${v.age || 0} YRS / ${(v.gender || 'FEMALE').toUpperCase()}`);
 
-    doc.font('Helvetica-Bold').text('Date: ', 330, metaBoxY + 8, { continued: true })
+    doc.font('Helvetica-Bold').text('DATE: ', 330, metaBoxY + 8, { continued: true })
        .font('Helvetica').text(new Date(v.created_at).toLocaleDateString('en-GB'));
-    doc.font('Helvetica-Bold').text('Ref. Doctor: ', 330, metaBoxY + 24, { continued: true })
+    doc.font('Helvetica-Bold').text('REF. BY: ', 330, metaBoxY + 24, { continued: true })
        .font('Helvetica').text((v.ref_doctor || 'DIRECT OPD').toUpperCase());
 
     doc.y = metaBoxY + 55;
@@ -1743,10 +1866,7 @@ app.post('/api/visits/:id/send-report-sms', async (req, res) => {
       });
     }
 
-    const reportUrl = v.report_file 
-      ? `https://resq-clinic-app.onrender.com/${v.report_file.replace(/\\/g, '/')}`
-      : `https://resq-clinic-app.onrender.com/api/imaging/report/${validId}/pdf`;
-
+    const reportUrl = `https://resq-clinic-app.onrender.com/api/imaging/report/${validId}/pdf?letterhead=true`;
     const msg = `Dear ${v.full_name}, your diagnostic report from ${v.centre_name || 'RESQ Clinic'} is ready. View/Download: ${reportUrl}`;
 
     const sent = await dispatchSMS(v.phone, msg);
@@ -2205,12 +2325,11 @@ app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   }
 });
 
-// DYNAMIC WORD DOCUMENT GENERATOR (WITH ROBUST OPENXML LETTERHEAD STRUCTURE)
+// CLEAN WORD DOCUMENT MERGE GENERATOR (PRESERVES EXACT WORD LAYOUT WITHOUT INJECTING HEADERS)
 app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   try {
-    const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm, includeLetterhead, centreId: explicitCentreId } = req.body;
+    const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm, centreId: explicitCentreId } = req.body;
     const centreId = explicitCentreId || getTenantCentreId(req);
-    const withLetterhead = includeLetterhead === true || String(includeLetterhead) === 'true';
 
     if (!templateName) return res.status(400).json({ success: false, error: 'Template name is required' });
 
@@ -2227,9 +2346,7 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
     let topMarginMm = centreObj.top_margin_mm || 55;
     let bottomMarginMm = centreObj.bottom_margin_mm || 15;
 
-    if (withLetterhead) {
-      topMarginMm = 15;
-    } else if (marginOverrideMm && !isNaN(parseInt(marginOverrideMm, 10))) {
+    if (marginOverrideMm && !isNaN(parseInt(marginOverrideMm, 10))) {
       topMarginMm = parseInt(marginOverrideMm, 10);
     }
 
@@ -2277,76 +2394,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
 
       docXml = docXml.replace(/(<w:pgMar[^>]*?\bw:top=")[^"]*(")/g, `$1${topDxa}$2`);
       docXml = docXml.replace(/(<w:pgMar[^>]*?\bw:bottom=")[^"]*(")/g, `$1${bottomDxa}$2`);
-
-      if (withLetterhead && centreObj) {
-        const letterheadXml = `
-          <w:p>
-            <w:pPr>
-              <w:spacing w:before="0" w:after="40" w:line="240" w:lineRule="auto"/>
-              <w:jc w:val="center"/>
-            </w:pPr>
-            <w:r>
-              <w:rPr>
-                <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
-                <w:b/>
-                <w:color w:val="19486A"/>
-                <w:sz w:val="32"/>
-                <w:szCs w:val="32"/>
-              </w:rPr>
-              <w:t xml:space="preserve">${escapeXml(centreObj.centre_name)}</w:t>
-            </w:r>
-          </w:p>
-          ${centreObj.tagline ? `
-          <w:p>
-            <w:pPr>
-              <w:spacing w:before="0" w:after="40" w:line="240" w:lineRule="auto"/>
-              <w:jc w:val="center"/>
-            </w:pPr>
-            <w:r>
-              <w:rPr>
-                <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
-                <w:color w:val="555555"/>
-                <w:sz w:val="18"/>
-                <w:szCs w:val="18"/>
-              </w:rPr>
-              <w:t xml:space="preserve">${escapeXml(centreObj.tagline)}</w:t>
-            </w:r>
-          </w:p>` : ''}
-          <w:p>
-            <w:pPr>
-              <w:spacing w:before="0" w:after="40" w:line="240" w:lineRule="auto"/>
-              <w:jc w:val="center"/>
-            </w:pPr>
-            <w:r>
-              <w:rPr>
-                <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
-                <w:b/>
-                <w:color w:val="B91C1C"/>
-                <w:sz w:val="18"/>
-                <w:szCs w:val="18"/>
-              </w:rPr>
-              <w:t xml:space="preserve">Phone / Contact: ${escapeXml(centreObj.phone || '+91 8433838285')}</w:t>
-            </w:r>
-          </w:p>
-          <w:p>
-            <w:pPr>
-              <w:pBdr><w:bottom w:val="single" w:sz="12" w:space="6" w:color="19486A"/></w:pBdr>
-              <w:spacing w:before="0" w:after="240" w:line="240" w:lineRule="auto"/>
-              <w:jc w:val="center"/>
-            </w:pPr>
-            <w:r>
-              <w:rPr>
-                <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
-                <w:color w:val="333333"/>
-                <w:sz w:val="16"/>
-                <w:szCs w:val="16"/>
-              </w:rPr>
-              <w:t xml:space="preserve">${escapeXml(centreObj.address || 'Kandivali West, Mumbai')} | Reg: ${escapeXml(centreObj.reg_no || 'RC197')}</w:t>
-            </w:r>
-          </w:p>
-        `;
-        docXml = docXml.replace(/(<w:body[^>]*>)/i, `$1${letterheadXml}`);
-      }
 
       docXml = docXml
         .replace(/&lt;\*NAME1\*&gt;|<\*NAME1\*>|{{NAME}}|{{PATIENT_NAME}}/g, escapeXml(ptName))
@@ -2467,7 +2514,7 @@ app.post('/api/imaging/reports', async (req, res) => {
 
 // REPORTS & STATUTORY PCPNDT APIS
 
-// 1. Collections & Departmental Invoices Summary (Pending Filter supported)
+// 1. Collections & Departmental Invoices Summary (Supports Pending Filter)
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
