@@ -187,14 +187,13 @@ const FALLBACK_CENTRES = [
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// ROBUST MEDICAL TEXT EXTRACTOR (FILTERS DEMOGRAPHICS, EXTRACTS STUDY & IMPRESSION)
+// TEXT EXTRACTOR
 function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDoctorName = '') {
   if (!fs.existsSync(filePath)) return { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '' };
   try {
     const rawBuffer = fs.readFileSync(filePath);
     let textContent = '';
 
-    // 1. DOCX Extraction via AdmZip
     if (rawBuffer[0] === 0x50 && rawBuffer[1] === 0x4b && AdmZip) {
       try {
         const zip = new AdmZip(filePath);
@@ -217,7 +216,6 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
       } catch (ze) {}
     }
 
-    // 2. Binary ASCII Fallback for older .doc files
     if (!textContent || textContent.trim().length === 0) {
       const asciiRuns = [];
       let currentRun = '';
@@ -252,27 +250,18 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
 
     for (const line of lines) {
       const lower = line.toLowerCase();
-
-      // Filter lines matching known patient name
       if (normPtName && normPtName.length >= 3 && lower.includes(normPtName)) continue;
-
-      // Filter lines matching known referring doctor (in header context)
       if (normDocName && normDocName.length >= 3 && lower.includes(normDocName) && contentLines.length < 8) continue;
-
-      // Filter demographic tokens and standalone values leaked from Word tables
       if (/^(NAME|DATE|AGE|SEX|GENDER|REF\.?\s*BY|REFERRING|PATIENT|IPD|OPD|UHID|REG\.?\s*NO)\b/i.test(line)) continue;
       if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(line)) continue;
       if (/^\d{1,3}\s*(YRS?|YEARS?|Y|MONTHS?|DAYS?)?(\s*[\/|]\s*(M|F|MALE|FEMALE))?$/i.test(line)) continue;
       if (/^(MALE|FEMALE|OTHER|M|F)$/i.test(line)) continue;
       if (/^(DR\.?|DOCTOR)\s+[A-Z\s.]+$/i.test(line) && contentLines.length < 6) continue;
       if (/^[|\t\s\-_=]+$/.test(line)) continue;
-
       contentLines.push(line);
     }
 
     let joined = contentLines.join('\n').trim();
-
-    // 3. Extract IMPRESSION / REMARKS / CONCLUSION
     let impression = 'NO SIGNIFICANT ABNORMALITY DETECTED.';
     let body = joined;
 
@@ -283,7 +272,6 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
       body = joined.substring(0, match.index).trim();
     }
 
-    // Strip duplicate trailing doctor signatures from Impression and Body
     const stripDocSign = (str) => {
       return str
         .replace(/(?:\n|^)\s*(?:DR\.?|DR\s)\s*[A-Z\s.]+(?:\n|\r|\s)+(?:CONSULTANT|RADIOLOGIST|SONOLOGIST|PATHOLOGIST|MBBS|MD|DMRD|DNB)[\s\S]*$/i, '')
@@ -293,7 +281,6 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
     body = stripDocSign(body);
     impression = stripDocSign(impression);
 
-    // 4. Extract Real Study Title
     const studyKeywords = /\b(X-RAY|RADIOGRAPHS?|USG|ULTRASONOGRAPHY|ULTRASOUND|SONOGRAPHY|MRI|CT|SCAN|2D\s*ECHO|ECHOCARDIOGRAPHY|COLOR\s*DOPPLER|DOPPLER|MAMMOGRAPHY|BARIUM|CHEST|KUB|ABDOMEN|PELVIS|SPINE|CERVICAL|LUMBAR|DORSAL|KNEE|JOINT|SHOULDER|WRIST|ANKLE|FOOT|HAND|ELBOW|HIP|SKULL|PNS|ORBIT|NECK|THYROID|SCROTAL|OBSTETRIC|ANOMALY|NT\s*SCAN|FOETAL|FETAL)\b/i;
 
     let title = 'DIAGNOSTIC IMAGING REPORT';
@@ -309,7 +296,6 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
       }
     }
 
-    // Strip leading "FINDINGS:" or "OBSERVATIONS:" tag if present
     body = body.replace(/^(FINDINGS|OBSERVATIONS)\s*[:-]?\s*/i, '').trim();
 
     return {
@@ -336,17 +322,8 @@ async function dispatchSMS(phone, message) {
   try {
     const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
       method: 'POST',
-      headers: {
-        'authorization': apiKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        route: 'q',
-        message: message,
-        language: 'english',
-        flash: 0,
-        numbers: cleanPhone
-      })
+      headers: { 'authorization': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ route: 'q', message, language: 'english', flash: 0, numbers: cleanPhone })
     });
     const data = await response.json();
     return data.return === true;
@@ -525,9 +502,6 @@ async function initDB() {
         report_margin_mm INT DEFAULT 55,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-    `);
-
-    await pool.query(`
       ALTER TABLE visits ADD COLUMN IF NOT EXISTS cash_amount DECIMAL(10,2) DEFAULT 0.00;
       ALTER TABLE visits ADD COLUMN IF NOT EXISTS online_amount DECIMAL(10,2) DEFAULT 0.00;
       ALTER TABLE visits ADD COLUMN IF NOT EXISTS bill_printed BOOLEAN DEFAULT false;
@@ -598,6 +572,23 @@ async function initDB() {
         impression TEXT,
         doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA',
         doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218',
+        doctor_designation VARCHAR(255) DEFAULT 'Consultant Radiologist',
+        signature_file VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE imaging_reports ADD COLUMN IF NOT EXISTS doctor_designation VARCHAR(255) DEFAULT 'Consultant Radiologist';
+      ALTER TABLE imaging_reports ADD COLUMN IF NOT EXISTS signature_file VARCHAR(255);
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS radiologists (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE,
+        doctor_name VARCHAR(255) NOT NULL,
+        designation VARCHAR(255) DEFAULT 'Consultant Radiologist',
+        reg_no VARCHAR(100) DEFAULT '2009/09/3218',
+        signature_file VARCHAR(255),
+        is_global BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -620,7 +611,7 @@ async function initDB() {
   }
 }
 
-// AUTH & MULTI-CENTRE APIS
+// AUTH & CENTRES
 app.get('/api/health', (req, res) => {
   res.json({ success: true, dbConnected: isDbConnected, dbError: dbErrorMessage || 'Connected to DB' });
 });
@@ -763,17 +754,13 @@ app.put('/api/centres/:id/default-margin', async (req, res) => {
     if (fc) fc.top_margin_mm = marginMm;
 
     res.status(200).json({ success: true, message: `Branch default letterhead margin updated to ${marginMm} mm.` });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/centres', async (req, res) => {
   try {
     const { centreName, tagline, address, place, phone, regNo, email, centrePassword, ownerPassword, isPrivate, topMarginMm, bottomMarginMm } = req.body;
-    if (!centreName || !centreName.trim()) {
-      return res.status(400).json({ success: false, error: 'Centre name is required.' });
-    }
+    if (!centreName || !centreName.trim()) return res.status(400).json({ success: false, error: 'Centre name is required.' });
     const privFlag = isPrivate === true || isPrivate === 'true';
 
     if (isDbConnected) {
@@ -802,9 +789,7 @@ app.post('/api/centres', async (req, res) => {
     };
     FALLBACK_CENTRES.push(newCentre);
     res.status(201).json({ success: true, data: newCentre });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.put('/api/centres/:id', async (req, res) => {
@@ -841,9 +826,7 @@ app.put('/api/centres/:id', async (req, res) => {
       };
     }
     res.status(200).json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.delete('/api/centres/:id', async (req, res) => {
@@ -855,12 +838,59 @@ app.delete('/api/centres/:id', async (req, res) => {
     const idx = FALLBACK_CENTRES.findIndex(c => String(c.id) === String(validId));
     if (idx !== -1) FALLBACK_CENTRES.splice(idx, 1);
     res.status(200).json({ success: true, message: 'Centre deleted successfully.' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// RADIOLOGISTS CRUD APIS
+app.get('/api/radiologists', async (req, res) => {
+  try {
+    const centreId = getTenantCentreId(req);
+    let query = 'SELECT * FROM radiologists WHERE is_global = true';
+    const params = [];
+    if (centreId) {
+      params.push(String(centreId));
+      query += ` OR centre_id::text = $${params.length}::text`;
+    }
+    query += ' ORDER BY doctor_name ASC';
+    const result = await pool.query(query, params);
+    res.status(200).json({ success: true, data: result.rows });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// PATIENTS & BILLING APIS
+app.post('/api/radiologists', upload.single('signatureFile'), async (req, res) => {
+  try {
+    const centreId = getTenantCentreId(req);
+    const { doctorName, designation, regNo, isGlobal } = req.body;
+    if (!doctorName || !doctorName.trim()) {
+      return res.status(400).json({ success: false, error: 'Doctor name is required.' });
+    }
+    const sigRelPath = req.file ? req.file.path.replace(/\\/g, '/') : null;
+    const isGlob = isGlobal !== 'false' && isGlobal !== false;
+
+    const result = await pool.query(
+      `INSERT INTO radiologists (centre_id, doctor_name, designation, reg_no, signature_file, is_global)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [centreId, doctorName.trim(), designation || 'Consultant Radiologist', regNo || '2009/09/3218', sigRelPath, isGlob]
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/radiologists/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    await pool.query('DELETE FROM radiologists WHERE id::text = $1::text', [validId]);
+    res.status(200).json({ success: true, message: 'Radiologist deleted.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PATIENTS & BILLING
 app.get('/api/patients', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -879,12 +909,10 @@ app.get('/api/patients', async (req, res) => {
       WHERE 1=1
     `;
     let params = [];
-
     if (centreId && isGlobal !== 'true' && (!search || !search.trim())) {
       params.push(String(centreId));
       query += ` AND (p.centre_id::text = $${params.length}::text OR p.id::text IN (SELECT patient_id::text FROM visits WHERE centre_id::text = $${params.length}::text))`;
     }
-
     if (search && search.trim()) {
       params.push(`%${search.trim()}%`);
       query += ` AND (p.full_name ILIKE $${params.length} OR p.phone ILIKE $${params.length} OR p.patient_code ILIKE $${params.length})`;
@@ -924,9 +952,7 @@ app.get('/api/patients/:id/pcpndt-status', async (req, res) => {
       [patientId]
     );
     res.status(200).json({ success: true, data: result.rows[0] || null });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.put('/api/patients/:id', async (req, res) => {
@@ -937,7 +963,6 @@ app.put('/api/patients/:id', async (req, res) => {
     const parsedAge = age !== null && age !== undefined && !isNaN(parseInt(age, 10)) ? parseInt(age, 10) : 0;
 
     await client.query('BEGIN');
-
     const patResult = await client.query(
       `UPDATE patients 
        SET full_name = $1, age = $2, gender = $3, phone = $4, email = $5, address = $6, patient_code = $7 
@@ -950,7 +975,6 @@ app.put('/api/patients/:id', async (req, res) => {
         `SELECT id, centre_id FROM visits WHERE patient_id::text = $1::text ORDER BY created_at DESC LIMIT 1`,
         [validId]
       );
-      
       let visitId = visitRes.rows[0]?.id;
       let centreId = pcpndtData.centreId || visitRes.rows[0]?.centre_id || getTenantCentreId(req);
 
@@ -964,7 +988,6 @@ app.put('/api/patients/:id', async (req, res) => {
       }
 
       const existingF = await client.query('SELECT id FROM pcpndt_forms WHERE visit_id::text = $1::text', [visitId]);
-
       if (existingF.rows.length > 0) {
         await client.query(
           `UPDATE pcpndt_forms 
@@ -977,8 +1000,7 @@ app.put('/api/patients/:id', async (req, res) => {
             centreId, pcpndtData.relativeName || '', pcpndtData.lmpDate || '', pcpndtData.weeksOfPreg || '',
             parseInt(pcpndtData.noOfSons, 10) || 0, pcpndtData.sonsAge || '',
             parseInt(pcpndtData.noOfDaughters, 10) || 0, pcpndtData.daughtersAge || '',
-            pcpndtData.indications || '',
-            pcpndtData.scanResult || '', pcpndtData.doctorName || 'Dr NIKUNJ KOTHIA',
+            pcpndtData.indications || '', pcpndtData.scanResult || '', pcpndtData.doctorName || 'Dr NIKUNJ KOTHIA',
             pcpndtData.doctorRegNo || '2009/09/3218', pcpndtData.clinicRegNo || 'RC197',
             pcpndtData.place || 'Kandivali West', visitId
           ]
@@ -991,8 +1013,7 @@ app.put('/api/patients/:id', async (req, res) => {
             visitId, centreId, pcpndtData.relativeName || '', pcpndtData.lmpDate || '', pcpndtData.weeksOfPreg || '',
             parseInt(pcpndtData.noOfSons, 10) || 0, pcpndtData.sonsAge || '',
             parseInt(pcpndtData.noOfDaughters, 10) || 0, pcpndtData.daughtersAge || '',
-            pcpndtData.indications || '',
-            pcpndtData.scanResult || '', pcpndtData.doctorName || 'Dr NIKUNJ KOTHIA',
+            pcpndtData.indications || '', pcpndtData.scanResult || '', pcpndtData.doctorName || 'Dr NIKUNJ KOTHIA',
             pcpndtData.doctorRegNo || '2009/09/3218', pcpndtData.clinicRegNo || 'RC197',
             pcpndtData.place || 'Kandivali West'
           ]
@@ -1001,7 +1022,7 @@ app.put('/api/patients/:id', async (req, res) => {
     }
 
     await client.query('COMMIT');
-    res.status(200).json({ success: true, data: patResult.rows[0], message: 'Patient details and records updated!' });
+    res.status(200).json({ success: true, data: patResult.rows[0], message: 'Patient details updated!' });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ success: false, error: err.message });
@@ -1100,11 +1121,8 @@ app.put('/api/visits/:id/cut', async (req, res) => {
       if (result.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit record not found' });
       return res.status(200).json({ success: true, message: 'Doctor cut updated successfully', data: result.rows[0] });
     }
-
     res.status(200).json({ success: true, message: 'Doctor cut updated' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/visits/:id/mark-printed', async (req, res) => {
@@ -1112,12 +1130,9 @@ app.post('/api/visits/:id/mark-printed', async (req, res) => {
     const validId = getCleanId(req.params.id);
     await pool.query('UPDATE visits SET bill_printed = true WHERE id::text = $1::text', [validId]);
     res.status(200).json({ success: true, message: 'Bill marked as printed.' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// REPORT FILE UPLOAD IN REPORT STUDIO (EXTRACTS FINDINGS, STUDY & IMPRESSION AUTOMATICALLY)
 app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1128,7 +1143,6 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
     const hasLetterhead = req.body.hasLetterhead !== 'false';
     const marginMm = parseInt(req.body.marginMm, 10) || 55;
 
-    // Fetch patient name & doctor name to clean demographics out of findings
     const vResult = await pool.query(
       `SELECT v.id, v.patient_id, v.centre_id, v.invoice_number, p.full_name, d.doctor_name as ref_doctor_name
        FROM visits v
@@ -1137,7 +1151,6 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
        WHERE v.id::text = $1::text`,
       [validId]
     );
-
     if (vResult.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit not found.' });
     const vRow = vResult.rows[0];
 
@@ -1152,7 +1165,6 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
     let parsed = { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '' };
     if (ext === '.docx' || ext === '.doc') {
       parsed = extractTextFromUploadedFile(req.file.path, vRow.full_name || '', vRow.ref_doctor_name || '');
-
       const existingRep = await pool.query('SELECT id FROM imaging_reports WHERE visit_id::text = $1::text', [validId]);
       if (existingRep.rows.length > 0) {
         await pool.query(
@@ -1163,15 +1175,9 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
         );
       } else {
         await pool.query(
-          `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [
-            validId, vRow.patient_id, vRow.centre_id, 
-            parsed.title || 'DIAGNOSTIC IMAGING REPORT', 
-            parsed.body || 'Study completed.', 
-            parsed.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.', 
-            'Dr NIKUNJ KOTHIA', '2009/09/3218'
-          ]
+          `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no, doctor_designation)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [validId, vRow.patient_id, vRow.centre_id, parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body || 'Study completed.', parsed.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.', 'Dr NIKUNJ KOTHIA', '2009/09/3218', 'Consultant Radiologist']
         );
       }
     }
@@ -1179,54 +1185,28 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
     res.status(200).json({
       success: true,
       message: 'Report attached & clinical details extracted successfully!',
-      data: { 
-        visitId: validId, 
-        reportFile: relPath, 
-        hasLetterhead, 
-        marginMm,
-        extracted: parsed
-      }
+      data: { visitId: validId, reportFile: relPath, hasLetterhead, marginMm, extracted: parsed }
     });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.get('/api/visits/:id/uploaded-report', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId || req.params.id);
     const vRes = await pool.query('SELECT report_file, invoice_number FROM visits WHERE id::text = $1::text', [validId]);
-    if (vRes.rows.length === 0 || !vRes.rows[0].report_file) {
-      return res.status(404).send('No manual report file uploaded for this visit.');
-    }
-    const relPath = vRes.rows[0].report_file;
-    const fullPath = path.resolve(__dirname, relPath);
-    if (!fs.existsSync(fullPath)) {
-      return res.status(404).send('Uploaded file not found on server.');
-    }
+    if (vRes.rows.length === 0 || !vRes.rows[0].report_file) return res.status(404).send('No report uploaded.');
+    const fullPath = path.resolve(__dirname, vRes.rows[0].report_file);
+    if (!fs.existsSync(fullPath)) return res.status(404).send('File not found on server.');
 
     const ext = path.extname(fullPath).toLowerCase();
     const inv = vRes.rows[0].invoice_number || 'Report';
-    if (ext === '.pdf') {
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="Report_${inv}.pdf"`);
-    } else if (ext === '.docx') {
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      res.setHeader('Content-Disposition', `attachment; filename="Report_${inv}.docx"`);
-    } else if (ext === '.doc') {
-      res.setHeader('Content-Type', 'application/msword');
-      res.setHeader('Content-Disposition', `attachment; filename="Report_${inv}.doc"`);
-    } else if (ext === '.jpg' || ext === '.jpeg') {
-      res.setHeader('Content-Type', 'image/jpeg');
-      res.setHeader('Content-Disposition', `inline; filename="Report_${inv}.jpg"`);
-    } else if (ext === '.png') {
-      res.setHeader('Content-Type', 'image/png');
-      res.setHeader('Content-Disposition', `inline; filename="Report_${inv}.png"`);
-    }
+    if (ext === '.pdf') res.setHeader('Content-Type', 'application/pdf');
+    else if (ext === '.docx') res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    else if (ext === '.doc') res.setHeader('Content-Type', 'application/msword');
+    else if (ext === '.jpg' || ext === '.jpeg') res.setHeader('Content-Type', 'image/jpeg');
+    else if (ext === '.png') res.setHeader('Content-Type', 'image/png');
     res.sendFile(fullPath);
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
+  } catch (err) { res.status(500).send(err.message); }
 });
 
 app.put('/api/visits/:id', async (req, res) => {
@@ -1238,14 +1218,12 @@ app.put('/api/visits/:id', async (req, res) => {
     await client.query('BEGIN');
     const { 
       referringDoctorId, tests, concession, paidAmount, paymentMode, 
-      cashAmount, onlineAmount,
-      doctorCommission, doctor_commission, isPcpndt, relativeName, lmpDate, weeksOfPreg, pcpndtIndications, scanResult, place 
+      cashAmount, onlineAmount, doctorCommission, doctor_commission, isPcpndt, 
+      relativeName, lmpDate, weeksOfPreg, pcpndtIndications, scanResult, place 
     } = req.body;
 
-    let testArray = [];
-    if (Array.isArray(tests)) {
-      testArray = tests;
-    } else if (typeof tests === 'string') {
+    let testArray = Array.isArray(tests) ? tests : [];
+    if (typeof tests === 'string') {
       try { testArray = JSON.parse(tests); } catch (e) { testArray = []; }
     }
 
@@ -1260,11 +1238,9 @@ app.put('/api/visits/:id', async (req, res) => {
     if (paymentMode === 'Split') {
       paid = parsedCash + parsedOnline;
     } else if (paymentMode === 'Cash') {
-      parsedCash = paid;
-      parsedOnline = 0;
+      parsedCash = paid; parsedOnline = 0;
     } else {
-      parsedOnline = paid;
-      parsedCash = 0;
+      parsedOnline = paid; parsedCash = 0;
     }
 
     const balance = Math.max(0, netTotal - paid);
@@ -1318,11 +1294,7 @@ app.put('/api/visits/:id', async (req, res) => {
     }
 
     await client.query('COMMIT');
-    res.status(200).json({
-      success: true,
-      message: 'Bill updated successfully',
-      data: { visitId: validVisitId, grossTotal, netTotal, paidAmount: paid, balanceAmount: balance, doctorCommission: totalCommission }
-    });
+    res.status(200).json({ success: true, message: 'Bill updated successfully' });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ success: false, error: err.message });
@@ -1331,7 +1303,6 @@ app.put('/api/visits/:id', async (req, res) => {
   }
 });
 
-// REGISTER VISIT
 app.post('/api/register-visit', upload.single('reportFile'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -1360,10 +1331,8 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
       patientId = patRes.rows[0].id;
     }
 
-    let testArray = [];
-    if (Array.isArray(tests)) {
-      testArray = tests;
-    } else if (typeof tests === 'string') {
+    let testArray = Array.isArray(tests) ? tests : [];
+    if (typeof tests === 'string') {
       try { testArray = JSON.parse(tests); } catch (e) { testArray = []; }
     }
 
@@ -1378,11 +1347,9 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     if (paymentMode === 'Split') {
       paid = parsedCash + parsedOnline;
     } else if (paymentMode === 'Cash') {
-      parsedCash = paid;
-      parsedOnline = 0;
+      parsedCash = paid; parsedOnline = 0;
     } else {
-      parsedOnline = paid;
-      parsedCash = 0;
+      parsedOnline = paid; parsedCash = 0;
     }
 
     const balance = Math.max(0, netTotal - paid);
@@ -1482,7 +1449,7 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PDF INVOICE GENERATOR WITH PRINTED STAMP
+// PDF INVOICE
 app.get('/api/invoice/:id/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1506,7 +1473,6 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
       [validId]
     );
     if (visitRes.rows.length === 0) return res.status(404).send('Invoice not found');
-
     const v = visitRes.rows[0];
     const isPrinted = v.bill_printed || shouldMarkPrinted;
 
@@ -1525,16 +1491,15 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     doc.pipe(res);
 
     if (withLetterhead) {
-      doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
-      if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
-      doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`Phone / Contact: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
-      doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
+      doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', 40, doc.y, { width: 515, align: 'center' });
+      if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, 40, doc.y, { width: 515, align: 'center' });
+      doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`Phone / Contact: ${v.centre_phone || '+91 8433838285'}`, 40, doc.y, { width: 515, align: 'center' });
+      doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, 40, doc.y, { width: 515, align: 'center' });
       doc.moveDown(0.5);
       doc.strokeColor('#cccccc').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
       doc.moveDown(0.8);
     } else {
-      const topPts = Math.max(30, Math.round(marginMm * 2.83465));
-      doc.y = topPts;
+      doc.y = Math.max(30, Math.round(marginMm * 2.83465));
     }
 
     if (isPrinted) {
@@ -1564,7 +1529,6 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
 
     let currentY = tableTop + 24;
     doc.font('Helvetica').fillColor('#000000').fontSize(9);
-
     for (const item of items) {
       doc.text(item.test_name || 'Service', 50, currentY);
       doc.text(item.category || 'General', 300, currentY);
@@ -1593,7 +1557,6 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     if (v.payment_mode === 'Split') {
       modeText = `Paid (Cash ₹${parseFloat(v.cash_amount || 0).toFixed(0)} + Online ₹${parseFloat(v.online_amount || 0).toFixed(0)}):`;
     }
-
     doc.font('Helvetica').text(modeText, totalBoxX, currentY, { width: 120 });
     doc.text(`INR ${parseFloat(v.paid_amount || 0).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
     currentY += 14;
@@ -1603,18 +1566,13 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
 
     doc.fontSize(8).fillColor('#777777').font('Helvetica').text(
       'This is an electronically generated diagnostic invoice and requires no signature.',
-      40,
-      760,
-      { align: 'center', width: 515 }
+      40, 760, { align: 'center', width: 515 }
     );
-
     doc.end();
-  } catch (err) {
-    res.status(500).send('Error generating PDF: ' + err.message);
-  }
+  } catch (err) { res.status(500).send('Error generating PDF: ' + err.message); }
 });
 
-// CLINICAL REPORT STUDIO & PDF GENERATION APIS
+// REPORT DATA & TEMPLATES
 app.get('/api/imaging/report-data/:visitId', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
@@ -1654,14 +1612,15 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
           report_text: parsed.body,
           impression: parsed.impression,
           doctor_name: 'Dr NIKUNJ KOTHIA',
-          doctor_reg_no: '2009/09/3218'
+          doctor_reg_no: '2009/09/3218',
+          doctor_designation: 'Consultant Radiologist',
+          signature_file: null
         };
       }
     }
 
-    const tmplRes = await pool.query(
-      `SELECT id, title, template_name, category, default_impression, template_body FROM imaging_templates ORDER BY title ASC`
-    );
+    const tmplRes = await pool.query(`SELECT id, title, template_name, category, default_impression, template_body FROM imaging_templates ORDER BY title ASC`);
+    const radRes = await pool.query(`SELECT * FROM radiologists WHERE is_global = true OR centre_id::text = $1::text ORDER BY doctor_name ASC`, [visitRes.rows[0].centre_id || null]);
 
     res.status(200).json({
       success: true,
@@ -1669,17 +1628,20 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
         visit: visitRes.rows[0],
         investigations: invRes.rows,
         existingReport: existingRep,
-        templates: tmplRes.rows || []
+        templates: tmplRes.rows || [],
+        radiologists: radRes.rows || []
       }
     });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/imaging/report-save', async (req, res) => {
   try {
-    const { visitId, reportTitle, reportText, impression, doctorName, doctorRegNo, hasLetterhead, marginMm } = req.body;
+    const { 
+      visitId, reportTitle, reportText, impression, 
+      doctorName, doctorRegNo, doctorDesignation, signatureFile, 
+      hasLetterhead, marginMm 
+    } = req.body;
     const validVisitId = getCleanId(visitId);
     if (!validVisitId) return res.status(400).json({ success: false, error: 'Visit ID is required.' });
 
@@ -1697,6 +1659,15 @@ app.post('/api/imaging/report-save', async (req, res) => {
       [isLetterhead, topMargin, validVisitId]
     );
 
+    // If signatureFile is not provided, look up from radiologists table
+    let finalSig = signatureFile || null;
+    if (!finalSig && doctorName) {
+      const radCheck = await pool.query('SELECT signature_file FROM radiologists WHERE LOWER(doctor_name) = LOWER($1) LIMIT 1', [doctorName.trim()]);
+      if (radCheck.rows.length > 0 && radCheck.rows[0].signature_file) {
+        finalSig = radCheck.rows[0].signature_file;
+      }
+    }
+
     const existing = await pool.query('SELECT id FROM imaging_reports WHERE visit_id::text = $1::text', [validVisitId]);
     let result;
 
@@ -1704,42 +1675,42 @@ app.post('/api/imaging/report-save', async (req, res) => {
       result = await pool.query(
         `UPDATE imaging_reports
          SET template_name = $1, report_text = $2, impression = $3, doctor_name = $4, 
-             doctor_reg_no = $5, created_at = CURRENT_TIMESTAMP
-         WHERE visit_id::text = $6::text RETURNING *`,
+             doctor_reg_no = $5, doctor_designation = $6, signature_file = $7, created_at = CURRENT_TIMESTAMP
+         WHERE visit_id::text = $8::text RETURNING *`,
         [
           reportTitle || 'Diagnostic Study',
           reportText || '',
           impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.',
           doctorName || 'Dr NIKUNJ KOTHIA',
           doctorRegNo || '2009/09/3218',
+          doctorDesignation || 'Consultant Radiologist',
+          finalSig,
           validVisitId
         ]
       );
     } else {
       result = await pool.query(
         `INSERT INTO imaging_reports 
-           (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+           (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no, doctor_designation, signature_file)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
         [
-          validVisitId,
-          patient_id,
-          centre_id,
+          validVisitId, patient_id, centre_id,
           reportTitle || 'Diagnostic Study',
           reportText || '',
           impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.',
           doctorName || 'Dr NIKUNJ KOTHIA',
-          doctorRegNo || '2009/09/3218'
+          doctorRegNo || '2009/09/3218',
+          doctorDesignation || 'Consultant Radiologist',
+          finalSig
         ]
       );
     }
 
     res.status(200).json({ success: true, message: 'Report saved successfully!', data: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// DYNAMIC DIAGNOSTIC PDF GENERATION (HIGH-FIDELITY MEDICAL FORMATTING)
+// FULL-WIDTH PROFESSIONAL MEDICAL PDF REPORT GENERATOR WITH SIGNATURE
 app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
@@ -1775,7 +1746,9 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
           report_text: parsed.body,
           impression: parsed.impression,
           doctor_name: 'Dr NIKUNJ KOTHIA',
-          doctor_reg_no: '2009/09/3218'
+          doctor_reg_no: '2009/09/3218',
+          doctor_designation: 'Consultant Radiologist',
+          signature_file: null
         };
       } else {
         rep = {
@@ -1783,8 +1756,18 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
           report_text: 'Study completed within normal parameters.',
           impression: 'NO SIGNIFICANT ABNORMALITY DETECTED.',
           doctor_name: 'Dr NIKUNJ KOTHIA',
-          doctor_reg_no: '2009/09/3218'
+          doctor_reg_no: '2009/09/3218',
+          doctor_designation: 'Consultant Radiologist',
+          signature_file: null
         };
+      }
+    }
+
+    // Auto-resolve signature from radiologists table if not directly saved
+    if (!rep.signature_file && rep.doctor_name) {
+      const radCheck = await pool.query('SELECT signature_file FROM radiologists WHERE LOWER(doctor_name) = LOWER($1) LIMIT 1', [rep.doctor_name.trim()]);
+      if (radCheck.rows.length > 0 && radCheck.rows[0].signature_file) {
+        rep.signature_file = radCheck.rows[0].signature_file;
       }
     }
 
@@ -1795,6 +1778,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       effectiveMarginMm = parseInt(v.report_margin_mm, 10);
     }
 
+    // A4 printable width: 595 - (40*2) = 515 pt
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
     const filename = `Report_${v.invoice_number || 'REP'}.pdf`;
 
@@ -1802,49 +1786,62 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     doc.pipe(res);
 
+    // 1. CENTERED CLINIC HEADER
     if (withLetterhead) {
-      doc.fontSize(15).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', { align: 'center' });
+      doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a')
+         .text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', 40, doc.y, { width: 515, align: 'center' });
+      
       if (v.centre_tagline) {
-        doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, { align: 'center' });
+        doc.fontSize(8.5).font('Helvetica').fillColor('#555555')
+           .text(v.centre_tagline, 40, doc.y, { width: 515, align: 'center' });
       }
-      doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#b91c1c').text(`Phone / Contact: ${v.centre_phone || '+91 8433838285'}`, { align: 'center' });
-      doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, { align: 'center' });
+      doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#b91c1c')
+         .text(`Phone / Contact: ${v.centre_phone || '+91 8433838285'}`, 40, doc.y, { width: 515, align: 'center' });
+      doc.fontSize(8).font('Helvetica').fillColor('#333333')
+         .text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, 40, doc.y, { width: 515, align: 'center' });
+      
       doc.moveDown(0.4);
       doc.strokeColor('#19486a').lineWidth(1.2).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
-      doc.moveDown(0.8);
+      doc.moveDown(0.6);
     } else {
-      const topPts = Math.max(20, Math.round(effectiveMarginMm * 2.83465));
-      doc.y = topPts;
+      doc.y = Math.max(25, Math.round(effectiveMarginMm * 2.83465));
     }
 
-    // Patient demographics card
+    // 2. PATIENT DEMOGRAPHICS CARD (RESETTING X TO 40)
     const metaBoxY = doc.y;
-    doc.rect(40, metaBoxY, 515, 45).fillAndStroke('#f8fafc', '#cbd5e1');
+    doc.rect(40, metaBoxY, 515, 46).fillAndStroke('#f8fafc', '#cbd5e1');
     doc.fontSize(8.5).fillColor('#000000');
 
-    doc.font('Helvetica-Bold').text('PATIENT NAME: ', 50, metaBoxY + 8, { continued: true })
+    // Left Column
+    doc.font('Helvetica-Bold').text('PATIENT NAME: ', 52, metaBoxY + 8, { continued: true })
        .font('Helvetica').text(v.full_name.toUpperCase());
-    doc.font('Helvetica-Bold').text('AGE / SEX: ', 50, metaBoxY + 24, { continued: true })
+    doc.font('Helvetica-Bold').text('AGE / GENDER: ', 52, metaBoxY + 26, { continued: true })
        .font('Helvetica').text(`${v.age || 0} YRS / ${(v.gender || 'FEMALE').toUpperCase()}`);
 
-    doc.font('Helvetica-Bold').text('DATE: ', 330, metaBoxY + 8, { continued: true })
+    // Right Column
+    doc.font('Helvetica-Bold').text('DATE: ', 340, metaBoxY + 8, { continued: true })
        .font('Helvetica').text(new Date(v.created_at).toLocaleDateString('en-GB'));
-    doc.font('Helvetica-Bold').text('REF. BY: ', 330, metaBoxY + 24, { continued: true })
+    doc.font('Helvetica-Bold').text('REF. BY: ', 340, metaBoxY + 26, { continued: true })
        .font('Helvetica').text((v.ref_doctor || 'DIRECT OPD').toUpperCase());
 
-    doc.y = metaBoxY + 55;
+    // CRITICAL FIX: Reset doc.x to 40 so findings are never pushed to the right
+    doc.x = 40;
+    doc.y = metaBoxY + 58;
 
-    // Study Title: strictly prevent collision with patient name
+    // 3. CENTERED STUDY TITLE
     let displayTitle = (rep.template_name || 'DIAGNOSTIC IMAGING REPORT').toUpperCase();
     if (displayTitle === v.full_name.toUpperCase() || displayTitle.length < 4) {
       displayTitle = 'DIAGNOSTIC IMAGING REPORT';
     }
 
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#19486a').text(displayTitle, { align: 'center', underline: true });
+    doc.fontSize(12).font('Helvetica-Bold').fillColor('#19486a')
+       .text(displayTitle, 40, doc.y, { width: 515, align: 'center', underline: true });
+    
     doc.moveDown(0.8);
+    doc.x = 40;
 
-    // Findings section
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('FINDINGS:');
+    // 4. FINDINGS SECTION (FULL WIDTH)
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('FINDINGS:', 40, doc.y);
     doc.moveDown(0.3);
 
     const findingsLines = (rep.report_text || 'No significant abnormality recorded.').split('\n');
@@ -1853,54 +1850,83 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     for (const fLine of findingsLines) {
       const trimmed = fLine.trim();
       if (!trimmed) {
-        doc.moveDown(0.3);
+        doc.moveDown(0.25);
         continue;
       }
 
-      // Format capitalized anatomical subheadings (e.g. "BONES:", "LIVER:") in bold
-      if (/^[A-Z\s/-]{2,30}:$/i.test(trimmed)) {
-        doc.moveDown(0.3);
-        doc.font('Helvetica-Bold').text(trimmed);
+      doc.x = 40;
+
+      // Bold anatomical subheadings (e.g. "LIVER:", "GALL BLADDER:")
+      if (/^[A-Z\s/-]{2,35}:/i.test(trimmed)) {
+        doc.moveDown(0.25);
+        doc.font('Helvetica-Bold').text(trimmed, 40, doc.y, { width: 515, align: 'left' });
         doc.font('Helvetica');
       } else {
-        doc.font('Helvetica').text(trimmed, { lineGap: 2.5, align: 'left' });
+        doc.font('Helvetica').text(trimmed, 40, doc.y, { width: 515, lineGap: 2.5, align: 'left' });
       }
 
-      // Handle page overflow cleanly
-      if (doc.y > 720) {
+      if (doc.y > 690) {
         doc.addPage();
+        doc.x = 40;
         doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
       }
     }
 
-    doc.moveDown(1.0);
+    doc.moveDown(0.8);
 
-    // Impression Box
-    if (doc.y > 670) doc.addPage();
+    // 5. CENTERED / STRUCTURED IMPRESSION BOX
+    if (doc.y > 640) {
+      doc.addPage();
+      doc.x = 40;
+      doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
+    }
 
-    const impBoxY = doc.y;
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('IMPRESSION:');
+    doc.x = 40;
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('IMPRESSION:', 40, doc.y);
     doc.moveDown(0.3);
 
-    const impText = rep.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.';
-    doc.rect(40, doc.y - 2, 515, 34).fillAndStroke('#f1f5f9', '#94a3b8');
-    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text(impText.toUpperCase(), 48, doc.y + 6, {
-      width: 500,
-      lineGap: 2
-    });
+    const impText = (rep.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.').toUpperCase();
+    const impY = doc.y;
 
-    // Doctor Signature Block (Orphan Guard Protected)
-    doc.y = Math.max(doc.y + 14, impBoxY + 54);
-    if (doc.y > 730) doc.addPage();
+    // Compute box height based on impression length
+    const boxH = Math.max(34, doc.heightOfString(impText, { width: 495 }) + 14);
+    doc.rect(40, impY, 515, boxH).fillAndStroke('#f1f5f9', '#94a3b8');
 
-    const signY = Math.max(doc.y + 20, 720);
-    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#000000').text(rep.doctor_name || 'Dr NIKUNJ KOTHIA', 330, signY, { align: 'right' });
-    doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`Consultant Radiologist / Reg: ${rep.doctor_reg_no || '2009/09/3218'}`, 330, signY + 14, { align: 'right' });
+    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a')
+       .text(impText, 50, impY + 7, { width: 495, lineGap: 2, align: 'left' });
+
+    doc.y = impY + boxH + 16;
+    doc.x = 40;
+
+    // 6. DOCTOR SIGNATURE BLOCK WITH DIGITAL SIGNATURE IMAGE
+    if (doc.y > 700) {
+      doc.addPage();
+      doc.x = 40;
+      doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
+    }
+
+    const signY = Math.max(doc.y, 700);
+
+    // Embed Digital Signature Image if available
+    if (rep.signature_file) {
+      const sigFullPath = path.resolve(__dirname, rep.signature_file);
+      if (fs.existsSync(sigFullPath)) {
+        try {
+          doc.image(sigFullPath, 385, signY - 45, { fit: [140, 42], align: 'right' });
+        } catch (imgErr) {
+          console.error('Signature embed error:', imgErr.message);
+        }
+      }
+    }
+
+    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#000000')
+       .text(rep.doctor_name || 'Dr NIKUNJ KOTHIA', 330, signY, { width: 225, align: 'right' });
+
+    doc.fontSize(8).font('Helvetica').fillColor('#333333')
+       .text(`${rep.doctor_designation || 'Consultant Radiologist'} / Reg: ${rep.doctor_reg_no || '2009/09/3218'}`, 330, signY + 13, { width: 225, align: 'right' });
 
     doc.end();
-  } catch (err) {
-    res.status(500).send('Error generating Report PDF: ' + err.message);
-  }
+  } catch (err) { res.status(500).send('Error generating Report PDF: ' + err.message); }
 });
 
 app.post('/api/visits/:id/send-bill-sms', async (req, res) => {
@@ -1919,14 +1945,11 @@ app.post('/api/visits/:id/send-bill-sms', async (req, res) => {
     const v = visitRes.rows[0];
     const net = (parseFloat(v.total_amount) - parseFloat(v.concession || 0)).toFixed(2);
     const pdfUrl = `https://resq-clinic-app.onrender.com/api/invoice/${validId}/pdf`;
-    
     const msg = `Dear ${v.full_name}, your bill for ${v.centre_name || 'RESQ Clinic'} is ready. Inv: ${v.invoice_number}, Net: Rs.${net}, Balance: Rs.${parseFloat(v.balance_amount).toFixed(2)}. Download Bill: ${pdfUrl}`;
 
     const sent = await dispatchSMS(v.phone, msg);
     res.json({ success: true, message: sent ? 'Bill SMS sent successfully!' : 'Bill SMS logged.' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/visits/:id/send-report-sms', async (req, res) => {
@@ -1955,24 +1978,19 @@ app.post('/api/visits/:id/send-report-sms', async (req, res) => {
 
     const sent = await dispatchSMS(v.phone, msg);
     res.json({ success: true, message: sent ? 'Report SMS sent successfully!' : 'Report SMS logged.' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.get('/api/imaging/report/:visitId/download', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
     const rRes = await pool.query(`SELECT * FROM imaging_reports WHERE visit_id::text = $1::text LIMIT 1`, [validId]);
-    if (!rRes.rows.length) return res.status(404).send('Diagnostic report has not yet been saved in the system.');
-    
+    if (!rRes.rows.length) return res.status(404).send('Diagnostic report not found.');
     const r = rRes.rows[0];
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Content-Disposition', `inline; filename="Report_${validId}.txt"`);
     res.send(`RESQ CLINIC & IMAGING CENTRE - DIAGNOSTIC REPORT\nDoctor: ${r.doctor_name}\n\nFINDINGS:\n${r.report_text}\n\nIMPRESSION:\n${r.impression}`);
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
+  } catch (err) { res.status(500).send(err.message); }
 });
 
 app.get('/api/tests', async (req, res) => {
@@ -2013,14 +2031,13 @@ app.post('/api/tests/bulk-import', async (req, res) => {
       if (t.testName && t.testName.trim()) {
         const parsedCut = (t.testCut !== undefined && t.testCut !== null && !isNaN(parseFloat(t.testCut))) ? parseFloat(t.testCut) : 30;
         await pool.query(
-          `INSERT INTO test_master (centre_id, test_name, category, price, cut_type, test_cut)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+          `INSERT INTO test_master (centre_id, test_name, category, price, cut_type, test_cut) VALUES ($1, $2, $3, $4, $5, $6)`,
           [targetCentreId, t.testName.trim(), t.category || 'Imaging', parseFloat(t.price) || 0, t.cut_type || 'percentage', parsedCut]
         );
         count++;
       }
     }
-    res.status(200).json({ success: true, message: `Successfully imported ${count} test(s) to centre.` });
+    res.status(200).json({ success: true, message: `Successfully imported ${count} test(s).` });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -2083,14 +2100,13 @@ app.post('/api/doctors/bulk-import', async (req, res) => {
       if (d.doctorName && d.doctorName.trim()) {
         const parsedVal = (d.commissionValue !== undefined && d.commissionValue !== null && !isNaN(parseFloat(d.commissionValue))) ? parseFloat(d.commissionValue) : 30;
         await pool.query(
-          `INSERT INTO referring_doctors (centre_id, doctor_name, hospital_clinic_name, commission_type, commission_value)
-           VALUES ($1, $2, $3, $4, $5)`,
+          `INSERT INTO referring_doctors (centre_id, doctor_name, hospital_clinic_name, commission_type, commission_value) VALUES ($1, $2, $3, $4, $5)`,
           [targetCentreId, d.doctorName.trim(), d.hospitalClinicName || '', d.commissionType || 'percentage', parsedVal]
         );
         count++;
       }
     }
-    res.status(200).json({ success: true, message: `Successfully imported ${count} doctor(s) to centre.` });
+    res.status(200).json({ success: true, message: `Successfully imported ${count} doctor(s).` });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -2098,32 +2114,19 @@ app.put('/api/doctors/:id', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
     if (!validId) return res.status(400).json({ success: false, error: 'Invalid Doctor ID' });
-
     const { doctorName, hospitalClinicName, commissionType, commissionValue, centreId } = req.body;
-    if (!doctorName || !doctorName.trim()) {
-      return res.status(400).json({ success: false, error: 'Doctor name cannot be empty.' });
-    }
+    if (!doctorName || !doctorName.trim()) return res.status(400).json({ success: false, error: 'Doctor name required.' });
 
-    const parsedVal = (commissionValue !== undefined && commissionValue !== null && !isNaN(parseFloat(commissionValue))) 
-      ? parseFloat(commissionValue) 
-      : 30;
-
+    const parsedVal = (commissionValue !== undefined && commissionValue !== null && !isNaN(parseFloat(commissionValue))) ? parseFloat(commissionValue) : 30;
     const result = await pool.query(
       `UPDATE referring_doctors 
-       SET doctor_name = $1, 
-           hospital_clinic_name = $2, 
-           commission_type = $3, 
-           commission_value = $4,
-           centre_id = COALESCE($5, centre_id)
+       SET doctor_name = $1, hospital_clinic_name = $2, commission_type = $3, commission_value = $4, centre_id = COALESCE($5, centre_id)
        WHERE id::text = $6::text RETURNING *`,
       [doctorName.trim(), hospitalClinicName || '', commissionType || 'percentage', parsedVal, getCleanId(centreId), validId]
     );
-
     if (result.rowCount === 0) return res.status(404).json({ success: false, error: 'Doctor not found.' });
     res.status(200).json({ success: true, data: result.rows[0], message: 'Doctor updated successfully!' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.delete('/api/doctors/:id', async (req, res) => {
@@ -2147,7 +2150,7 @@ app.delete('/api/doctors/:id', async (req, res) => {
   }
 });
 
-// TEMPLATE ENGINE APIS
+// TEMPLATES
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2215,23 +2218,14 @@ app.get('/api/imaging/templates', async (req, res) => {
 
             seenNames.add(f.toLowerCase());
             templates.push({
-              id: f,
-              template_name: f,
-              title: cleanTitle,
-              category: cat,
-              default_impression: '',
-              template_body: '',
-              is_centre_specific: entry.isCentre
+              id: f, template_name: f, title: cleanTitle, category: cat, default_impression: '', template_body: '', is_centre_specific: entry.isCentre
             });
           }
         }
       }
     }
-
     res.status(200).json({ success: true, data: templates });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/imaging/templates/single', upload.single('templateFile'), async (req, res) => {
@@ -2239,10 +2233,7 @@ app.post('/api/imaging/templates/single', upload.single('templateFile'), async (
     const centreId = getTenantCentreId(req);
     const { title, category } = req.body;
     const file = req.file;
-
-    if (!file) {
-      return res.status(400).json({ success: false, error: 'Please select a Word template (.docx or .doc) file.' });
-    }
+    if (!file) return res.status(400).json({ success: false, error: 'Please select a Word template (.docx or .doc).' });
 
     const cleanTitle = (title && title.trim()) 
       ? title.trim().toUpperCase() 
@@ -2263,17 +2254,13 @@ app.post('/api/imaging/templates/single', upload.single('templateFile'), async (
         );
       } else {
         await pool.query(
-          `INSERT INTO imaging_templates (centre_id, template_name, title, category, template_body, default_impression)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+          `INSERT INTO imaging_templates (centre_id, template_name, title, category, template_body, default_impression) VALUES ($1, $2, $3, $4, $5, $6)`,
           [centreId, file.originalname, cleanTitle, chosenCategory, body, impression]
         );
       }
     }
-
     res.status(200).json({ success: true, message: `Template "${cleanTitle}" added successfully!` });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), async (req, res) => {
@@ -2306,25 +2293,20 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
           );
         } else {
           await pool.query(
-            `INSERT INTO imaging_templates (centre_id, template_name, title, category, template_body, default_impression)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
+            `INSERT INTO imaging_templates (centre_id, template_name, title, category, template_body, default_impression) VALUES ($1, $2, $3, $4, $5, $6)`,
             [centreId, f.originalname, cleanTitle, category, body, impression]
           );
         }
       }
       count++;
     }
-
     res.status(200).json({ success: true, message: `Successfully added ${count} template(s)!` });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/imaging/templates/clear-all', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
-
     if (isDbConnected) {
       if (centreId) {
         await pool.query('DELETE FROM imaging_templates WHERE centre_id::text = $1::text', [String(centreId)]);
@@ -2332,7 +2314,6 @@ app.post('/api/imaging/templates/clear-all', async (req, res) => {
         await pool.query('DELETE FROM imaging_templates');
       }
     }
-
     const targetDirs = [];
     if (centreId) targetDirs.push(path.join(TEMPLATES_DIR, String(centreId)));
     targetDirs.push(TEMPLATES_DIR);
@@ -2348,73 +2329,37 @@ app.post('/api/imaging/templates/clear-all', async (req, res) => {
         }
       }
     }
-
-    res.status(200).json({ success: true, message: 'All old templates deleted permanently! You can now upload fresh templates.' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.put('/api/imaging/templates/:identifier', async (req, res) => {
-  try {
-    const { title, category, templateBody, defaultImpression } = req.body;
-    const centreId = getTenantCentreId(req);
-    const identifier = req.params.identifier;
-
-    if (isDbConnected) {
-      await pool.query(
-        `UPDATE imaging_templates 
-         SET title = COALESCE(NULLIF($1, ''), title),
-             category = COALESCE(NULLIF($2, ''), category),
-             template_body = COALESCE($3, template_body),
-             default_impression = COALESCE($4, default_impression)
-         WHERE (id::text = $5 OR template_name = $5)
-           AND (centre_id::text = $6::text OR centre_id IS NULL)`,
-        [title?.trim()?.toUpperCase(), category, templateBody, defaultImpression, identifier, centreId]
-      );
-    }
-    res.status(200).json({ success: true, message: 'Template updated successfully!' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+    res.status(200).json({ success: true, message: 'All old templates deleted permanently!' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
     const identifier = req.params.identifier;
-
     if (isDbConnected) {
       await pool.query(
-        `DELETE FROM imaging_templates 
-         WHERE (id::text = $1 OR template_name = $1)
-           AND (centre_id::text = $2::text OR centre_id IS NULL)`,
+        `DELETE FROM imaging_templates WHERE (id::text = $1 OR template_name = $1) AND (centre_id::text = $2::text OR centre_id IS NULL)`,
         [identifier, centreId]
       );
     }
-
     const possiblePaths = [];
     if (centreId) possiblePaths.push(path.join(TEMPLATES_DIR, String(centreId), identifier));
     possiblePaths.push(path.join(TEMPLATES_DIR, identifier));
-
     for (const p of possiblePaths) {
       if (fs.existsSync(p)) {
         try { fs.unlinkSync(p); } catch (e) {}
       }
     }
-
     res.status(200).json({ success: true, message: 'Template deleted successfully!' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// CLEAN WORD DOCUMENT MERGE GENERATOR
+// WORD MERGE
 app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   try {
     const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm, centreId: explicitCentreId } = req.body;
     const centreId = explicitCentreId || getTenantCentreId(req);
-
     if (!templateName) return res.status(400).json({ success: false, error: 'Template name is required' });
 
     let centreObj = null;
@@ -2429,7 +2374,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
 
     let topMarginMm = centreObj.top_margin_mm || 55;
     let bottomMarginMm = centreObj.bottom_margin_mm || 15;
-
     if (marginOverrideMm && !isNaN(parseInt(marginOverrideMm, 10))) {
       topMarginMm = parseInt(marginOverrideMm, 10);
     }
@@ -2450,7 +2394,7 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
     }
 
     if (!targetPath || !fs.existsSync(targetPath)) {
-      return res.status(404).json({ success: false, error: `Template "${templateName}" not found on server.` });
+      return res.status(404).json({ success: false, error: `Template "${templateName}" not found.` });
     }
 
     const ext = path.extname(targetPath).toLowerCase();
@@ -2475,7 +2419,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
       if (!docEntry) throw new Error('Invalid Word document structure: word/document.xml not found');
 
       let docXml = docEntry.getData().toString('utf-8');
-
       docXml = docXml.replace(/(<w:pgMar[^>]*?\bw:top=")[^"]*(")/g, `$1${topDxa}$2`);
       docXml = docXml.replace(/(<w:pgMar[^>]*?\bw:bottom=")[^"]*(")/g, `$1${bottomDxa}$2`);
 
@@ -2502,7 +2445,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
     }
 
     let binaryData = fs.readFileSync(targetPath, 'binary');
-
     if (binaryData.includes('<*NAME1*>') || binaryData.includes('{{NAME}}') || binaryData.includes('{{PATIENT_NAME}}')) {
       binaryData = binaryData
         .replace(/<\*NAME1\*>/g, ptName)
@@ -2531,18 +2473,13 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
     res.setHeader('Content-Type', 'application/msword');
     res.setHeader('Content-Disposition', `attachment; filename="${path.basename(targetPath, ext)}_${safeName}.doc"`);
     res.send(Buffer.from(binaryData, 'binary'));
-
-  } catch (err) {
-    console.error('Word merge error:', err);
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.get('/api/imaging/templates/bulk-download', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
     const zip = new AdmZip();
-
     const searchDirs = [];
     if (centreId) searchDirs.push(path.join(TEMPLATES_DIR, String(centreId)));
     searchDirs.push(TEMPLATES_DIR);
@@ -2561,21 +2498,17 @@ app.get('/api/imaging/templates/bulk-download', async (req, res) => {
         }
       }
     }
-
-    if (count === 0) return res.status(404).json({ success: false, error: 'No template files on server.' });
+    if (count === 0) return res.status(404).json({ success: false, error: 'No templates found.' });
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="Templates_Centre_${centreId || 'Export'}.zip"`);
+    res.setHeader('Content-Disposition', `attachment; filename="Templates_${centreId || 'Export'}.zip"`);
     res.send(zip.toBuffer());
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/imaging/reports', async (req, res) => {
   try {
     const { visitId, patientId, templateId, templateName, reportText, impression, doctorName, doctorRegNo } = req.body;
     const centreId = getTenantCentreId(req);
-
     const existing = await pool.query('SELECT id FROM imaging_reports WHERE visit_id::text = $1::text', [String(visitId)]);
     let result;
     if (existing.rows.length > 0) {
@@ -2587,16 +2520,16 @@ app.post('/api/imaging/reports', async (req, res) => {
       );
     } else {
       result = await pool.query(
-        `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_id, template_name, report_text, impression, doctor_name, doctor_reg_no)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-        [getCleanId(visitId), getCleanId(patientId), centreId, getCleanId(templateId), templateName, reportText || 'Opened in Word', impression || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218']
+        `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_id, template_name, report_text, impression, doctor_name, doctor_reg_no, doctor_designation)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        [getCleanId(visitId), getCleanId(patientId), centreId, getCleanId(templateId), templateName, reportText || 'Opened in Word', impression || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', 'Consultant Radiologist']
       );
     }
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// REPORTS & STATUTORY PCPNDT APIS
+// REPORTS & AUDIT
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2657,7 +2590,6 @@ app.get('/api/reports/collection', async (req, res) => {
     }
 
     query += ` ORDER BY v.created_at DESC LIMIT 500`;
-
     const result = await pool.query(query, params);
     let grossTotal = 0, totalCollection = 0, totalPending = 0;
     result.rows.forEach(r => {
@@ -2671,10 +2603,7 @@ app.get('/api/reports/collection', async (req, res) => {
       data: result.rows,
       summary: { totalCollection, totalPending, grossTotal, recordCount: result.rows.length }
     });
-  } catch (err) {
-    console.error('Collection report error:', err);
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.get('/api/reports/doctor-detailed', async (req, res) => {
@@ -2727,16 +2656,12 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
     query += ' ORDER BY v.created_at DESC LIMIT 500';
     const result = await pool.query(query, params);
     res.status(200).json({ success: true, data: result.rows });
-  } catch (err) {
-    console.error('Doctor report error:', err);
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.get('/api/reports/executive-daily', async (req, res) => {
   try {
     const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
-
     let query = `
       SELECT c.id as centre_id, c.centre_name,
              COUNT(DISTINCT v.id) as total_patients,
@@ -2770,6 +2695,7 @@ app.get('/api/reports/executive-daily', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// PCPNDT
 app.get('/api/pcpndt', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2845,49 +2771,26 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// HIGH-SPEED BATCH CLOUD SYNC API
+// CLOUD SYNC
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) {
     return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in your environment variables (.env)' });
   }
-
   if (cleanDbUrl === cleanCloudUrl) {
-    return res.status(200).json({
-      success: true,
-      message: 'Cloud Sync Notice: Your active system is already running directly on the Cloud Database.'
-    });
+    return res.status(200).json({ success: true, message: 'Cloud Sync Notice: Already connected directly to Cloud Database.' });
   }
 
   let localClient, cloudClient;
-  try {
-    localClient = await pool.connect();
-  } catch (err) {
-    return res.status(500).json({ success: false, error: 'Local DB connection error: ' + err.message });
-  }
-
-  try {
-    cloudClient = await cloudPool.connect();
-  } catch (err) {
+  try { localClient = await pool.connect(); } catch (err) { return res.status(500).json({ success: false, error: 'Local DB error: ' + err.message }); }
+  try { cloudClient = await cloudPool.connect(); } catch (err) {
     localClient.release();
-    return res.status(503).json({ success: false, error: 'Cannot connect to Cloud Database. Verify CLOUD_DATABASE_URL credentials.' });
+    return res.status(503).json({ success: false, error: 'Cannot connect to Cloud Database.' });
   }
 
   const startTime = Date.now();
-
   try {
     await cloudClient.query('BEGIN');
     await cloudClient.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
-
-    try {
-      await cloudClient.query(`
-        ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_visit_id_fkey;
-        ALTER TABLE patient_investigations ADD CONSTRAINT patient_investigations_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
-        ALTER TABLE pcpndt_forms DROP CONSTRAINT IF EXISTS pcpndt_forms_visit_id_fkey;
-        ALTER TABLE pcpndt_forms ADD CONSTRAINT pcpndt_forms_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
-        ALTER TABLE imaging_reports DROP CONSTRAINT IF EXISTS imaging_reports_visit_id_fkey;
-        ALTER TABLE imaging_reports ADD CONSTRAINT imaging_reports_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
-      `);
-    } catch (e) {}
 
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
     if (auths.rows.length > 0) {
@@ -2895,47 +2798,23 @@ app.post('/api/sync/cloud', async (req, res) => {
     }
 
     const centres = await localClient.query('SELECT * FROM clinic_centres');
-    const mappedCentres = centres.rows.map(c => ({
-      ...c,
-      place: c.place || 'Kandivali West',
-      phone: c.phone || '',
-      reg_no: c.reg_no || 'RC197',
-      email: c.email || '',
-      centre_password: c.centre_password || '1234',
-      owner_password: c.owner_password || 'owner123',
-      top_margin_mm: c.top_margin_mm || 55,
-      bottom_margin_mm: c.bottom_margin_mm || 15
-    }));
     await bulkInsert(cloudClient, 'clinic_centres', [
       'id', 'centre_name', 'tagline', 'address', 'place', 'phone', 'reg_no', 'email',
       'centre_password', 'owner_password', 'is_private', 'top_margin_mm', 'bottom_margin_mm', 'created_at'
-    ], mappedCentres, 50, `ON CONFLICT (id) DO UPDATE SET 
+    ], centres.rows, 50, `ON CONFLICT (id) DO UPDATE SET 
       centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address, place = EXCLUDED.place,
       phone = EXCLUDED.phone, reg_no = EXCLUDED.reg_no, email = EXCLUDED.email,
       centre_password = EXCLUDED.centre_password, owner_password = EXCLUDED.owner_password, is_private = EXCLUDED.is_private,
       top_margin_mm = EXCLUDED.top_margin_mm, bottom_margin_mm = EXCLUDED.bottom_margin_mm`);
 
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
-    await bulkInsert(cloudClient, 'referring_doctors', [
-      'id', 'centre_id', 'doctor_name', 'hospital_clinic_name', 'commission_type', 'commission_value'
-    ], doctors.rows, 100, `ON CONFLICT (id) DO UPDATE SET 
-      centre_id = EXCLUDED.centre_id, doctor_name = EXCLUDED.doctor_name, 
-      hospital_clinic_name = EXCLUDED.hospital_clinic_name, 
-      commission_type = EXCLUDED.commission_type, commission_value = EXCLUDED.commission_value`);
+    await bulkInsert(cloudClient, 'referring_doctors', ['id', 'centre_id', 'doctor_name', 'hospital_clinic_name', 'commission_type', 'commission_value'], doctors.rows, 100);
 
     const tests = await localClient.query('SELECT * FROM test_master');
-    await bulkInsert(cloudClient, 'test_master', [
-      'id', 'centre_id', 'test_name', 'category', 'price', 'cut_type', 'test_cut'
-    ], tests.rows, 100, `ON CONFLICT (id) DO UPDATE SET 
-      centre_id = EXCLUDED.centre_id, test_name = EXCLUDED.test_name, category = EXCLUDED.category, 
-      price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut`);
+    await bulkInsert(cloudClient, 'test_master', ['id', 'centre_id', 'test_name', 'category', 'price', 'cut_type', 'test_cut'], tests.rows, 100);
 
     const patients = await localClient.query('SELECT * FROM patients');
-    await bulkInsert(cloudClient, 'patients', [
-      'id', 'centre_id', 'patient_code', 'full_name', 'age', 'gender', 'phone', 'email', 'address', 'created_at'
-    ], patients.rows, 100, `ON CONFLICT (id) DO UPDATE SET 
-      full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender,
-      phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address`);
+    await bulkInsert(cloudClient, 'patients', ['id', 'centre_id', 'patient_code', 'full_name', 'age', 'gender', 'phone', 'email', 'address', 'created_at'], patients.rows, 100);
 
     const visits = await localClient.query('SELECT * FROM visits');
     const localVisitIds = visits.rows.map(v => v.id).filter(Boolean);
@@ -2944,89 +2823,47 @@ app.post('/api/sync/cloud', async (req, res) => {
     if (localVisitIds.length > 0 || localInvNos.length > 0) {
       const safeVisitIds = localVisitIds.length > 0 ? localVisitIds : ['00000000-0000-0000-0000-000000000000'];
       const safeInvNos = localInvNos.length > 0 ? localInvNos : ['__dummy_inv__'];
-
-      await cloudClient.query(`
-        DELETE FROM patient_investigations WHERE visit_id IN (
-          SELECT id FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])
-        )
-      `, [safeVisitIds, safeInvNos]);
-
-      await cloudClient.query(`
-        DELETE FROM pcpndt_forms WHERE visit_id IN (
-          SELECT id FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])
-        )
-      `, [safeVisitIds, safeInvNos]);
-
-      await cloudClient.query(`
-        DELETE FROM imaging_reports WHERE visit_id IN (
-          SELECT id FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])
-        )
-      `, [safeVisitIds, safeInvNos]);
-
-      await cloudClient.query(`
-        DELETE FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])
-      `, [safeVisitIds, safeInvNos]);
+      await cloudClient.query(`DELETE FROM patient_investigations WHERE visit_id IN (SELECT id FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[]))`, [safeVisitIds, safeInvNos]);
+      await cloudClient.query(`DELETE FROM pcpndt_forms WHERE visit_id IN (SELECT id FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[]))`, [safeVisitIds, safeInvNos]);
+      await cloudClient.query(`DELETE FROM imaging_reports WHERE visit_id IN (SELECT id FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[]))`, [safeVisitIds, safeInvNos]);
+      await cloudClient.query(`DELETE FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])`, [safeVisitIds, safeInvNos]);
     }
-
-    const mappedVisits = visits.rows.map(v => ({
-      ...v,
-      cash_amount: v.cash_amount || 0,
-      online_amount: v.online_amount || 0,
-      bill_printed: v.bill_printed || false,
-      doctor_commission: v.doctor_commission || 0,
-      report_file: v.report_file || null,
-      report_has_letterhead: v.report_has_letterhead !== false,
-      report_margin_mm: v.report_margin_mm || 55
-    }));
 
     await bulkInsert(cloudClient, 'visits', [
       'id', 'centre_id', 'patient_id', 'referring_doctor_id', 'total_amount', 'concession',
       'paid_amount', 'balance_amount', 'payment_status', 'payment_mode', 'cash_amount',
       'online_amount', 'bill_printed', 'invoice_number', 'doctor_commission', 'report_file', 
       'report_has_letterhead', 'report_margin_mm', 'created_at'
-    ], mappedVisits, 100);
+    ], visits.rows, 100);
 
     const investigations = await localClient.query('SELECT * FROM patient_investigations');
-    await bulkInsert(cloudClient, 'patient_investigations', [
-      'id', 'visit_id', 'test_id', 'barcode', 'status', 'price', 'cut_type', 'test_cut'
-    ], investigations.rows, 100, `ON CONFLICT (id) DO UPDATE SET
-      visit_id = EXCLUDED.visit_id, test_id = EXCLUDED.test_id, barcode = EXCLUDED.barcode,
-      status = EXCLUDED.status, price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut`);
+    await bulkInsert(cloudClient, 'patient_investigations', ['id', 'visit_id', 'test_id', 'barcode', 'status', 'price', 'cut_type', 'test_cut'], investigations.rows, 100);
 
     const pcpndt = await localClient.query('SELECT * FROM pcpndt_forms');
-    const mappedPcpndt = pcpndt.rows.map(pf => ({
-      ...pf,
-      place: pf.place || 'Kandivali West',
-      doctor_name: pf.doctor_name || 'Dr NIKUNJ KOTHIA',
-      doctor_reg_no: pf.doctor_reg_no || '2009/09/3218',
-      clinic_reg_no: pf.clinic_reg_no || 'RC197'
-    }));
     await bulkInsert(cloudClient, 'pcpndt_forms', [
       'id', 'visit_id', 'centre_id', 'relative_name', 'no_of_sons', 'sons_age', 'no_of_daughters',
       'daughters_age', 'lmp_date', 'weeks_of_preg', 'indications', 'scan_result', 'doctor_name',
       'doctor_reg_no', 'clinic_reg_no', 'place', 'created_at'
-    ], mappedPcpndt, 100, `ON CONFLICT (id) DO UPDATE SET
-      relative_name = EXCLUDED.relative_name, lmp_date = EXCLUDED.lmp_date, 
-      weeks_of_preg = EXCLUDED.weeks_of_preg, scan_result = EXCLUDED.scan_result, place = EXCLUDED.place`);
+    ], pcpndt.rows, 100);
 
     const templates = await localClient.query('SELECT * FROM imaging_templates');
-    await bulkInsert(cloudClient, 'imaging_templates', [
-      'id', 'centre_id', 'template_name', 'title', 'category', 'default_impression', 'template_body'
-    ], templates.rows, 50, `ON CONFLICT (id) DO UPDATE 
-      SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body`);
+    await bulkInsert(cloudClient, 'imaging_templates', ['id', 'centre_id', 'template_name', 'title', 'category', 'default_impression', 'template_body'], templates.rows, 50);
 
     await cloudClient.query('COMMIT');
     const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`[Cloud Sync] Completed in ${elapsedSec}s!`);
-    res.status(200).json({ success: true, message: `Cloud Sync Successful! All records up to date in ${elapsedSec}s.` });
+    res.status(200).json({ success: true, message: `Cloud Sync Successful in ${elapsedSec}s.` });
   } catch (err) {
     try { await cloudClient.query('ROLLBACK'); } catch (rb) {}
-    console.error('Cloud Sync Error:', err.message);
     res.status(500).json({ success: false, error: 'Cloud Sync Failed: ' + err.message });
   } finally {
     if (localClient) localClient.release();
     if (cloudClient) cloudClient.release();
   }
+});
+
+// JSON API 404 GUARD: Stops catch-all wildcard from returning HTML to failed fetch() calls
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ success: false, error: `API route ${req.method} ${req.originalUrl} not found.` });
 });
 
 app.get('*', (req, res) => {
