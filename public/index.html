@@ -865,7 +865,7 @@
         </div>
     </div>
 
-    <!-- MODAL: ADMIN SETTINGS & MULTI-CENTRE MANAGER -->
+    <!-- MODAL: ADMIN SETTINGS & MULTI-CENTRE / RADIOLOGIST MANAGER -->
     <div id="adminModal" class="modal">
         <div class="modal-content" style="max-width: 850px;">
             <div class="modal-header">
@@ -918,6 +918,29 @@
                     <table>
                         <thead><tr><th>Centre Name</th><th>Place / Reg No</th><th>Letterhead Margins</th><th>Privacy</th><th style="width: 150px;">Actions</th></tr></thead>
                         <tbody id="adminCentresListBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- RADIOLOGISTS & DIGITAL SIGNATURES MANAGEMENT CARD -->
+                <div class="card" style="background: #fdf4ff; border: 1.5px solid #f0abfc; margin-top: 16px;">
+                    <div class="card-title" style="color: #86198f;">👨‍⚕️ Manage Radiologists & Digital Signatures</div>
+                    <div class="form-grid">
+                        <div class="form-group"><label>Doctor Full Name *:</label><input type="text" id="radNameInput" placeholder="Dr. Full Name"></div>
+                        <div class="form-group"><label>Designation:</label><input type="text" id="radDesigInput" value="Consultant Radiologist"></div>
+                        <div class="form-group"><label>Registration No *:</label><input type="text" id="radRegInput" value="2009/09/3218" placeholder="e.g. 2009/09/3218"></div>
+                        <div class="form-group"><label>Digital Signature Image (PNG/JPG):</label><input type="file" id="radSigFileInput" accept=".png,.jpg,.jpeg"></div>
+                        <div class="form-group full-width">
+                            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:bold; color:#86198f; cursor:pointer;">
+                                <input type="checkbox" id="radGlobalCheck" checked>
+                                Available across all clinic centres (Global)
+                            </label>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-complete-reg" style="margin-top: 10px; background: #a21caf; max-width: 250px;" onclick="saveRadiologist()">Add Radiologist</button>
+                    
+                    <table style="margin-top: 14px;">
+                        <thead><tr><th>Doctor Name</th><th>Designation / Reg</th><th>Signature</th><th style="width: 100px;">Action</th></tr></thead>
+                        <tbody id="radiologistsTableBody"></tbody>
                     </table>
                 </div>
 
@@ -1021,7 +1044,14 @@
                     <textarea id="repModalImpression" rows="3" style="width:100%; padding:8px; border:1.5px solid #cbd5e1; border-radius:4px; font-weight:bold; font-family:inherit;"></textarea>
                 </div>
 
-                <div class="form-grid" style="margin-bottom:14px;">
+                <!-- DYNAMIC SIGNING RADIOLOGIST SELECTOR & DETAILS -->
+                <div class="form-grid" style="margin-bottom:14px; background:#f8fafc; padding:12px; border:1.5px solid #cbd5e1; border-radius:6px;">
+                    <div class="form-group full-width">
+                        <label style="font-weight:bold; color:#1e3a8a;">👨‍⚕️ Signing Radiologist (Auto-Picks Signature):</label>
+                        <select id="repModalDoctorSelect" onchange="onRadiologistDropdownChanged(this.value)" style="width:100%; padding:8px; border:1.5px solid #0284c7; border-radius:4px; font-weight:bold;">
+                            <option value="">-- Select Radiologist --</option>
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label>Doctor Name:</label>
                         <input type="text" id="repModalDoctor" value="Dr NIKUNJ KOTHIA">
@@ -1030,12 +1060,23 @@
                         <label>Registration Number:</label>
                         <input type="text" id="repModalRegNo" value="2009/09/3218">
                     </div>
+                    <div class="form-group">
+                        <label>Designation / Title:</label>
+                        <input type="text" id="repModalDesignation" value="Consultant Radiologist">
+                    </div>
+                    <div class="form-group">
+                        <label>Digital Signature Status:</label>
+                        <div id="repModalSigBadge" style="padding:7px; font-size:0.85rem; font-weight:bold; color:#047857; background:#dcfce7; border-radius:4px; border:1px solid #86efac; text-align:center;">
+                            ✍️ No Signature
+                        </div>
+                        <input type="hidden" id="repModalSigFile">
+                    </div>
                 </div>
 
                 <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid #e2e8f0; padding-top:12px;">
                     <button type="button" class="btn-complete-reg" onclick="saveManualClinicalReport()" style="flex:1;">💾 Save Report Details</button>
-                    <button type="button" class="btn-act" style="background:#0284c7; color:white; padding:10px 14px;" onclick="viewSelectedReportPdf()">📄 Preview / Print PDF (with Letterhead)</button>
-                    <button type="button" class="btn-act btn-act-wa" style="padding:10px 14px;" onclick="sendSelectedReportWhatsApp()">📱 WhatsApp Report (with Letterhead)</button>
+                    <button type="button" class="btn-act" style="background:#0284c7; color:white; padding:10px 14px;" onclick="viewSelectedReportPdf()">📄 Preview / Print PDF</button>
+                    <button type="button" class="btn-act btn-act-wa" style="padding:10px 14px;" onclick="sendSelectedReportWhatsApp()">📱 WhatsApp Report</button>
                 </div>
             </div>
         </div>
@@ -1176,7 +1217,7 @@
         </div>
     </div>
 
-    <!-- CLIENT SCRIPT -->
+     <!-- CLIENT SCRIPT -->
     <script>
         const FALLBACK_CENTRES_CLIENT = [
             { id: 'c1111111-1111-1111-1111-111111111111', centre_name: 'RESQ HEART CLINIC (Kandivali West)', tagline: 'Advanced Cardiac Care & Multi-Speciality Diagnostic Imaging', address: 'Shop No 25 Veena Geet Sangeet Gangotri Yamunotri CHSL.. Mahavir Nagar Dahanukarwadi Kandivali West', place: 'Kandivali West', phone: '+91 8433838285', reg_no: 'RC197', centre_password: '1234', owner_password: 'owner123', is_private: false, top_margin_mm: 55, bottom_margin_mm: 15 },
@@ -1191,6 +1232,7 @@
         let cachedReportData = null;
         let currentBusinessData = [];
         let isPendingOnlyFilterActive = false;
+        let radiologistsList = [];
 
         function escapeHtml(str) { return str ? String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;') : ''; }
 
@@ -1415,7 +1457,8 @@
                 loadReports(),
                 loadImagingVisitsDropdown(),
                 loadPcpndtRegister(),
-                loadBusiness()
+                loadBusiness(),
+                loadRadiologists()
             ]);
         }
 
@@ -1518,6 +1561,7 @@
                     document.getElementById('adminAuthSection').style.display = 'none';
                     document.getElementById('adminPanelSection').style.display = 'block';
                     renderAdminCentres();
+                    loadRadiologists();
                     return;
                 }
             } catch (err) {
@@ -1525,6 +1569,7 @@
                     document.getElementById('adminAuthSection').style.display = 'none';
                     document.getElementById('adminPanelSection').style.display = 'block';
                     renderAdminCentres();
+                    loadRadiologists();
                     return;
                 }
             }
@@ -1585,6 +1630,123 @@
                     </tr>
                 `;
             });
+        }
+
+        // RADIOLOGIST MASTER & SIGNATURE FUNCTIONS
+        async function loadRadiologists() {
+            try {
+                const res = await apiFetch('/api/radiologists');
+                const json = await res.json();
+                radiologistsList = json.data || [];
+                renderRadiologistsTable();
+                populateRadiologistDropdown();
+            } catch (e) {
+                console.error('Failed to load radiologists:', e);
+            }
+        }
+
+        function renderRadiologistsTable() {
+            const tbody = document.getElementById('radiologistsTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (!radiologistsList.length) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:10px; color:#888;">No radiologists configured.</td></tr>`;
+                return;
+            }
+            radiologistsList.forEach(r => {
+                const sigBadge = r.signature_file 
+                    ? `<span style="color:#047857; font-weight:bold;">✅ Uploaded</span>` 
+                    : `<span style="color:#b91c1c;">None</span>`;
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${escapeHtml(r.doctor_name)}</strong></td>
+                        <td>${escapeHtml(r.designation || 'Consultant Radiologist')}<br><small>Reg: ${escapeHtml(r.reg_no || '-')}</small></td>
+                        <td>${sigBadge}</td>
+                        <td>
+                            <button type="button" class="btn-act btn-act-del" onclick="deleteRadiologist('${r.id}')">✕ Del</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function saveRadiologist() {
+            const name = document.getElementById('radNameInput').value.trim();
+            const designation = document.getElementById('radDesigInput').value.trim();
+            const regNo = document.getElementById('radRegInput').value.trim();
+            const isGlobal = document.getElementById('radGlobalCheck').checked;
+            const fileInput = document.getElementById('radSigFileInput');
+
+            if (!name) return alert('Doctor full name is required.');
+
+            const formData = new FormData();
+            formData.append('doctorName', name);
+            formData.append('designation', designation || 'Consultant Radiologist');
+            formData.append('regNo', regNo || '2009/09/3218');
+            formData.append('isGlobal', isGlobal);
+            if (fileInput.files.length > 0) {
+                formData.append('signatureFile', fileInput.files[0]);
+            }
+
+            try {
+                const res = await apiFetch('/api/radiologists', { method: 'POST', body: formData });
+                const json = await res.json();
+                if (json.success) {
+                    alert('Radiologist added successfully!');
+                    document.getElementById('radNameInput').value = '';
+                    fileInput.value = '';
+                    await loadRadiologists();
+                } else {
+                    alert('Error: ' + json.error);
+                }
+            } catch (e) {
+                alert('Request failed: ' + e.message);
+            }
+        }
+
+        async function deleteRadiologist(id) {
+            if (!confirm('Permanently remove this radiologist and signature?')) return;
+            const res = await apiFetch(`/api/radiologists/${id}`, { method: 'DELETE' });
+            const json = await res.json();
+            if (json.success) {
+                alert('Radiologist deleted.');
+                await loadRadiologists();
+            } else {
+                alert('Error: ' + json.error);
+            }
+        }
+
+        function populateRadiologistDropdown() {
+            const sel = document.getElementById('repModalDoctorSelect');
+            if (!sel) return;
+            const prev = sel.value;
+            sel.innerHTML = '<option value="">-- Select Radiologist --</option>';
+            radiologistsList.forEach(r => {
+                sel.innerHTML += `<option value="${r.id}">${escapeHtml(r.doctor_name)} (${escapeHtml(r.reg_no || 'Reg N/A')})</option>`;
+            });
+            if (prev) sel.value = prev;
+        }
+
+        function onRadiologistDropdownChanged(radId) {
+            const r = radiologistsList.find(x => String(x.id) === String(radId));
+            if (!r) return;
+            document.getElementById('repModalDoctor').value = r.doctor_name;
+            document.getElementById('repModalRegNo').value = r.reg_no || '2009/09/3218';
+            document.getElementById('repModalDesignation').value = r.designation || 'Consultant Radiologist';
+            document.getElementById('repModalSigFile').value = r.signature_file || '';
+
+            const badge = document.getElementById('repModalSigBadge');
+            if (r.signature_file) {
+                badge.innerHTML = '✅ Digital Signature Attached';
+                badge.style.color = '#047857';
+                badge.style.background = '#dcfce7';
+                badge.style.borderColor = '#86efac';
+            } else {
+                badge.innerHTML = '⚠️ No Signature on File';
+                badge.style.color = '#92400e';
+                badge.style.background = '#fef3c7';
+                badge.style.borderColor = '#fde68a';
+            }
         }
 
         function startEditCentre(id) {
@@ -2131,27 +2293,14 @@
             const msg = `Dear *${patName}*,\n` +
                         `Your diagnostic report from *${centreName || 'RESQ Diagnostics'}* is ready.\n\n` +
                         `📋 *Invoice No:* ${invNo}\n\n` +
-                        `📄 *View / Download Your Official PDF Report (with Letterhead):*\n` +
+                        `📄 *View / Download Your Official PDF Report:*\n` +
                         `${pdfUrl}`;
-            window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
-        }
-
-        async function shareWhatsAppUploadedDocument(phone, patName, invNo, centreName, visitId) {
-            if (!phone) return alert('Mobile number missing for this patient.');
-            const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
-            const publicBase = getPublicAppUrl();
-            const fileUrl = `${publicBase}/api/visits/${visitId}/uploaded-report`;
-            const msg = `Dear *${patName}*,\n` +
-                        `Your diagnostic report document from *${centreName || 'RESQ Diagnostics'}* is ready.\n\n` +
-                        `📋 *Invoice No:* ${invNo}\n\n` +
-                        `📄 *View / Download Your Official Report:*\n` +
-                        `${fileUrl}`;
             window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
         function getBillPrintBtnHtml(visitId, isPrinted) {
             const printedClass = isPrinted ? 'btn-act-bill-printed' : 'btn-act-bill-unprinted';
-            const label = isPrinted ? '🖨️️ Slip ✔️' : '🖨️ Slip';
+            const label = isPrinted ? '🖨 Slip ✔️' : '🖨️ Slip';
             return `<button type="button" class="btn-act ${printedClass} btn-prt-visit-${visitId}" onclick="printSingleInvoice('${visitId}')">${label}</button>`;
         }
 
@@ -2325,11 +2474,44 @@
                 document.getElementById('repModalPatHeader').textContent = 
                     `[${v.invoice_number}] ${v.full_name} (${v.age || 0} Yrs / ${v.gender || '-'}) — Ref: ${v.ref_doctor || 'Direct OPD'}`;
                 document.getElementById('repModalTitle').value = rep?.template_name || invs.toUpperCase();
-                document.getElementById('repModalDoctor').value = rep?.doctor_name || 'Dr NIKUNJ KOTHIA';
-                document.getElementById('repModalRegNo').value = rep?.doctor_reg_no || '2009/09/3218';
                 document.getElementById('repModalFindings').value = rep?.report_text || '';
                 document.getElementById('repModalImpression').value = rep?.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.';
                 document.getElementById('manualDocFileInput').value = '';
+
+                // Load Radiologists
+                if (json.data.radiologists && json.data.radiologists.length > 0) {
+                    radiologistsList = json.data.radiologists;
+                    populateRadiologistDropdown();
+                } else {
+                    await loadRadiologists();
+                }
+
+                // Populate Doctor Info
+                const docName = rep?.doctor_name || 'Dr NIKUNJ KOTHIA';
+                document.getElementById('repModalDoctor').value = docName;
+                document.getElementById('repModalRegNo').value = rep?.doctor_reg_no || '2009/09/3218';
+                document.getElementById('repModalDesignation').value = rep?.doctor_designation || 'Consultant Radiologist';
+                document.getElementById('repModalSigFile').value = rep?.signature_file || '';
+
+                // Match with dropdown
+                const sel = document.getElementById('repModalDoctorSelect');
+                const matchedRad = radiologistsList.find(r => r.doctor_name.toLowerCase().trim() === docName.toLowerCase().trim());
+                if (matchedRad) {
+                    sel.value = String(matchedRad.id);
+                    onRadiologistDropdownChanged(matchedRad.id);
+                } else {
+                    sel.value = '';
+                    const badge = document.getElementById('repModalSigBadge');
+                    if (rep?.signature_file) {
+                        badge.innerHTML = '✅ Digital Signature Attached';
+                        badge.style.color = '#047857';
+                        badge.style.background = '#dcfce7';
+                    } else {
+                        badge.innerHTML = '⚠️ No Signature on File';
+                        badge.style.color = '#92400e';
+                        badge.style.background = '#fef3c7';
+                    }
+                }
 
                 const hasLetterhead = v.report_has_letterhead !== false;
                 document.getElementById('repOptWithLetterhead').checked = hasLetterhead;
@@ -2419,7 +2601,6 @@
                     document.getElementById('attachedFileNameText').textContent = `✅ Attached File: ${filename}`;
                     document.getElementById('attachedFileStatusBanner').style.display = 'flex';
 
-                    // Automatically update Option 2 fields with extracted text
                     if (json.data.extracted) {
                         if (json.data.extracted.title) document.getElementById('repModalTitle').value = json.data.extracted.title;
                         if (json.data.extracted.body) document.getElementById('repModalFindings').value = json.data.extracted.body;
@@ -2463,6 +2644,8 @@
                 impression: document.getElementById('repModalImpression').value.trim(),
                 doctorName: document.getElementById('repModalDoctor').value.trim(),
                 doctorRegNo: document.getElementById('repModalRegNo').value.trim(),
+                doctorDesignation: document.getElementById('repModalDesignation').value.trim(),
+                signatureFile: document.getElementById('repModalSigFile').value.trim() || null,
                 hasLetterhead: withLetterhead,
                 marginMm: marginMm
             };
@@ -2825,7 +3008,7 @@
                         <td>${p.phone || '-'}</td>
                         <td>₹${parseFloat(p.total_billed || 0).toFixed(2)} (Due: ₹${parseFloat(p.total_due || 0).toFixed(2)})</td>
                         <td>
-                            <button type="button" class="btn-act btn-act-edit" onclick="openEditPatientModal('${p.id}')">✏️ Edit</button>
+                            <button type="button" class="btn-act btn-act-edit" onclick="openEditPatientModal('${p.id}')">✏️️ Edit</button>
                             <button type="button" class="btn-act btn-act-bills" onclick="openPatientBillsModal('${p.id}', '${escapeHtml(p.full_name)}')">📂 View Bills</button>
                             <button type="button" class="btn-act btn-act-bill-unprinted" onclick="document.getElementById('lookupSearch').value='${p.phone || p.full_name}'; lookupPatient(); openTab('tab-billing', document.querySelectorAll('.tab-btn')[0]);">➕ New Bill</button>
                             <button type="button" class="btn-act btn-act-del" onclick="deletePatientRecord('${p.id}')">✕ Delete</button>
@@ -3615,7 +3798,7 @@
                             <td style="color:#047857; font-weight:bold;">₹${paid.toFixed(2)}</td>
                             <td style="color:#7c3aed; font-weight:bold;">₹${cut.toFixed(2)}</td>
                             <td>
-                                <button type="button" class="btn-act btn-act-edit" onclick="editSingleDoctorCut('${b.visit_id}', '${escapeHtml(b.doctor_name)}', '${cut.toFixed(2)}')">✏️ Edit Cut</button>
+                                <button type="button" class="btn-act btn-act-edit" onclick="editSingleDoctorCut('${b.visit_id}', '${escapeHtml(b.doctor_name)}', '${cut.toFixed(2)}')">✏️️ Edit Cut</button>
                                 ${getBillPrintBtnHtml(b.visit_id, false)}
                             </td>
                         </tr>
