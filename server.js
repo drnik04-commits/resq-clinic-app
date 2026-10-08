@@ -2701,10 +2701,12 @@ app.get('/api/pcpndt', async (req, res) => {
     let query = `
       SELECT pf.*, pf.created_at as form_date, p.full_name as patient_name, p.age as patient_age, 
              p.address as patient_address, v.invoice_number,
+             COALESCE(d.doctor_name, 'Direct OPD / Self') as referring_doctor_name,
              c.centre_name, COALESCE(pf.place, c.place, 'Kandivali West') as place
       FROM pcpndt_forms pf
       JOIN visits v ON pf.visit_id = v.id
       JOIN patients p ON v.patient_id = p.id
+      LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
       LEFT JOIN clinic_centres c ON pf.centre_id = c.id
       WHERE 1=1
     `;
@@ -2729,12 +2731,12 @@ app.get('/api/pcpndt', async (req, res) => {
       params.push(`%${search.trim()}%`);
       query += ` AND (p.full_name ILIKE $${params.length} OR v.invoice_number ILIKE $${params.length})`;
     }
-    query += ' ORDER BY pf.created_at DESC LIMIT 300';
+    query += ' ORDER BY pf.created_at DESC LIMIT 500';
     const result = await pool.query(query, params);
     res.status(200).json({ success: true, data: result.rows });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
-
+ 
 // HIGH-SPEED BATCH CLOUD SYNC API
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) {
