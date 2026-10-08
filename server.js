@@ -2699,7 +2699,8 @@ app.get('/api/pcpndt', async (req, res) => {
     const { startDate, endDate, month, search } = req.query;
 
     let query = `
-      SELECT pf.*, pf.created_at as form_date, p.full_name as patient_name, p.age as patient_age, v.invoice_number,
+      SELECT pf.*, pf.created_at as form_date, p.full_name as patient_name, p.age as patient_age, 
+             p.address as patient_address, v.invoice_number,
              c.centre_name, COALESCE(pf.place, c.place, 'Kandivali West') as place
       FROM pcpndt_forms pf
       JOIN visits v ON pf.visit_id = v.id
@@ -2731,40 +2732,6 @@ app.get('/api/pcpndt', async (req, res) => {
     query += ' ORDER BY pf.created_at DESC LIMIT 300';
     const result = await pool.query(query, params);
     res.status(200).json({ success: true, data: result.rows });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-app.put('/api/pcpndt/:id', async (req, res) => {
-  try {
-    const validId = getCleanId(req.params.id);
-    const { 
-      relativeName, lmpDate, weeksOfPreg, noOfSons, sonsAge, noOfDaughters, 
-      daughtersAge, indications, scanResult, doctorName, doctorRegNo, clinicRegNo, place, centreId 
-    } = req.body;
-
-    const result = await pool.query(
-      `UPDATE pcpndt_forms 
-       SET relative_name = $1, lmp_date = $2, weeks_of_preg = $3, no_of_sons = $4, sons_age = $5,
-           no_of_daughters = $6, daughters_age = $7, indications = $8, scan_result = $9,
-           doctor_name = $10, doctor_reg_no = $11, clinic_reg_no = $12, place = $13,
-           centre_id = COALESCE($14, centre_id)
-       WHERE id::text = $15::text RETURNING *`,
-      [
-        relativeName || '', lmpDate || '', weeksOfPreg || '', parseInt(noOfSons, 10) || 0, sonsAge || '',
-        parseInt(noOfDaughters, 10) || 0, daughtersAge || '', indications || '', scanResult || '',
-        doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', clinicRegNo || 'RC197', 
-        place || 'Kandivali West', getCleanId(centreId), validId
-      ]
-    );
-    res.status(200).json({ success: true, data: result.rows[0], message: 'Statutory Form F updated successfully!' });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-app.delete('/api/pcpndt/:id', async (req, res) => {
-  try {
-    const validId = getCleanId(req.params.id);
-    await pool.query('DELETE FROM pcpndt_forms WHERE id::text = $1::text', [validId]);
-    res.status(200).json({ success: true, message: 'Form F deleted' });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 

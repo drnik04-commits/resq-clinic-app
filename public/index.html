@@ -730,38 +730,45 @@
 
     <!-- MODAL: STATUTORY PCPNDT FORM F SUMMARY REGISTER -->
     <div id="pcpndtSummaryModal" class="modal">
-        <div class="modal-content" style="max-width: 980px;">
+        <div class="modal-content" style="max-width: 1100px;">
             <div class="modal-header">
                 <h3>📑 Statutory PCPNDT Form F Monthly Summary Register</h3>
                 <button type="button" onclick="closePcpndtSummaryModal()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;">&times;</button>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <div><strong>Centre:</strong> <span id="summCentreName"></span> | <strong>Month:</strong> <span id="summPeriod"></span></div>
-                <button type="button" class="btn-act btn-act-bill-unprinted" onclick="printPcpndtSummarySheet()">🖨️ Print Summary Sheet</button>
+            
+            <!-- TOOLBAR: MONTH PICKER & ACTIONS -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; background:#f8fafc; padding:10px 14px; border:1px solid #cbd5e1; border-radius:6px; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <label style="font-weight:bold; font-size:0.85rem; color:#1e3a8a;">📅 Filter by Month:</label>
+                    <input type="month" id="summMonthPicker" onchange="filterPcpndtSummaryByMonth()" style="padding:6px 10px; border:1.5px solid #0284c7; border-radius:4px; font-weight:bold; outline:none;">
+                    <span style="font-size:0.85rem; color:#475569;">| <strong>Centre:</strong> <span id="summCentreName"></span></span>
+                </div>
+                <button type="button" class="btn-act btn-act-bill-unprinted" style="padding:7px 14px; font-size:0.85rem;" onclick="printPcpndtSummarySheet()">🖨️ Print Summary Sheet</button>
             </div>
+
             <div id="pcpndtSummaryPrintArea">
                 <table style="width:100%; border-collapse:collapse; font-size:8pt;">
                     <thead>
-                        <tr style="background:#f1f5f9;">
-                            <th>Sr.</th>
-                            <th>Date</th>
+                        <tr style="background:#f1f5f9; color:#1e3a8a;">
+                            <th style="width:30px; text-align:center;">Sr.</th>
+                            <th style="width:75px;">Date</th>
                             <th>Patient Name</th>
-                            <th>Age</th>
+                            <th style="width:40px;">Age</th>
                             <th>Relative Name</th>
-                            <th>Address</th>
+                            <th>Full Address</th>
+                            <th>Doctor Name</th>
                             <th>LMP / Gestation</th>
                             <th>Sons (Age)</th>
                             <th>Dtrs (Age)</th>
-                            <th>Indications</th>
-                            <th>Result</th>
+                            <th>Final Result</th>
                         </tr>
                     </thead>
                     <tbody id="pcpndtSummaryTableBody"></tbody>
                 </table>
             </div>
         </div>
-    </div>
-
+    </div>                      
+  
     <!-- MODAL: BULK IMPORT DOCTORS -->
     <div id="bulkDocModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
@@ -2849,39 +2856,54 @@
         }
 
         async function openPcpndtSummaryModal() {
-            const res = await apiFetch('/api/pcpndt');
+            const picker = document.getElementById('summMonthPicker');
+            if (picker && !picker.value) {
+                picker.value = getTodayMonthIso();
+            }
+            await filterPcpndtSummaryByMonth();
+            document.getElementById('pcpndtSummaryModal').style.display = 'flex';
+        }
+
+        async function filterPcpndtSummaryByMonth() {
+            const selectedMonth = document.getElementById('summMonthPicker')?.value || '';
+            let url = '/api/pcpndt?1=1';
+            if (selectedMonth) {
+                url += `&month=${encodeURIComponent(selectedMonth)}`;
+            }
+
+            const res = await apiFetch(url);
             const json = await res.json();
             const data = json.data || [];
             
             document.getElementById('summCentreName').textContent = activeCentre.centre_name;
-            document.getElementById('summPeriod').textContent = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-            
             const tbody = document.getElementById('pcpndtSummaryTableBody');
             tbody.innerHTML = '';
             
             if (!data.length) {
-                tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:15px;">No PCPNDT Form F records logged.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:18px; color:#64748b;">No PCPNDT Form F records logged for selected month.</td></tr>`;
             } else {
                 data.forEach((row, i) => {
+                    const fullAddress = row.patient_address || row.place || '-';
+                    const docName = row.doctor_name || 'Dr NIKUNJ KOTHIA';
+                    const finalResult = row.scan_result || 'Single live intrauterine gestation with regular cardiac activity.';
+
                     tbody.innerHTML += `
                         <tr>
-                            <td>${i + 1}</td>
+                            <td style="text-align:center;">${i + 1}</td>
                             <td>${new Date(row.form_date || row.created_at).toLocaleDateString('en-GB')}</td>
                             <td><strong>${escapeHtml(row.patient_name)}</strong></td>
-                            <td>${row.patient_age || '-'}</td>
+                            <td>${row.patient_age || '-'} Yrs</td>
                             <td>${escapeHtml(row.relative_name || '-')}</td>
-                            <td>${escapeHtml(row.place || 'Kandivali West')}</td>
-                            <td>${row.lmp_date || '-'}<br>${row.weeks_of_preg || '-'}</td>
+                            <td>${escapeHtml(fullAddress)}</td>
+                            <td><strong>${escapeHtml(docName)}</strong></td>
+                            <td>${row.lmp_date || '-'}<br><small style="color:#475569;">${row.weeks_of_preg || '-'}</small></td>
                             <td>${row.no_of_sons || 0} (${row.sons_age || '-'})</td>
                             <td>${row.no_of_daughters || 0} (${row.daughters_age || '-'})</td>
-                            <td>${escapeHtml(row.indications || '')}</td>
-                            <td>${escapeHtml(row.scan_result || 'Single Live Intrauterine')}</td>
+                            <td>${escapeHtml(finalResult)}</td>
                         </tr>
                     `;
                 });
             }
-            
-            document.getElementById('pcpndtSummaryModal').style.display = 'flex';
         }
 
         function closePcpndtSummaryModal() {
@@ -2889,29 +2911,44 @@
         }
 
         function printPcpndtSummarySheet() {
+            const selectedMonth = document.getElementById('summMonthPicker')?.value;
+            let monthDisplay = '';
+            if (selectedMonth) {
+                const [yr, mo] = selectedMonth.split('-');
+                const d = new Date(parseInt(yr, 10), parseInt(mo, 10) - 1, 1);
+                monthDisplay = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+            } else {
+                monthDisplay = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+            }
+
             const printContents = document.getElementById('pcpndtSummaryPrintArea').innerHTML;
-            const printWin = window.open('', '', 'height=750,width=1100');
+            const printWin = window.open('', '', 'height=850,width=1200');
             printWin.document.write(`
+                <!DOCTYPE html>
                 <html>
                     <head>
-                        <title>PCPNDT Form F Monthly Summary Register</title>
+                        <title>PCPNDT Form F Summary Register - ${escapeHtml(monthDisplay)}</title>
                         <style>
-                            body { font-family: Arial, sans-serif; font-size: 8pt; margin: 15mm; color: #000; }
-                            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-                            th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
-                            th { background: #f0f0f0; }
-                            .header { text-align: center; margin-bottom: 12px; }
+                            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 7.8pt; margin: 12mm; color: #111; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+                            th, td { border: 1px solid #333; padding: 4px 6px; text-align: left; vertical-align: top; }
+                            th { background: #f1f5f9; font-weight: bold; }
+                            .header { text-align: center; margin-bottom: 12px; border-bottom: 2px solid #19486a; padding-bottom: 6px; }
+                            h2 { margin: 0; color: #19486a; font-size: 13pt; }
+                            p { margin: 2px 0; font-size: 8pt; }
+                            h3 { margin: 4px 0 0; font-size: 10pt; color: #333; }
+                            @page { size: A4 landscape; margin: 8mm; }
                         </style>
                     </head>
                     <body>
                         <div class="header">
-                            <h2>${activeCentre.centre_name}</h2>
-                            <p>${activeCentre.address || ''} | 📞 Contact: ${activeCentre.phone || ''} | Reg: ${activeCentre.reg_no || 'RC197'}</p>
-                            <h3>MONTHLY STATUTORY PCPNDT FORM F SUMMARY REGISTER</h3>
+                            <h2>${escapeHtml(activeCentre.centre_name)}</h2>
+                            <p>${escapeHtml(activeCentre.address || '')} | 📞 Contact: ${escapeHtml(activeCentre.phone || '')} | Reg No: ${escapeHtml(activeCentre.reg_no || 'RC197')}</p>
+                            <h3>STATUTORY PCPNDT FORM F MONTHLY REGISTER — ${escapeHtml(monthDisplay.toUpperCase())}</h3>
                         </div>
                         ${printContents}
-                        <div style="margin-top: 40px; display: flex; justify-content: space-between;">
-                            <div>Date: ${new Date().toLocaleDateString('en-GB')}</div>
+                        <div style="margin-top: 35px; display: flex; justify-content: space-between; font-weight: bold; font-size: 8pt;">
+                            <div>Date Generated: ${new Date().toLocaleDateString('en-GB')}</div>
                             <div>Doctor / Radiologist Signature & Stamp</div>
                         </div>
                     </body>
@@ -2919,10 +2956,12 @@
             `);
             printWin.document.close();
             printWin.focus();
-            printWin.print();
-            printWin.close();
+            setTimeout(() => {
+                printWin.print();
+                printWin.close();
+            }, 300);
         }
-
+                    
         function openEditPcpndtModal(formId) {
             apiFetch('/api/pcpndt').then(res => res.json()).then(json => {
                 const f = (json.data || []).find(x => String(x.id) === String(formId));
