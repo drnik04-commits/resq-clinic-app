@@ -1504,14 +1504,7 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
       doc.moveDown(0.8);
     } else {
       doc.y = Math.max(30, Math.round(marginMm * 2.83465));
-    }
-
-    if (isPrinted) {
-      doc.save();
-      doc.rect(435, doc.y - 10, 120, 18).fillAndStroke('#ecfdf5', '#059669');
-      doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#047857').text('✓ PRINTED INVOICE', 435, doc.y - 7, { width: 120, align: 'center' });
-      doc.restore();
-    }
+    }        
 
     const metaTop = doc.y;
     doc.fontSize(9).font('Helvetica-Bold').fillColor('#000000');
