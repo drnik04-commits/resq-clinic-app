@@ -591,8 +591,12 @@ async function initDB() {
         is_global BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS is_global BOOLEAN DEFAULT true;
+      ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS designation VARCHAR(255) DEFAULT 'Consultant Radiologist';
+      ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS reg_no VARCHAR(100) DEFAULT '2009/09/3218';
+      ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS signature_file VARCHAR(255);
     `);
-
+    
     try {
       await pool.query(`
         ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_visit_id_fkey;
