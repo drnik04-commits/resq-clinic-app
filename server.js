@@ -2736,6 +2736,42 @@ app.get('/api/pcpndt', async (req, res) => {
     res.status(200).json({ success: true, data: result.rows });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
+
+// PCPNDT PUT (UPDATE) ROUTE
+app.put('/api/pcpndt/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    const { 
+      relativeName, lmpDate, weeksOfPreg, noOfSons, sonsAge, noOfDaughters, 
+      daughtersAge, indications, scanResult, doctorName, doctorRegNo, clinicRegNo, place, centreId 
+    } = req.body;
+
+    const result = await pool.query(
+      `UPDATE pcpndt_forms 
+       SET relative_name = $1, lmp_date = $2, weeks_of_preg = $3, no_of_sons = $4, sons_age = $5,
+           no_of_daughters = $6, daughters_age = $7, indications = $8, scan_result = $9,
+           doctor_name = $10, doctor_reg_no = $11, clinic_reg_no = $12, place = $13,
+           centre_id = COALESCE($14, centre_id)
+       WHERE id::text = $15::text RETURNING *`,
+      [
+        relativeName || '', lmpDate || '', weeksOfPreg || '', parseInt(noOfSons, 10) || 0, sonsAge || '',
+        parseInt(noOfDaughters, 10) || 0, daughtersAge || '', indications || '', scanResult || '',
+        doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', clinicRegNo || 'RC197', 
+        place || 'Kandivali West', getCleanId(centreId), validId
+      ]
+    );
+    res.status(200).json({ success: true, data: result.rows[0], message: 'Statutory Form F updated successfully!' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// PCPNDT DELETE ROUTE
+app.delete('/api/pcpndt/:id', async (req, res) => {
+  try {
+    const validId = getCleanId(req.params.id);
+    await pool.query('DELETE FROM pcpndt_forms WHERE id::text = $1::text', [validId]);
+    res.status(200).json({ success: true, message: 'Form F deleted' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
  
 // HIGH-SPEED BATCH CLOUD SYNC API
 app.post('/api/sync/cloud', async (req, res) => {
