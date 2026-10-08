@@ -573,11 +573,12 @@ async function initDB() {
         doctor_name VARCHAR(255) DEFAULT 'Dr NIKUNJ KOTHIA',
         doctor_reg_no VARCHAR(100) DEFAULT '2009/09/3218',
         doctor_designation VARCHAR(255) DEFAULT 'Consultant Radiologist',
-        signature_file VARCHAR(255),
+        signature_file TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
       ALTER TABLE imaging_reports ADD COLUMN IF NOT EXISTS doctor_designation VARCHAR(255) DEFAULT 'Consultant Radiologist';
-      ALTER TABLE imaging_reports ADD COLUMN IF NOT EXISTS signature_file VARCHAR(255);
+      ALTER TABLE imaging_reports ADD COLUMN IF NOT EXISTS signature_file TEXT;
+      ALTER TABLE imaging_reports ALTER COLUMN signature_file TYPE TEXT;
     `);
 
     await pool.query(`
@@ -591,17 +592,13 @@ async function initDB() {
         is_global BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-      ALTER TABLE radiologists ALTER COLUMN signature_file TYPE TEXT;
       ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS is_global BOOLEAN DEFAULT true;
       ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS designation VARCHAR(255) DEFAULT 'Consultant Radiologist';
       ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS reg_no VARCHAR(100) DEFAULT '2009/09/3218';
       ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS signature_file TEXT;
-
-      ALTER TABLE imaging_reports ALTER COLUMN signature_file TYPE TEXT;
-      ALTER TABLE imaging_reports ADD COLUMN IF NOT EXISTS doctor_designation VARCHAR(255) DEFAULT 'Consultant Radiologist';
-      ALTER TABLE imaging_reports ADD COLUMN IF NOT EXISTS signature_file TEXT;
+      ALTER TABLE radiologists ALTER COLUMN signature_file TYPE TEXT;
     `);
-    
+
     try {
       await pool.query(`
         ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_visit_id_fkey;
@@ -620,7 +617,7 @@ async function initDB() {
   }
 }
 
-// AUTH & CENTRES
+// AUTH & CENTRES APIS
 app.get('/api/health', (req, res) => {
   res.json({ success: true, dbConnected: isDbConnected, dbError: dbErrorMessage || 'Connected to DB' });
 });
@@ -863,9 +860,7 @@ app.get('/api/radiologists', async (req, res) => {
     query += ' ORDER BY doctor_name ASC';
     const result = await pool.query(query, params);
     res.status(200).json({ success: true, data: result.rows });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/radiologists', upload.single('signatureFile'), async (req, res) => {
@@ -892,9 +887,7 @@ app.post('/api/radiologists', upload.single('signatureFile'), async (req, res) =
       [centreId, doctorName.trim(), designation || 'Consultant Radiologist', regNo || '2009/09/3218', sigData, isGlob]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.delete('/api/radiologists/:id', async (req, res) => {
@@ -902,12 +895,10 @@ app.delete('/api/radiologists/:id', async (req, res) => {
     const validId = getCleanId(req.params.id);
     await pool.query('DELETE FROM radiologists WHERE id::text = $1::text', [validId]);
     res.status(200).json({ success: true, message: 'Radiologist deleted.' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PATIENTS & BILLING
+// PATIENTS & BILLING APIS
 app.get('/api/patients', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -1466,7 +1457,7 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PDF INVOICE
+// PDF INVOICE GENERATOR (WITHOUT GREEN PRINTED MARK)
 app.get('/api/invoice/:id/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1491,7 +1482,6 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     );
     if (visitRes.rows.length === 0) return res.status(404).send('Invoice not found');
     const v = visitRes.rows[0];
-    const isPrinted = v.bill_printed || shouldMarkPrinted;
 
     const invRes = await pool.query(
       `SELECT pi.*, tm.test_name, tm.category FROM patient_investigations pi
@@ -1517,7 +1507,7 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
       doc.moveDown(0.8);
     } else {
       doc.y = Math.max(30, Math.round(marginMm * 2.83465));
-    }        
+    }
 
     const metaTop = doc.y;
     doc.fontSize(9).font('Helvetica-Bold').fillColor('#000000');
@@ -1669,7 +1659,6 @@ app.post('/api/imaging/report-save', async (req, res) => {
       [isLetterhead, topMargin, validVisitId]
     );
 
-    // If signatureFile is not provided, look up from radiologists table
     let finalSig = signatureFile || null;
     if (!finalSig && doctorName) {
       const radCheck = await pool.query('SELECT signature_file FROM radiologists WHERE LOWER(doctor_name) = LOWER($1) LIMIT 1', [doctorName.trim()]);
@@ -1720,257 +1709,230 @@ app.post('/api/imaging/report-save', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// HIGH-SPEED BATCH CLOUD SYNC API
-app.post('/api/sync/cloud', async (req, res) => {
-  if (!cleanCloudUrl) {
-    return res.status(400).json({ success: false, error: 'CLOUD_DATABASE_URL is not defined in your environment variables (.env)' });
-  }
-
-  if (cleanDbUrl === cleanCloudUrl) {
-    return res.status(200).json({
-      success: true,
-      message: 'Cloud Sync Notice: Your active system is already running directly on the Cloud Database.'
-    });
-  }
-
-  let localClient, cloudClient;
+// FULL-WIDTH PROFESSIONAL MEDICAL PDF REPORT GENERATOR WITH SIGNATURE
+app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
   try {
-    localClient = await pool.connect();
-  } catch (err) {
-    return res.status(500).json({ success: false, error: 'Local DB connection error: ' + err.message });
-  }
+    const validId = getCleanId(req.params.visitId);
+    const withLetterhead = req.query.letterhead !== 'false';
 
-  try {
-    cloudClient = await cloudPool.connect();
-  } catch (err) {
-    localClient.release();
-    return res.status(503).json({ success: false, error: 'Cannot connect to Cloud Database. Verify CLOUD_DATABASE_URL credentials.' });
-  }
+    const visitRes = await pool.query(
+      `SELECT v.*, p.full_name, p.age, p.gender, p.phone, p.patient_code,
+              d.doctor_name as ref_doctor, c.centre_name, c.tagline as centre_tagline, 
+              c.address as centre_address, c.place as centre_place, c.phone as centre_phone, 
+              c.reg_no as centre_reg_no, COALESCE(c.top_margin_mm, 55) as centre_top_margin
+       FROM visits v
+       JOIN patients p ON v.patient_id = p.id
+       LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
+       LEFT JOIN clinic_centres c ON v.centre_id = c.id
+       WHERE v.id::text = $1::text`,
+      [validId]
+    );
+    if (visitRes.rows.length === 0) return res.status(404).send('Visit not found');
+    const v = visitRes.rows[0];
 
-  const startTime = Date.now();
+    const repRes = await pool.query(
+      `SELECT * FROM imaging_reports WHERE visit_id::text = $1::text ORDER BY created_at DESC LIMIT 1`,
+      [validId]
+    );
 
-  const isValidUuid = (val) => {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || '').trim());
-  };
+    let rep = repRes.rows[0];
+    if (!rep) {
+      if (v.report_file) {
+        const fullPath = path.resolve(__dirname, v.report_file);
+        const parsed = extractTextFromUploadedFile(fullPath, v.full_name || '', v.ref_doctor || '');
+        rep = {
+          template_name: parsed.title,
+          report_text: parsed.body,
+          impression: parsed.impression,
+          doctor_name: 'Dr NIKUNJ KOTHIA',
+          doctor_reg_no: '2009/09/3218',
+          doctor_designation: 'Consultant Radiologist',
+          signature_file: null
+        };
+      } else {
+        rep = {
+          template_name: 'DIAGNOSTIC IMAGING REPORT',
+          report_text: 'Study completed within normal parameters.',
+          impression: 'NO SIGNIFICANT ABNORMALITY DETECTED.',
+          doctor_name: 'Dr NIKUNJ KOTHIA',
+          doctor_reg_no: '2009/09/3218',
+          doctor_designation: 'Consultant Radiologist',
+          signature_file: null
+        };
+      }
+    }
 
-  try {
-    await cloudClient.query('BEGIN');
-    await cloudClient.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
-
-    // Ensure Cloud Database constraints are safe
-    try {
-      await cloudClient.query(`
-        ALTER TABLE patient_investigations DROP CONSTRAINT IF EXISTS patient_investigations_visit_id_fkey;
-        ALTER TABLE patient_investigations ADD CONSTRAINT patient_investigations_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
-        ALTER TABLE pcpndt_forms DROP CONSTRAINT IF EXISTS pcpndt_forms_visit_id_fkey;
-        ALTER TABLE pcpndt_forms ADD CONSTRAINT pcpndt_forms_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
-        ALTER TABLE imaging_reports DROP CONSTRAINT IF EXISTS imaging_reports_visit_id_fkey;
-        ALTER TABLE imaging_reports ADD CONSTRAINT imaging_reports_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
-        ALTER TABLE imaging_reports DROP CONSTRAINT IF EXISTS imaging_reports_template_id_fkey;
-      `);
-    } catch (e) {}
-
-    // Ensure Radiologists and Reports columns exist with TEXT type for signatures
-    await cloudClient.query(`
-      CREATE TABLE IF NOT EXISTS radiologists (
-        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-        centre_id UUID REFERENCES clinic_centres(id) ON DELETE CASCADE,
-        doctor_name VARCHAR(255) NOT NULL,
-        designation VARCHAR(255) DEFAULT 'Consultant Radiologist',
-        reg_no VARCHAR(100) DEFAULT '2009/09/3218',
-        signature_file TEXT,
-        is_global BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    if (!rep.signature_file && rep.doctor_name) {
+      const radCheck = await pool.query(
+        'SELECT signature_file, designation, reg_no FROM radiologists WHERE LOWER(doctor_name) = LOWER($1) LIMIT 1',
+        [rep.doctor_name.trim()]
       );
-      ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS is_global BOOLEAN DEFAULT true;
-      ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS designation VARCHAR(255) DEFAULT 'Consultant Radiologist';
-      ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS reg_no VARCHAR(100) DEFAULT '2009/09/3218';
-      ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS signature_file TEXT;
-      ALTER TABLE radiologists ALTER COLUMN signature_file TYPE TEXT;
-
-      ALTER TABLE imaging_reports ADD COLUMN IF NOT EXISTS doctor_designation VARCHAR(255) DEFAULT 'Consultant Radiologist';
-      ALTER TABLE imaging_reports ADD COLUMN IF NOT EXISTS signature_file TEXT;
-      ALTER TABLE imaging_reports ALTER COLUMN signature_file TYPE TEXT;
-    `);
-
-    // 1. App Auth Sync
-    const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
-    if (auths.rows.length > 0) {
-      await bulkInsert(cloudClient, 'app_auth', ['id', 'role', 'password'], auths.rows, 10, 'ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password');
+      if (radCheck.rows.length > 0) {
+        if (radCheck.rows[0].signature_file) rep.signature_file = radCheck.rows[0].signature_file;
+        if (radCheck.rows[0].designation) rep.doctor_designation = radCheck.rows[0].designation;
+        if (radCheck.rows[0].reg_no) rep.doctor_reg_no = radCheck.rows[0].reg_no;
+      }
     }
 
-    // 2. Clinic Centres Sync
-    const centres = await localClient.query('SELECT * FROM clinic_centres');
-    const mappedCentres = centres.rows.map(c => ({
-      ...c,
-      place: c.place || 'Kandivali West',
-      phone: c.phone || '',
-      reg_no: c.reg_no || 'RC197',
-      email: c.email || '',
-      centre_password: c.centre_password || '1234',
-      owner_password: c.owner_password || 'owner123',
-      top_margin_mm: c.top_margin_mm || 55,
-      bottom_margin_mm: c.bottom_margin_mm || 15
-    }));
-    await bulkInsert(cloudClient, 'clinic_centres', [
-      'id', 'centre_name', 'tagline', 'address', 'place', 'phone', 'reg_no', 'email',
-      'centre_password', 'owner_password', 'is_private', 'top_margin_mm', 'bottom_margin_mm', 'created_at'
-    ], mappedCentres, 50, `ON CONFLICT (id) DO UPDATE SET 
-      centre_name = EXCLUDED.centre_name, tagline = EXCLUDED.tagline, address = EXCLUDED.address, place = EXCLUDED.place,
-      phone = EXCLUDED.phone, reg_no = EXCLUDED.reg_no, email = EXCLUDED.email,
-      centre_password = EXCLUDED.centre_password, owner_password = EXCLUDED.owner_password, is_private = EXCLUDED.is_private,
-      top_margin_mm = EXCLUDED.top_margin_mm, bottom_margin_mm = EXCLUDED.bottom_margin_mm`);
-
-    // 3. Referring Doctors Sync
-    const doctors = await localClient.query('SELECT * FROM referring_doctors');
-    await bulkInsert(cloudClient, 'referring_doctors', [
-      'id', 'centre_id', 'doctor_name', 'hospital_clinic_name', 'commission_type', 'commission_value'
-    ], doctors.rows, 100, `ON CONFLICT (id) DO UPDATE SET 
-      centre_id = EXCLUDED.centre_id, doctor_name = EXCLUDED.doctor_name, 
-      hospital_clinic_name = EXCLUDED.hospital_clinic_name, 
-      commission_type = EXCLUDED.commission_type, commission_value = EXCLUDED.commission_value`);
-
-    // 4. Test Master Sync
-    const tests = await localClient.query('SELECT * FROM test_master');
-    await bulkInsert(cloudClient, 'test_master', [
-      'id', 'centre_id', 'test_name', 'category', 'price', 'cut_type', 'test_cut'
-    ], tests.rows, 100, `ON CONFLICT (id) DO UPDATE SET 
-      centre_id = EXCLUDED.centre_id, test_name = EXCLUDED.test_name, category = EXCLUDED.category, 
-      price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut`);
-
-    // 5. Patients Sync
-    const patients = await localClient.query('SELECT * FROM patients');
-    await bulkInsert(cloudClient, 'patients', [
-      'id', 'centre_id', 'patient_code', 'full_name', 'age', 'gender', 'phone', 'email', 'address', 'created_at'
-    ], patients.rows, 100, `ON CONFLICT (id) DO UPDATE SET 
-      full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender,
-      phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address`);
-
-    // 6. Radiologists & Signatures Sync
-    const radiologists = await localClient.query('SELECT * FROM radiologists');
-    await bulkInsert(cloudClient, 'radiologists', [
-      'id', 'centre_id', 'doctor_name', 'designation', 'reg_no', 'signature_file', 'is_global', 'created_at'
-    ], radiologists.rows, 50, `ON CONFLICT (id) DO UPDATE SET 
-      doctor_name = EXCLUDED.doctor_name, designation = EXCLUDED.designation, 
-      reg_no = EXCLUDED.reg_no, signature_file = EXCLUDED.signature_file, is_global = EXCLUDED.is_global`);
-
-    // 7. Visits and Dependent Records Sync
-    const visits = await localClient.query('SELECT * FROM visits');
-    const localVisitIds = visits.rows.map(v => v.id).filter(Boolean);
-    const localInvNos = visits.rows.map(v => v.invoice_number).filter(Boolean);
-
-    if (localVisitIds.length > 0 || localInvNos.length > 0) {
-      const safeVisitIds = localVisitIds.length > 0 ? localVisitIds : ['00000000-0000-0000-0000-000000000000'];
-      const safeInvNos = localInvNos.length > 0 ? localInvNos : ['__dummy_inv__'];
-
-      await cloudClient.query(`
-        DELETE FROM patient_investigations WHERE visit_id IN (
-          SELECT id FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])
-        )
-      `, [safeVisitIds, safeInvNos]);
-
-      await cloudClient.query(`
-        DELETE FROM pcpndt_forms WHERE visit_id IN (
-          SELECT id FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])
-        )
-      `, [safeVisitIds, safeInvNos]);
-
-      await cloudClient.query(`
-        DELETE FROM imaging_reports WHERE visit_id IN (
-          SELECT id FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])
-        )
-      `, [safeVisitIds, safeInvNos]);
-
-      await cloudClient.query(`
-        DELETE FROM visits WHERE id = ANY($1::uuid[]) OR invoice_number = ANY($2::text[])
-      `, [safeVisitIds, safeInvNos]);
+    let effectiveMarginMm = v.centre_top_margin || 55;
+    if (req.query.margin && !isNaN(parseInt(req.query.margin, 10))) {
+      effectiveMarginMm = parseInt(req.query.margin, 10);
+    } else if (v.report_margin_mm && !isNaN(parseInt(v.report_margin_mm, 10))) {
+      effectiveMarginMm = parseInt(v.report_margin_mm, 10);
     }
 
-    const mappedVisits = visits.rows.map(v => ({
-      ...v,
-      cash_amount: v.cash_amount || 0,
-      online_amount: v.online_amount || 0,
-      bill_printed: v.bill_printed || false,
-      doctor_commission: v.doctor_commission || 0,
-      report_file: v.report_file || null,
-      report_has_letterhead: v.report_has_letterhead !== false,
-      report_margin_mm: v.report_margin_mm || 55
-    }));
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const filename = `Report_${v.invoice_number || 'REP'}.pdf`;
 
-    await bulkInsert(cloudClient, 'visits', [
-      'id', 'centre_id', 'patient_id', 'referring_doctor_id', 'total_amount', 'concession',
-      'paid_amount', 'balance_amount', 'payment_status', 'payment_mode', 'cash_amount',
-      'online_amount', 'bill_printed', 'invoice_number', 'doctor_commission', 'report_file', 
-      'report_has_letterhead', 'report_margin_mm', 'created_at'
-    ], mappedVisits, 100);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    doc.pipe(res);
 
-    const investigations = await localClient.query('SELECT * FROM patient_investigations');
-    await bulkInsert(cloudClient, 'patient_investigations', [
-      'id', 'visit_id', 'test_id', 'barcode', 'status', 'price', 'cut_type', 'test_cut'
-    ], investigations.rows, 100, `ON CONFLICT (id) DO UPDATE SET
-      visit_id = EXCLUDED.visit_id, test_id = EXCLUDED.test_id, barcode = EXCLUDED.barcode,
-      status = EXCLUDED.status, price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut`);
+    // 1. CENTERED CLINIC LETTERHEAD
+    if (withLetterhead) {
+      doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a')
+         .text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', 40, doc.y, { width: 515, align: 'center' });
+      
+      if (v.centre_tagline) {
+        doc.fontSize(8.5).font('Helvetica').fillColor('#555555')
+           .text(v.centre_tagline, 40, doc.y, { width: 515, align: 'center' });
+      }
+      doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#b91c1c')
+         .text(`Phone / Contact: ${v.centre_phone || '+91 8433838285'}`, 40, doc.y, { width: 515, align: 'center' });
+      doc.fontSize(8).font('Helvetica').fillColor('#333333')
+         .text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, 40, doc.y, { width: 515, align: 'center' });
+      
+      doc.moveDown(0.4);
+      doc.strokeColor('#19486a').lineWidth(1.2).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+      doc.moveDown(0.6);
+    } else {
+      doc.y = Math.max(25, Math.round(effectiveMarginMm * 2.83465));
+    }
 
-    const pcpndt = await localClient.query('SELECT * FROM pcpndt_forms');
-    const mappedPcpndt = pcpndt.rows.map(pf => ({
-      ...pf,
-      place: pf.place || 'Kandivali West',
-      doctor_name: pf.doctor_name || 'Dr NIKUNJ KOTHIA',
-      doctor_reg_no: pf.doctor_reg_no || '2009/09/3218',
-      clinic_reg_no: pf.clinic_reg_no || 'RC197'
-    }));
-    await bulkInsert(cloudClient, 'pcpndt_forms', [
-      'id', 'visit_id', 'centre_id', 'relative_name', 'no_of_sons', 'sons_age', 'no_of_daughters',
-      'daughters_age', 'lmp_date', 'weeks_of_preg', 'indications', 'scan_result', 'doctor_name',
-      'doctor_reg_no', 'clinic_reg_no', 'place', 'created_at'
-    ], mappedPcpndt, 100, `ON CONFLICT (id) DO UPDATE SET
-      relative_name = EXCLUDED.relative_name, lmp_date = EXCLUDED.lmp_date, 
-      weeks_of_preg = EXCLUDED.weeks_of_preg, scan_result = EXCLUDED.scan_result, place = EXCLUDED.place`);
+    // 2. PATIENT DEMOGRAPHICS CARD
+    const metaBoxY = doc.y;
+    doc.rect(40, metaBoxY, 515, 46).fillAndStroke('#f8fafc', '#cbd5e1');
+    doc.fontSize(8.5).fillColor('#000000');
 
-    const templates = await localClient.query('SELECT * FROM imaging_templates');
-    await bulkInsert(cloudClient, 'imaging_templates', [
-      'id', 'centre_id', 'template_name', 'title', 'category', 'default_impression', 'template_body'
-    ], templates.rows, 50, `ON CONFLICT (id) DO UPDATE 
-      SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body`);
+    doc.font('Helvetica-Bold').text('PATIENT NAME: ', 52, metaBoxY + 8, { continued: true })
+       .font('Helvetica').text(v.full_name.toUpperCase());
+    doc.font('Helvetica-Bold').text('AGE / GENDER: ', 52, metaBoxY + 26, { continued: true })
+       .font('Helvetica').text(`${v.age || 0} YRS / ${(v.gender || 'FEMALE').toUpperCase()}`);
 
-    // 8. Clinical Reports Sync (Sanitized with complete ON CONFLICT update)
-    const reports = await localClient.query('SELECT * FROM imaging_reports');
-    const mappedReports = reports.rows.map(r => ({
-      ...r,
-      visit_id: isValidUuid(r.visit_id) ? r.visit_id : null,
-      patient_id: isValidUuid(r.patient_id) ? r.patient_id : null,
-      centre_id: isValidUuid(r.centre_id) ? r.centre_id : null,
-      template_id: isValidUuid(r.template_id) ? r.template_id : null,
-      doctor_name: r.doctor_name || 'Dr NIKUNJ KOTHIA',
-      doctor_reg_no: r.doctor_reg_no || '2009/09/3218',
-      doctor_designation: r.doctor_designation || 'Consultant Radiologist',
-      signature_file: r.signature_file || null
-    }));
+    doc.font('Helvetica-Bold').text('DATE: ', 340, metaBoxY + 8, { continued: true })
+       .font('Helvetica').text(new Date(v.created_at).toLocaleDateString('en-GB'));
+    doc.font('Helvetica-Bold').text('REF. BY: ', 340, metaBoxY + 26, { continued: true })
+       .font('Helvetica').text((v.ref_doctor || 'DIRECT OPD').toUpperCase());
 
-    await bulkInsert(cloudClient, 'imaging_reports', [
-      'id', 'visit_id', 'patient_id', 'centre_id', 'template_id', 'template_name',
-      'report_text', 'impression', 'doctor_name', 'doctor_reg_no', 'doctor_designation', 'signature_file', 'created_at'
-    ], mappedReports, 50, `ON CONFLICT (id) DO UPDATE SET
-      template_name = EXCLUDED.template_name,
-      report_text = EXCLUDED.report_text,
-      impression = EXCLUDED.impression,
-      doctor_name = EXCLUDED.doctor_name,
-      doctor_reg_no = EXCLUDED.doctor_reg_no,
-      doctor_designation = EXCLUDED.doctor_designation,
-      signature_file = EXCLUDED.signature_file,
-      created_at = EXCLUDED.created_at`);
+    doc.x = 40;
+    doc.y = metaBoxY + 58;
 
-    await cloudClient.query('COMMIT');
-    const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`[Cloud Sync] Completed in ${elapsedSec}s!`);
-    res.status(200).json({ success: true, message: `Cloud Sync Successful! All records up to date in ${elapsedSec}s.` });
+    // 3. CENTERED STUDY TITLE
+    let displayTitle = (rep.template_name || 'DIAGNOSTIC IMAGING REPORT').toUpperCase();
+    if (displayTitle === v.full_name.toUpperCase() || displayTitle.length < 4) {
+      displayTitle = 'DIAGNOSTIC IMAGING REPORT';
+    }
+
+    doc.fontSize(12).font('Helvetica-Bold').fillColor('#19486a')
+       .text(displayTitle, 40, doc.y, { width: 515, align: 'center', underline: true });
+    
+    doc.moveDown(0.8);
+    doc.x = 40;
+
+    // 4. FINDINGS SECTION
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('FINDINGS:', 40, doc.y);
+    doc.moveDown(0.3);
+
+    const findingsLines = (rep.report_text || 'No significant abnormality recorded.').split('\n');
+    doc.fontSize(9).fillColor('#111827');
+
+    for (const fLine of findingsLines) {
+      const trimmed = fLine.trim();
+      if (!trimmed) {
+        doc.moveDown(0.25);
+        continue;
+      }
+
+      doc.x = 40;
+
+      if (/^[A-Z\s/-]{2,35}:/i.test(trimmed)) {
+        doc.moveDown(0.25);
+        doc.font('Helvetica-Bold').text(trimmed, 40, doc.y, { width: 515, align: 'left' });
+        doc.font('Helvetica');
+      } else {
+        doc.font('Helvetica').text(trimmed, 40, doc.y, { width: 515, lineGap: 2.5, align: 'left' });
+      }
+
+      if (doc.y > 690) {
+        doc.addPage();
+        doc.x = 40;
+        doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
+      }
+    }
+
+    doc.moveDown(0.8);
+
+    // 5. IMPRESSION BOX
+    if (doc.y > 640) {
+      doc.addPage();
+      doc.x = 40;
+      doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
+    }
+
+    doc.x = 40;
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('IMPRESSION:', 40, doc.y);
+    doc.moveDown(0.3);
+
+    const impText = (rep.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.').toUpperCase();
+    const impY = doc.y;
+    const boxH = Math.max(34, doc.heightOfString(impText, { width: 495 }) + 14);
+
+    doc.rect(40, impY, 515, boxH).fillAndStroke('#f1f5f9', '#94a3b8');
+    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a')
+       .text(impText, 50, impY + 7, { width: 495, lineGap: 2, align: 'left' });
+
+    doc.y = impY + boxH + 16;
+    doc.x = 40;
+
+    // 6. DOCTOR SIGNATURE BLOCK WITH EMBEDDED SIGNATURE
+    if (doc.y > 700) {
+      doc.addPage();
+      doc.x = 40;
+      doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
+    }
+
+    const signY = Math.max(doc.y + 15, 715);
+
+    if (rep.signature_file) {
+      try {
+        let imgBuffer = null;
+        if (rep.signature_file.startsWith('data:image')) {
+          const base64Data = rep.signature_file.split(',')[1];
+          imgBuffer = Buffer.from(base64Data, 'base64');
+        } else {
+          const sigFullPath = path.resolve(__dirname, rep.signature_file);
+          if (fs.existsSync(sigFullPath)) {
+            imgBuffer = sigFullPath;
+          }
+        }
+
+        if (imgBuffer) {
+          doc.image(imgBuffer, 385, signY - 45, { fit: [140, 42], align: 'right' });
+        }
+      } catch (imgErr) {
+        console.error('Signature embed error:', imgErr.message);
+      }
+    }
+
+    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#000000')
+       .text(rep.doctor_name || 'Dr NIKUNJ KOTHIA', 330, signY, { width: 225, align: 'right' });
+
+    doc.fontSize(8).font('Helvetica').fillColor('#333333')
+       .text(`${rep.doctor_designation || 'Consultant Radiologist'} / Reg: ${rep.doctor_reg_no || '2009/09/3218'}`, 330, signY + 13, { width: 225, align: 'right' });
+
+    doc.end();
   } catch (err) {
-    try { await cloudClient.query('ROLLBACK'); } catch (rb) {}
-    console.error('Cloud Sync Error:', err.message);
-    res.status(500).json({ success: false, error: 'Cloud Sync Failed: ' + err.message });
-  } finally {
-    if (localClient) localClient.release();
-    if (cloudClient) cloudClient.release();
+    res.status(500).send('Error generating Report PDF: ' + err.message);
   }
 });
 
@@ -2038,6 +2000,7 @@ app.get('/api/imaging/report/:visitId/download', async (req, res) => {
   } catch (err) { res.status(500).send(err.message); }
 });
 
+// TESTS MASTER APIS
 app.get('/api/tests', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2107,6 +2070,7 @@ app.delete('/api/tests/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// DOCTORS MASTER APIS
 app.get('/api/doctors', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2195,7 +2159,7 @@ app.delete('/api/doctors/:id', async (req, res) => {
   }
 });
 
-// TEMPLATES
+// TEMPLATES APIS
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2400,7 +2364,7 @@ app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// WORD MERGE
+// CLEAN WORD DOCUMENT MERGE GENERATOR
 app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   try {
     const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm, centreId: explicitCentreId } = req.body;
@@ -2574,7 +2538,7 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// REPORTS & AUDIT
+// REPORTS & AUDIT APIS
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2601,7 +2565,6 @@ app.get('/api/reports/collection', async (req, res) => {
       WHERE 1=1
     `;
     let params = [];
-
     if (centreId) {
       params.push(String(centreId));
       query += ` AND (v.centre_id::text = $${params.length}::text OR v.centre_id IS NULL)`;
@@ -2672,7 +2635,6 @@ app.get('/api/reports/doctor-detailed', async (req, res) => {
       WHERE 1=1
     `;
     let params = [];
-
     if (centreId) {
       params.push(String(centreId));
       query += ` AND (v.centre_id::text = $${params.length}::text OR v.centre_id IS NULL)`;
@@ -2740,7 +2702,7 @@ app.get('/api/reports/executive-daily', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PCPNDT
+// STATUTORY PCPNDT APIS
 app.get('/api/pcpndt', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2785,7 +2747,6 @@ app.get('/api/pcpndt', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PCPNDT PUT (UPDATE) ROUTE
 app.put('/api/pcpndt/:id', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -2812,7 +2773,6 @@ app.put('/api/pcpndt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PCPNDT DELETE ROUTE
 app.delete('/api/pcpndt/:id', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -2820,7 +2780,7 @@ app.delete('/api/pcpndt/:id', async (req, res) => {
     res.status(200).json({ success: true, message: 'Form F deleted' });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
- 
+
 // HIGH-SPEED BATCH CLOUD SYNC API
 app.post('/api/sync/cloud', async (req, res) => {
   if (!cleanCloudUrl) {
@@ -2850,6 +2810,10 @@ app.post('/api/sync/cloud', async (req, res) => {
 
   const startTime = Date.now();
 
+  const isValidUuid = (val) => {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || '').trim());
+  };
+
   try {
     await cloudClient.query('BEGIN');
     await cloudClient.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
@@ -2862,10 +2826,10 @@ app.post('/api/sync/cloud', async (req, res) => {
         ALTER TABLE pcpndt_forms ADD CONSTRAINT pcpndt_forms_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
         ALTER TABLE imaging_reports DROP CONSTRAINT IF EXISTS imaging_reports_visit_id_fkey;
         ALTER TABLE imaging_reports ADD CONSTRAINT imaging_reports_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE;
+        ALTER TABLE imaging_reports DROP CONSTRAINT IF EXISTS imaging_reports_template_id_fkey;
       `);
     } catch (e) {}
 
-    // Ensure radiologists table exists in cloud DB
     await cloudClient.query(`
       CREATE TABLE IF NOT EXISTS radiologists (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -2873,19 +2837,19 @@ app.post('/api/sync/cloud', async (req, res) => {
         doctor_name VARCHAR(255) NOT NULL,
         designation VARCHAR(255) DEFAULT 'Consultant Radiologist',
         reg_no VARCHAR(100) DEFAULT '2009/09/3218',
-        signature_file VARCHAR(255),
+        signature_file TEXT,
         is_global BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-      ALTER TABLE radiologists ALTER COLUMN signature_file TYPE TEXT;
       ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS is_global BOOLEAN DEFAULT true;
       ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS designation VARCHAR(255) DEFAULT 'Consultant Radiologist';
       ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS reg_no VARCHAR(100) DEFAULT '2009/09/3218';
       ALTER TABLE radiologists ADD COLUMN IF NOT EXISTS signature_file TEXT;
+      ALTER TABLE radiologists ALTER COLUMN signature_file TYPE TEXT;
 
-      ALTER TABLE imaging_reports ALTER COLUMN signature_file TYPE TEXT;
       ALTER TABLE imaging_reports ADD COLUMN IF NOT EXISTS doctor_designation VARCHAR(255) DEFAULT 'Consultant Radiologist';
       ALTER TABLE imaging_reports ADD COLUMN IF NOT EXISTS signature_file TEXT;
+      ALTER TABLE imaging_reports ALTER COLUMN signature_file TYPE TEXT;
     `);
 
     // 1. App Auth Sync
@@ -2916,7 +2880,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       centre_password = EXCLUDED.centre_password, owner_password = EXCLUDED.owner_password, is_private = EXCLUDED.is_private,
       top_margin_mm = EXCLUDED.top_margin_mm, bottom_margin_mm = EXCLUDED.bottom_margin_mm`);
 
-    // 3. Referring Doctors Sync (Resolves primary key conflict)
+    // 3. Referring Doctors Sync
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
     await bulkInsert(cloudClient, 'referring_doctors', [
       'id', 'centre_id', 'doctor_name', 'hospital_clinic_name', 'commission_type', 'commission_value'
@@ -2941,7 +2905,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender,
       phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address`);
 
-    // 6. Sync Radiologists & Signatures
+    // 6. Radiologists & Signatures Sync
     const radiologists = await localClient.query('SELECT * FROM radiologists');
     await bulkInsert(cloudClient, 'radiologists', [
       'id', 'centre_id', 'doctor_name', 'designation', 'reg_no', 'signature_file', 'is_global', 'created_at'
@@ -3028,11 +2992,24 @@ app.post('/api/sync/cloud', async (req, res) => {
     ], templates.rows, 50, `ON CONFLICT (id) DO UPDATE 
       SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body`);
 
+    // 8. Clinical Reports Sync
     const reports = await localClient.query('SELECT * FROM imaging_reports');
+    const mappedReports = reports.rows.map(r => ({
+      ...r,
+      visit_id: isValidUuid(r.visit_id) ? r.visit_id : null,
+      patient_id: isValidUuid(r.patient_id) ? r.patient_id : null,
+      centre_id: isValidUuid(r.centre_id) ? r.centre_id : null,
+      template_id: isValidUuid(r.template_id) ? r.template_id : null,
+      doctor_name: r.doctor_name || 'Dr NIKUNJ KOTHIA',
+      doctor_reg_no: r.doctor_reg_no || '2009/09/3218',
+      doctor_designation: r.doctor_designation || 'Consultant Radiologist',
+      signature_file: r.signature_file || null
+    }));
+
     await bulkInsert(cloudClient, 'imaging_reports', [
       'id', 'visit_id', 'patient_id', 'centre_id', 'template_id', 'template_name',
       'report_text', 'impression', 'doctor_name', 'doctor_reg_no', 'doctor_designation', 'signature_file', 'created_at'
-    ], reports.rows, 50, `ON CONFLICT (id) DO UPDATE SET
+    ], mappedReports, 50, `ON CONFLICT (id) DO UPDATE SET
       template_name = EXCLUDED.template_name,
       report_text = EXCLUDED.report_text,
       impression = EXCLUDED.impression,
@@ -3042,25 +3019,26 @@ app.post('/api/sync/cloud', async (req, res) => {
       signature_file = EXCLUDED.signature_file,
       created_at = EXCLUDED.created_at`);
 
-      await cloudClient.query('COMMIT');
-      const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`[Cloud Sync] Completed in ${elapsedSec}s!`);
-      res.status(200).json({ success: true, message: `Cloud Sync Successful! All records up to date in ${elapsedSec}s.` });
-    } catch (err) {
-      try { await cloudClient.query('ROLLBACK'); } catch (rb) {}
-      console.error('Cloud Sync Error:', err.message);
-      res.status(500).json({ success: false, error: 'Cloud Sync Failed: ' + err.message });
-    } finally {
-      if (localClient) localClient.release();
-      if (cloudClient) cloudClient.release();
-    }
+    await cloudClient.query('COMMIT');
+    const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`[Cloud Sync] Completed in ${elapsedSec}s!`);
+    res.status(200).json({ success: true, message: `Cloud Sync Successful! All records up to date in ${elapsedSec}s.` });
+  } catch (err) {
+    try { await cloudClient.query('ROLLBACK'); } catch (rb) {}
+    console.error('Cloud Sync Error:', err.message);
+    res.status(500).json({ success: false, error: 'Cloud Sync Failed: ' + err.message });
+  } finally {
+    if (localClient) localClient.release();
+    if (cloudClient) cloudClient.release();
+  }
 });
 
-// JSON API 404 GUARD: Stops catch-all wildcard from returning HTML to failed fetch() calls
+// JSON API 404 GUARD (MUST BE DECLARED BELOW ALL API ROUTES)
 app.all('/api/*', (req, res) => {
   res.status(404).json({ success: false, error: `API route ${req.method} ${req.originalUrl} not found.` });
 });
 
+// STATIC CATCH-ALL ROUTE (MUST BE AT THE VERY BOTTOM)
 app.get('*', (req, res) => {
   const publicIndex = path.join(__dirname, 'public', 'index.html');
   const rootIndex = path.join(__dirname, 'index.html');
