@@ -3962,6 +3962,12 @@
         }
 
         async function triggerCloudSync() {
+            // If running directly on Render, alert that the system is already live
+            if (window.location.hostname.includes('onrender.com')) {
+               alert('ℹ️ You are already connected directly to the live Cloud Database. Any changes are saved in real-time automatically!');
+               return;
+            }
+
             const btn = document.querySelector('.btn-sync-cloud');
             btn.innerHTML = '⏳ Syncing...';
             btn.disabled = true;
