@@ -187,24 +187,59 @@ const FALLBACK_CENTRES = [
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// REVISED TEXT EXTRACTOR
+// REVISED TEXT, TABLE & SIGNATURE EXTRACTOR
 function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDoctorName = '') {
-  if (!fs.existsSync(filePath)) return { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '' };
+  if (!fs.existsSync(filePath)) return { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '', signatureFile: null };
   try {
     const rawBuffer = fs.readFileSync(filePath);
     let textContent = '';
+    let extractedSignature = null;
 
     if (rawBuffer[0] === 0x50 && rawBuffer[1] === 0x4b && AdmZip) {
       try {
         const zip = new AdmZip(filePath);
+
+        // 1. Extract embedded signature image from Word media directory
+        const mediaEntries = zip.getEntries().filter(e => /^word\/media\//i.test(e.entryName));
+        for (const entry of mediaEntries) {
+          const ext = path.extname(entry.entryName).toLowerCase().replace('.', '');
+          if (['png', 'jpg', 'jpeg'].includes(ext)) {
+            const buf = entry.getData();
+            if (buf.length > 400) {
+              const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+              extractedSignature = `data:${mime};base64,${buf.toString('base64')}`;
+              break;
+            }
+          }
+        }
+
         const docXmlEntry = zip.getEntry('word/document.xml') || zip.getEntries().find(e => e.entryName.toLowerCase().includes('word/document.xml'));
         if (docXmlEntry) {
-          const xml = docXmlEntry.getData().toString('utf-8');
+          let xml = docXmlEntry.getData().toString('utf-8');
+
+          // Keep table rows unified horizontally across columns
+          xml = xml.replace(/<w:tr\b[\s\S]*?<\/w:tr>/gi, (trXml) => {
+            const cellMatches = trXml.match(/<w:tc\b[\s\S]*?<\/w:tc>/gi) || [];
+            const cells = [];
+            for (const tc of cellMatches) {
+              const cellText = tc
+                .replace(/<w:tab[^>]*\/>/gi, ' ')
+                .replace(/<w:br[^>]*\/>/gi, ' ')
+                .replace(/<[^>]+>/g, '')
+                .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+                .replace(/\s+/g, ' ')
+                .trim();
+              if (cellText) cells.push(cellText);
+            }
+            if (cells.length === 0) return '';
+            return cells.join('   |   ') + '\n';
+          });
+
           const formatted = xml
             .replace(/<\/w:p>/gi, '\n')
-            .replace(/<\/w:tr>/gi, '\n')
             .replace(/<w:tab[^>]*\/>/gi, '\t')
             .replace(/<w:br[^>]*\/>/gi, '\n');
+
           textContent = formatted
             .replace(/<[^>]+>/g, '')
             .replace(/&lt;/g, '<')
@@ -251,6 +286,14 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
     let headerPassed = false;
     for (const line of lines) {
       const lower = line.toLowerCase();
+
+      // Filter out repeated patient names from page-break headers
+      if (normPtName && normPtName.length >= 3) {
+        if (lower === normPtName || lower.replace(/^(mr|mrs|ms|mast)\.?\s+/i, '') === normPtName) {
+          continue;
+        }
+      }
+
       if (!headerPassed) {
         if (normPtName && normPtName.length >= 3 && lower.includes(normPtName)) continue;
         if (normDocName && normDocName.length >= 3 && lower.includes(normDocName)) continue;
@@ -266,11 +309,19 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
 
     let joined = contentLines.join('\n').trim();
 
+    // Strip doctor signature lines from findings text
     const stripDocSign = (str) => {
       return str
         .replace(/(?:\n|^)\s*(?:DR\.?|DR\s)[\s\S]*?(?:CONSULTANT|RADIOLOGIST|SONOLOGIST|PATHOLOGIST|MBBS|MD|DMRD|DNB)[\s\S]*$/i, '')
         .replace(/(?:\n|^)\s*(?:DR\.?|DR\s)\s*[A-Z\s.]+\s*$/i, '')
         .replace(/(?:\n|^)\s*(?:CONSULTANT\s+RADIOLOGIST|RADIOLOGIST|SONOLOGIST)[\s\S]*$/i, '')
+        .trim();
+    };
+
+    // Strip statutory sex-disclosure declarations from Impression
+    const stripStatutoryDeclaration = (str) => {
+      return str
+        .replace(/(?:^|\n)\s*I\s*,?\s*Dr\.?[\s\S]*?(?:detected\s+nor\s+disclosed|sex\s+of\s+(?:the\s+)?(?:foetus|fetus))[\s\S]*?$/i, '')
         .trim();
     };
 
@@ -280,10 +331,10 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
     const impRegex = /(?:^|\n)\s*(?:IMPRESSION|CONCLUSION|OPINION|REMARKS|FINAL\s+OPINION)\s*[:-]?\s*([\s\S]*)$/i;
     const match = joined.match(impRegex);
     if (match) {
-      impression = stripDocSign(match[1].trim());
-      body = stripDocSign(joined.substring(0, match.index).trim());
+      impression = stripStatutoryDeclaration(stripDocSign(match[1].trim()));
+      body = stripStatutoryDeclaration(stripDocSign(joined.substring(0, match.index).trim()));
     } else {
-      body = stripDocSign(joined);
+      body = stripStatutoryDeclaration(stripDocSign(joined));
     }
 
     const studyKeywordPattern = /\b(X-RAY|RADIOGRAPHS?|USG|ULTRASONOGRAPHY|ULTRASOUND|SONOGRAPHY|MRI|CT|SCAN|2D\s*ECHO|ECHOCARDIOGRAPHY|COLOR\s*DOPPLER|DOPPLER|MAMMOGRAPHY|BARIUM|VIEWS|VIEW|STUDY)\b/i;
@@ -307,10 +358,11 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
     return {
       title: title || 'DIAGNOSTIC IMAGING REPORT',
       body: body || 'Study completed within normal parameters.',
-      impression: impression
+      impression: impression,
+      signatureFile: extractedSignature
     };
   } catch (err) {
-    return { title: 'DIAGNOSTIC IMAGING REPORT', body: 'Study completed.', impression: '' };
+    return { title: 'DIAGNOSTIC IMAGING REPORT', body: 'Study completed.', impression: '', signatureFile: null };
   }
 }
 
@@ -1001,7 +1053,7 @@ app.put('/api/patients/:id', async (req, res) => {
         visitId = newV.rows[0].id;
       }
 
-      const existingF = await client.query('SELECT id FROM pcpndt_forms WHERE visit_id::text = $1::text', [visitId]);
+      const existingF = await client.query('SELECT id FROM pcpndt_forms WHERE visit_id = $1', [visitId]);
       if (existingF.rows.length > 0) {
         await client.query(
           `UPDATE pcpndt_forms 
@@ -1009,7 +1061,7 @@ app.put('/api/patients/:id', async (req, res) => {
                no_of_sons = $5, sons_age = $6, no_of_daughters = $7, daughters_age = $8,
                indications = $9, scan_result = $10, doctor_name = $11, doctor_reg_no = $12,
                clinic_reg_no = $13, place = $14
-           WHERE visit_id::text = $15::text`,
+           WHERE visit_id = $15`,
           [
             centreId, pcpndtData.relativeName || '', pcpndtData.lmpDate || '', pcpndtData.weeksOfPreg || '',
             parseInt(pcpndtData.noOfSons, 10) || 0, pcpndtData.sonsAge || '',
@@ -1176,22 +1228,24 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
     );
 
     const ext = path.extname(req.file.originalname).toLowerCase();
-    let parsed = { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '' };
+    let parsed = { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '', signatureFile: null };
     if (ext === '.docx' || ext === '.doc') {
       parsed = extractTextFromUploadedFile(req.file.path, vRow.full_name || '', vRow.ref_doctor_name || '');
-      const existingRep = await pool.query('SELECT id FROM imaging_reports WHERE visit_id = $1', [vRow.id]);
+      const existingRep = await pool.query('SELECT id, signature_file FROM imaging_reports WHERE visit_id = $1', [vRow.id]);
+      const finalSig = parsed.signatureFile || existingRep.rows[0]?.signature_file || null;
+
       if (existingRep.rows.length > 0) {
         await pool.query(
           `UPDATE imaging_reports 
-           SET template_name = $1, report_text = $2, impression = $3, created_at = CURRENT_TIMESTAMP
-           WHERE visit_id = $4`,
-          [parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body, parsed.impression, vRow.id]
+           SET template_name = $1, report_text = $2, impression = $3, signature_file = COALESCE($4, signature_file), created_at = CURRENT_TIMESTAMP
+           WHERE visit_id = $5`,
+          [parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body, parsed.impression, finalSig, vRow.id]
         );
       } else {
         await pool.query(
-          `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no, doctor_designation)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [vRow.id, vRow.patient_id, vRow.centre_id, parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body || 'Study completed.', parsed.impression || '', 'Dr NIKUNJ KOTHIA', '2009/09/3218', 'Consultant Radiologist']
+          `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no, doctor_designation, signature_file)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [vRow.id, vRow.patient_id, vRow.centre_id, parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body || 'Study completed.', parsed.impression || '', 'Dr NIKUNJ KOTHIA', '2009/09/3218', 'Consultant Radiologist', finalSig]
         );
       }
     }
@@ -1631,7 +1685,7 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
           doctor_name: 'Dr NIKUNJ KOTHIA',
           doctor_reg_no: '2009/09/3218',
           doctor_designation: 'Consultant Radiologist',
-          signature_file: null
+          signature_file: parsed.signatureFile || null
         };
       }
     }
@@ -1679,18 +1733,13 @@ app.post('/api/imaging/report-save', async (req, res) => {
 
     let finalSig = signatureFile || null;
     if (!finalSig && doctorName) {
-      const cleanTargetName = doctorName
-        .toLowerCase()
-        .replace(/^(dr|doctor)\.?\s*/i, '')
-        .replace(/[^a-z0-9]/g, '');
-
+      const cleanTarget = doctorName.toLowerCase().replace(/^(dr|doctor)\.?\s*/i, '').trim();
       const radCheck = await pool.query(
         `SELECT signature_file FROM radiologists 
-         WHERE regexp_replace(LOWER(doctor_name), '^dr\\.?\\s*|[^a-z0-9]', '', 'g') = $1
-            OR LOWER(doctor_name) = LOWER($2)
-         ORDER BY (signature_file IS NOT NULL) DESC
+         WHERE LOWER(doctor_name) LIKE $1 
+         ORDER BY (signature_file IS NOT NULL) DESC 
          LIMIT 1`,
-        [cleanTargetName, doctorName.trim()]
+        [`%${cleanTarget}%`]
       );
       if (radCheck.rows.length > 0 && radCheck.rows[0].signature_file) {
         finalSig = radCheck.rows[0].signature_file;
@@ -1704,7 +1753,7 @@ app.post('/api/imaging/report-save', async (req, res) => {
       result = await pool.query(
         `UPDATE imaging_reports
          SET template_name = $1, report_text = $2, impression = $3, doctor_name = $4, 
-             doctor_reg_no = $5, doctor_designation = $6, signature_file = $7, created_at = CURRENT_TIMESTAMP
+             doctor_reg_no = $5, doctor_designation = $6, signature_file = COALESCE($7, signature_file), created_at = CURRENT_TIMESTAMP
          WHERE visit_id = $8 RETURNING *`,
         [
           reportTitle || 'Diagnostic Study',
@@ -1777,7 +1826,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
           doctor_name: 'Dr NIKUNJ KOTHIA',
           doctor_reg_no: '2009/09/3218',
           doctor_designation: 'Consultant Radiologist',
-          signature_file: null
+          signature_file: parsed.signatureFile || null
         };
       } else {
         rep = {
@@ -1792,20 +1841,43 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       }
     }
 
+    // Try extracting signature from uploaded Word file if still missing
+    if (!rep.signature_file && v.report_file) {
+      const fullPath = path.resolve(__dirname, v.report_file);
+      const parsed = extractTextFromUploadedFile(fullPath, v.full_name || '', v.ref_doctor || '');
+      if (parsed.signatureFile) {
+        rep.signature_file = parsed.signatureFile;
+      }
+    }
+
+    // Fallback: search in radiologists table
     if (!rep.signature_file && rep.doctor_name) {
-      const cleanTargetName = rep.doctor_name
+      const cleanDoctorName = rep.doctor_name
         .toLowerCase()
         .replace(/^(dr|doctor)\.?\s*/i, '')
-        .replace(/[^a-z0-9]/g, '');
-        
+        .trim();
+
       const radCheck = await pool.query(
-        'SELECT signature_file, designation, reg_no FROM radiologists WHERE LOWER(doctor_name) = LOWER($1) LIMIT 1',
-        [cleanTargetName, rep.doctor_name.trim()]
+        `SELECT signature_file, designation, reg_no 
+         FROM radiologists 
+         WHERE LOWER(doctor_name) LIKE $1 
+         ORDER BY (signature_file IS NOT NULL) DESC 
+         LIMIT 1`,
+        [`%${cleanDoctorName}%`]
       );
+
       if (radCheck.rows.length > 0) {
         if (radCheck.rows[0].signature_file) rep.signature_file = radCheck.rows[0].signature_file;
         if (radCheck.rows[0].designation) rep.doctor_designation = radCheck.rows[0].designation;
         if (radCheck.rows[0].reg_no) rep.doctor_reg_no = radCheck.rows[0].reg_no;
+      }
+    }
+
+    // Secondary fallback: if any radiologist signature exists, use it
+    if (!rep.signature_file) {
+      const anyRad = await pool.query(`SELECT signature_file, designation, reg_no FROM radiologists WHERE signature_file IS NOT NULL LIMIT 1`);
+      if (anyRad.rows.length > 0) {
+        rep.signature_file = anyRad.rows[0].signature_file;
       }
     }
 
@@ -1823,7 +1895,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     doc.pipe(res);
 
-    // 1. LETTERHEAD
+    // 1. CLINIC LETTERHEAD
     if (withLetterhead) {
       doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a')
          .text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', 40, doc.y, { width: 515, align: 'center' });
@@ -1889,8 +1961,14 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
 
       doc.x = 40;
 
-      if (/^[A-Z\s/-]{2,35}:/i.test(trimmed)) {
+      // Bold subsection headers
+      if (/^[A-Z\s/-]{2,35}:/i.test(trimmed) && !trimmed.includes('|')) {
         doc.moveDown(0.25);
+        doc.font('Helvetica-Bold').text(trimmed, 40, doc.y, { width: 515, align: 'left' });
+        doc.font('Helvetica');
+      } else if (trimmed.includes('|') && /^(VESSELS|PARAMETER|INVESTIGATION|SITE|ORGAN)\b/i.test(trimmed)) {
+        // Table header line
+        doc.moveDown(0.2);
         doc.font('Helvetica-Bold').text(trimmed, 40, doc.y, { width: 515, align: 'left' });
         doc.font('Helvetica');
       } else {
@@ -1906,7 +1984,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
 
     doc.moveDown(0.8);
 
-    // 5. IMPRESSION SECTION (Omitted automatically if empty)
+    // 5. IMPRESSION SECTION
     if (rep.impression && rep.impression.trim().length > 0) {
       if (doc.y > 640) {
         doc.addPage();
