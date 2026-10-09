@@ -1679,7 +1679,19 @@ app.post('/api/imaging/report-save', async (req, res) => {
 
     let finalSig = signatureFile || null;
     if (!finalSig && doctorName) {
-      const radCheck = await pool.query('SELECT signature_file FROM radiologists WHERE LOWER(doctor_name) = LOWER($1) LIMIT 1', [doctorName.trim()]);
+      const cleanTargetName = doctorName
+        .toLowerCase()
+        .replace(/^(dr|doctor)\.?\s*/i, '')
+        .replace(/[^a-z0-9]/g, '');
+
+      const radCheck = await pool.query(
+        `SELECT signature_file FROM radiologists 
+         WHERE regexp_replace(LOWER(doctor_name), '^dr\\.?\\s*|[^a-z0-9]', '', 'g') = $1
+            OR LOWER(doctor_name) = LOWER($2)
+         ORDER BY (signature_file IS NOT NULL) DESC
+         LIMIT 1`,
+        [cleanTargetName, doctorName.trim()]
+      );
       if (radCheck.rows.length > 0 && radCheck.rows[0].signature_file) {
         finalSig = radCheck.rows[0].signature_file;
       }
@@ -1781,9 +1793,14 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     }
 
     if (!rep.signature_file && rep.doctor_name) {
+      const cleanTargetName = rep.doctor_name
+        .toLowerCase()
+        .replace(/^(dr|doctor)\.?\s*/i, '')
+        .replace(/[^a-z0-9]/g, '');
+        
       const radCheck = await pool.query(
         'SELECT signature_file, designation, reg_no FROM radiologists WHERE LOWER(doctor_name) = LOWER($1) LIMIT 1',
-        [rep.doctor_name.trim()]
+        [cleanTargetName, rep.doctor_name.trim()]
       );
       if (radCheck.rows.length > 0) {
         if (radCheck.rows[0].signature_file) rep.signature_file = radCheck.rows[0].signature_file;
