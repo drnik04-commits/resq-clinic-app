@@ -1261,7 +1261,7 @@
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 return 'https://resq-clinic-app.onrender.com';
             }
-            return window.location.origin;
+            return 'https://resq-clinic-app.onrender.com';
         }
 
         function applyDefaultDatesEverywhere() {
@@ -2280,14 +2280,14 @@
             if (!phone) return alert('Mobile number missing for this patient.');
             const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
             const publicBase = getPublicAppUrl();
-            const pdfUrl = `${publicBase}/api/invoice/${visitId}/pdf`;
+            const invoiceUrl = `${publicBase}/api/invoice/${encodeURIComponent(invNo || visitId)}/pdf`;
             const msg = `Dear *${patName}*,\n` +
                         `Thank you for visiting *${centreName || 'RESQ Diagnostics'}*.\n\n` +
                         `📋 *Invoice No:* ${invNo}\n` +
                         `💵 *Net Amount:* ₹${net}\n` +
                         `⏳ *Balance Due:* ₹${bal}\n\n` +
                         `📄 *View / Download Your Official PDF Invoice:*\n` +
-                        `${pdfUrl}`;
+                        `${invoiceUrl}`;
             window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
@@ -2295,12 +2295,17 @@
             if (!phone) return alert('Mobile number missing for this patient.');
             const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
             const publicBase = getPublicAppUrl();
-            const pdfUrl = `${publicBase}/api/imaging/report/${visitId}/pdf?letterhead=${withLetterhead}&margin=${marginMm}`;
+            const lookupKey = invNo || visitId;
+            const reportUrl = `${publicBase}/api/imaging/report/${encodeURIComponent(lookupKey)}/pdf?letterhead=${withLetterhead}&margin=${marginMm}`;
+            if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && publicBase.includes('onrender.com')) {
+                console.warn('Notice: Ensure you click "☁️ Sync Cloud" so this report exists on the cloud server before opening on a phone.');
+            }
+
             const msg = `Dear *${patName}*,\n` +
                         `Your diagnostic report from *${centreName || 'RESQ Diagnostics'}* is ready.\n\n` +
                         `📋 *Invoice No:* ${invNo}\n\n` +
                         `📄 *View / Download Your Official PDF Report:*\n` +
-                        `${pdfUrl}`;
+                        `${reportUrl}`;
             window.open(`https://wa.me/91${cleanDigits}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 

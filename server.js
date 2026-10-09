@@ -187,7 +187,7 @@ const FALLBACK_CENTRES = [
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// TEXT EXTRACTOR
+// REVISED TEXT EXTRACTOR
 function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDoctorName = '') {
   if (!fs.existsSync(filePath)) return { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '' };
   try {
@@ -248,48 +248,54 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
     const normDocName = knownDoctorName.trim().toLowerCase().replace(/^(dr|doctor)\.?\s+/i, '');
     const contentLines = [];
 
+    let headerPassed = false;
     for (const line of lines) {
       const lower = line.toLowerCase();
-      if (normPtName && normPtName.length >= 3 && lower.includes(normPtName)) continue;
-      if (normDocName && normDocName.length >= 3 && lower.includes(normDocName) && contentLines.length < 8) continue;
-      if (/^(NAME|DATE|AGE|SEX|GENDER|REF\.?\s*BY|REFERRING|PATIENT|IPD|OPD|UHID|REG\.?\s*NO)\b/i.test(line)) continue;
-      if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(line)) continue;
-      if (/^\d{1,3}\s*(YRS?|YEARS?|Y|MONTHS?|DAYS?)?(\s*[\/|]\s*(M|F|MALE|FEMALE))?$/i.test(line)) continue;
-      if (/^(MALE|FEMALE|OTHER|M|F)$/i.test(line)) continue;
-      if (/^(DR\.?|DOCTOR)\s+[A-Z\s.]+$/i.test(line) && contentLines.length < 6) continue;
-      if (/^[|\t\s\-_=]+$/.test(line)) continue;
+      if (!headerPassed) {
+        if (normPtName && normPtName.length >= 3 && lower.includes(normPtName)) continue;
+        if (normDocName && normDocName.length >= 3 && lower.includes(normDocName)) continue;
+        if (/^(NAME|DATE|AGE|SEX|GENDER|REF\.?\s*BY|REFERRING|PATIENT|IPD|OPD|UHID|REG\.?\s*NO)\b/i.test(line)) continue;
+        if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(line)) continue;
+        if (/^\d{1,3}\s*(YRS?|YEARS?|Y|MONTHS?|DAYS?)?(\s*[\/|]\s*(M|F|MALE|FEMALE))?$/i.test(line)) continue;
+        if (/^(MALE|FEMALE|OTHER|M|F)$/i.test(line)) continue;
+        if (/^[|\t\s\-_=]+$/.test(line)) continue;
+        headerPassed = true;
+      }
       contentLines.push(line);
     }
 
     let joined = contentLines.join('\n').trim();
-    let impression = 'NO SIGNIFICANT ABNORMALITY DETECTED.';
+
+    const stripDocSign = (str) => {
+      return str
+        .replace(/(?:\n|^)\s*(?:DR\.?|DR\s)[\s\S]*?(?:CONSULTANT|RADIOLOGIST|SONOLOGIST|PATHOLOGIST|MBBS|MD|DMRD|DNB)[\s\S]*$/i, '')
+        .replace(/(?:\n|^)\s*(?:DR\.?|DR\s)\s*[A-Z\s.]+\s*$/i, '')
+        .replace(/(?:\n|^)\s*(?:CONSULTANT\s+RADIOLOGIST|RADIOLOGIST|SONOLOGIST)[\s\S]*$/i, '')
+        .trim();
+    };
+
+    let impression = '';
     let body = joined;
 
     const impRegex = /(?:^|\n)\s*(?:IMPRESSION|CONCLUSION|OPINION|REMARKS|FINAL\s+OPINION)\s*[:-]?\s*([\s\S]*)$/i;
     const match = joined.match(impRegex);
     if (match) {
-      impression = match[1].trim();
-      body = joined.substring(0, match.index).trim();
+      impression = stripDocSign(match[1].trim());
+      body = stripDocSign(joined.substring(0, match.index).trim());
+    } else {
+      body = stripDocSign(joined);
     }
 
-    const stripDocSign = (str) => {
-      return str
-        .replace(/(?:\n|^)\s*(?:DR\.?|DR\s)\s*[A-Z\s.]+(?:\n|\r|\s)+(?:CONSULTANT|RADIOLOGIST|SONOLOGIST|PATHOLOGIST|MBBS|MD|DMRD|DNB)[\s\S]*$/i, '')
-        .replace(/(?:\n|^)\s*(?:DR\.?|DR\s)\s*[A-Z\s.]+\s*$/i, '')
-        .trim();
-    };
-    body = stripDocSign(body);
-    impression = stripDocSign(impression);
-
-    const studyKeywords = /\b(X-RAY|RADIOGRAPHS?|USG|ULTRASONOGRAPHY|ULTRASOUND|SONOGRAPHY|MRI|CT|SCAN|2D\s*ECHO|ECHOCARDIOGRAPHY|COLOR\s*DOPPLER|DOPPLER|MAMMOGRAPHY|BARIUM|CHEST|KUB|ABDOMEN|PELVIS|SPINE|CERVICAL|LUMBAR|DORSAL|KNEE|JOINT|SHOULDER|WRIST|ANKLE|FOOT|HAND|ELBOW|HIP|SKULL|PNS|ORBIT|NECK|THYROID|SCROTAL|OBSTETRIC|ANOMALY|NT\s*SCAN|FOETAL|FETAL)\b/i;
+    const studyKeywordPattern = /\b(X-RAY|RADIOGRAPHS?|USG|ULTRASONOGRAPHY|ULTRASOUND|SONOGRAPHY|MRI|CT|SCAN|2D\s*ECHO|ECHOCARDIOGRAPHY|COLOR\s*DOPPLER|DOPPLER|MAMMOGRAPHY|BARIUM|VIEWS|VIEW|STUDY)\b/i;
+    const sentenceStarters = /^(THE|THERE|NO|BOTH|ALL|VISUALIZED|OPERATED|STUDY|PATIENT|EVALUATION|EACH|NORMAL|MILD|SEVERE)\b/i;
 
     let title = 'DIAGNOSTIC IMAGING REPORT';
     const bodyLines = body.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-    for (let i = 0; i < Math.min(bodyLines.length, 6); i++) {
+    for (let i = 0; i < Math.min(bodyLines.length, 5); i++) {
       const candidate = bodyLines[i];
-      if (candidate.length <= 90 && !candidate.includes(':') && (studyKeywords.test(candidate) || candidate.endsWith('VIEWS') || candidate.endsWith('VIEW') || candidate.endsWith('STUDY'))) {
-        title = candidate.toUpperCase();
+      if (candidate.length <= 95 && studyKeywordPattern.test(candidate) && (!sentenceStarters.test(candidate) || /^(X-RAY|USG|CT|MRI|ECHO|DOPPLER)\b/i.test(candidate))) {
+        title = candidate.replace(/^TITLE\s*[:-]?\s*/i, '').trim().toUpperCase();
         bodyLines.splice(i, 1);
         body = bodyLines.join('\n').trim();
         break;
@@ -301,10 +307,10 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
     return {
       title: title || 'DIAGNOSTIC IMAGING REPORT',
       body: body || 'Study completed within normal parameters.',
-      impression: impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.'
+      impression: impression
     };
   } catch (err) {
-    return { title: 'DIAGNOSTIC IMAGING REPORT', body: 'Study completed.', impression: 'NO SIGNIFICANT ABNORMALITY DETECTED.' };
+    return { title: 'DIAGNOSTIC IMAGING REPORT', body: 'Study completed.', impression: '' };
   }
 }
 
@@ -1123,7 +1129,7 @@ app.put('/api/visits/:id/cut', async (req, res) => {
 
     if (isDbConnected) {
       const result = await pool.query(
-        'UPDATE visits SET doctor_commission = $1 WHERE id::text = $2::text RETURNING id, doctor_commission',
+        'UPDATE visits SET doctor_commission = $1 WHERE id::text = $2::text OR invoice_number = $2::text RETURNING id, doctor_commission',
         [cutVal, validId]
       );
       if (result.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit record not found' });
@@ -1136,7 +1142,7 @@ app.put('/api/visits/:id/cut', async (req, res) => {
 app.post('/api/visits/:id/mark-printed', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
-    await pool.query('UPDATE visits SET bill_printed = true WHERE id::text = $1::text', [validId]);
+    await pool.query('UPDATE visits SET bill_printed = true WHERE id::text = $1::text OR invoice_number = $1::text', [validId]);
     res.status(200).json({ success: true, message: 'Bill marked as printed.' });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -1156,7 +1162,7 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
        FROM visits v
        JOIN patients p ON v.patient_id = p.id
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
-       WHERE v.id::text = $1::text`,
+       WHERE v.id::text = $1::text OR v.invoice_number = $1::text`,
       [validId]
     );
     if (vResult.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit not found.' });
@@ -1165,27 +1171,27 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
     await pool.query(
       `UPDATE visits 
        SET report_file = $1, report_has_letterhead = $2, report_margin_mm = $3 
-       WHERE id::text = $4::text`,
-      [relPath, hasLetterhead, marginMm, validId]
+       WHERE id = $4`,
+      [relPath, hasLetterhead, marginMm, vRow.id]
     );
 
     const ext = path.extname(req.file.originalname).toLowerCase();
     let parsed = { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '' };
     if (ext === '.docx' || ext === '.doc') {
       parsed = extractTextFromUploadedFile(req.file.path, vRow.full_name || '', vRow.ref_doctor_name || '');
-      const existingRep = await pool.query('SELECT id FROM imaging_reports WHERE visit_id::text = $1::text', [validId]);
+      const existingRep = await pool.query('SELECT id FROM imaging_reports WHERE visit_id = $1', [vRow.id]);
       if (existingRep.rows.length > 0) {
         await pool.query(
           `UPDATE imaging_reports 
            SET template_name = $1, report_text = $2, impression = $3, created_at = CURRENT_TIMESTAMP
-           WHERE visit_id::text = $4::text`,
-          [parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body, parsed.impression, validId]
+           WHERE visit_id = $4`,
+          [parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body, parsed.impression, vRow.id]
         );
       } else {
         await pool.query(
           `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no, doctor_designation)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [validId, vRow.patient_id, vRow.centre_id, parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body || 'Study completed.', parsed.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.', 'Dr NIKUNJ KOTHIA', '2009/09/3218', 'Consultant Radiologist']
+          [vRow.id, vRow.patient_id, vRow.centre_id, parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body || 'Study completed.', parsed.impression || '', 'Dr NIKUNJ KOTHIA', '2009/09/3218', 'Consultant Radiologist']
         );
       }
     }
@@ -1193,7 +1199,7 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
     res.status(200).json({
       success: true,
       message: 'Report attached & clinical details extracted successfully!',
-      data: { visitId: validId, reportFile: relPath, hasLetterhead, marginMm, extracted: parsed }
+      data: { visitId: vRow.id, reportFile: relPath, hasLetterhead, marginMm, extracted: parsed }
     });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -1201,13 +1207,12 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
 app.get('/api/visits/:id/uploaded-report', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId || req.params.id);
-    const vRes = await pool.query('SELECT report_file, invoice_number FROM visits WHERE id::text = $1::text', [validId]);
+    const vRes = await pool.query('SELECT report_file, invoice_number FROM visits WHERE id::text = $1::text OR invoice_number = $1::text', [validId]);
     if (vRes.rows.length === 0 || !vRes.rows[0].report_file) return res.status(404).send('No report uploaded.');
     const fullPath = path.resolve(__dirname, vRes.rows[0].report_file);
     if (!fs.existsSync(fullPath)) return res.status(404).send('File not found on server.');
 
     const ext = path.extname(fullPath).toLowerCase();
-    const inv = vRes.rows[0].invoice_number || 'Report';
     if (ext === '.pdf') res.setHeader('Content-Type', 'application/pdf');
     else if (ext === '.docx') res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     else if (ext === '.doc') res.setHeader('Content-Type', 'application/msword');
@@ -1269,34 +1274,40 @@ app.put('/api/visits/:id', async (req, res) => {
       totalCommission = calculateCommission(testArray, validDoctorId, docInfo, disc);
     }
 
-    await client.query(
+    const vUpdate = await client.query(
       `UPDATE visits 
        SET referring_doctor_id = $1, total_amount = $2, concession = $3, paid_amount = $4, balance_amount = $5, 
            payment_status = $6, payment_mode = $7, cash_amount = $8, online_amount = $9, doctor_commission = $10
-       WHERE id::text = $11::text`,
+       WHERE id::text = $11::text OR invoice_number = $11::text RETURNING id`,
       [validDoctorId, grossTotal, disc, paid, balance, payStatus, paymentMode || 'Cash', parsedCash, parsedOnline, totalCommission, validVisitId]
     );
 
-    await client.query('DELETE FROM patient_investigations WHERE visit_id::text = $1::text', [validVisitId]);
+    if (vUpdate.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Visit not found' });
+    }
+    const resolvedVisitId = vUpdate.rows[0].id;
+
+    await client.query('DELETE FROM patient_investigations WHERE visit_id = $1', [resolvedVisitId]);
     for (const t of testArray) {
       const cutVal = (t.test_cut !== undefined && t.test_cut !== null && !isNaN(parseFloat(t.test_cut))) ? parseFloat(t.test_cut) : 30;
       await client.query(
         `INSERT INTO patient_investigations (visit_id, test_id, barcode, price, cut_type, test_cut) VALUES ($1, $2, $3, $4, $5, $6)`,
-        [validVisitId, getCleanId(t.id), generateBarcode(), parseFloat(t.price) || 0, t.cut_type || 'percentage', cutVal]
+        [resolvedVisitId, getCleanId(t.id), generateBarcode(), parseFloat(t.price) || 0, t.cut_type || 'percentage', cutVal]
       );
     }
 
     if (String(isPcpndt) === 'true') {
-      const pCheck = await client.query('SELECT id FROM pcpndt_forms WHERE visit_id::text = $1::text', [validVisitId]);
+      const pCheck = await client.query('SELECT id FROM pcpndt_forms WHERE visit_id = $1', [resolvedVisitId]);
       if (pCheck.rows.length > 0) {
         await client.query(
-          `UPDATE pcpndt_forms SET relative_name = $1, lmp_date = $2, weeks_of_preg = $3, indications = $4, scan_result = $5, place = COALESCE($6, place) WHERE visit_id::text = $7::text`,
-          [relativeName || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '', place || null, validVisitId]
+          `UPDATE pcpndt_forms SET relative_name = $1, lmp_date = $2, weeks_of_preg = $3, indications = $4, scan_result = $5, place = COALESCE($6, place) WHERE visit_id = $7`,
+          [relativeName || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '', place || null, resolvedVisitId]
         );
       } else {
         await client.query(
           `INSERT INTO pcpndt_forms (visit_id, relative_name, lmp_date, weeks_of_preg, indications, scan_result, place) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [validVisitId, relativeName || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '', place || 'Kandivali West']
+          [resolvedVisitId, relativeName || '', lmpDate || '', weeksOfPreg || '', pcpndtIndications || '', scanResult || '', place || 'Kandivali West']
         );
       }
     }
@@ -1419,10 +1430,14 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
 app.delete('/api/visits/:id', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
-    await pool.query('DELETE FROM patient_investigations WHERE visit_id::text = $1::text', [validId]);
-    await pool.query('DELETE FROM pcpndt_forms WHERE visit_id::text = $1::text', [validId]);
-    await pool.query('DELETE FROM imaging_reports WHERE visit_id::text = $1::text', [validId]);
-    await pool.query('DELETE FROM visits WHERE id::text = $1::text', [validId]);
+    const vRes = await pool.query('SELECT id FROM visits WHERE id::text = $1::text OR invoice_number = $1::text', [validId]);
+    if (vRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Visit not found' });
+    const realId = vRes.rows[0].id;
+
+    await pool.query('DELETE FROM patient_investigations WHERE visit_id = $1', [realId]);
+    await pool.query('DELETE FROM pcpndt_forms WHERE visit_id = $1', [realId]);
+    await pool.query('DELETE FROM imaging_reports WHERE visit_id = $1', [realId]);
+    await pool.query('DELETE FROM visits WHERE id = $1', [realId]);
     res.status(200).json({ success: true, message: 'Visit deleted' });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -1438,26 +1453,27 @@ app.get('/api/invoice/:id', async (req, res) => {
        JOIN patients p ON v.patient_id = p.id
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
        LEFT JOIN clinic_centres c ON v.centre_id = c.id
-       WHERE v.id::text = $1::text`,
+       WHERE v.id::text = $1::text OR v.invoice_number = $1::text`,
       [validId]
     );
     if (visitRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
+    const v = visitRes.rows[0];
 
     const invRes = await pool.query(
       `SELECT pi.*, tm.test_name, tm.category FROM patient_investigations pi
-       LEFT JOIN test_master tm ON pi.test_id = tm.id WHERE pi.visit_id::text = $1::text`,
-      [validId]
+       LEFT JOIN test_master tm ON pi.test_id = tm.id WHERE pi.visit_id = $1`,
+      [v.id]
     );
-    const pcpndtRes = await pool.query(`SELECT * FROM pcpndt_forms WHERE visit_id::text = $1::text LIMIT 1`, [validId]);
+    const pcpndtRes = await pool.query(`SELECT * FROM pcpndt_forms WHERE visit_id = $1 LIMIT 1`, [v.id]);
 
     res.status(200).json({
       success: true,
-      data: { visitDetails: visitRes.rows[0], investigations: invRes.rows, pcpndtForm: pcpndtRes.rows[0] || null }
+      data: { visitDetails: v, investigations: invRes.rows, pcpndtForm: pcpndtRes.rows[0] || null }
     });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PDF INVOICE GENERATOR (WITHOUT GREEN PRINTED MARK)
+// PDF INVOICE GENERATOR
 app.get('/api/invoice/:id/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1466,7 +1482,7 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     const shouldMarkPrinted = req.query.markPrinted === 'true';
 
     if (shouldMarkPrinted && validId) {
-      await pool.query('UPDATE visits SET bill_printed = true WHERE id::text = $1::text', [validId]);
+      await pool.query('UPDATE visits SET bill_printed = true WHERE id::text = $1::text OR invoice_number = $1::text', [validId]);
     }
 
     const visitRes = await pool.query(
@@ -1477,7 +1493,7 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
        JOIN patients p ON v.patient_id = p.id
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
        LEFT JOIN clinic_centres c ON v.centre_id = c.id
-       WHERE v.id::text = $1::text`,
+       WHERE v.id::text = $1::text OR v.invoice_number = $1::text`,
       [validId]
     );
     if (visitRes.rows.length === 0) return res.status(404).send('Invoice not found');
@@ -1485,8 +1501,8 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
 
     const invRes = await pool.query(
       `SELECT pi.*, tm.test_name, tm.category FROM patient_investigations pi
-       LEFT JOIN test_master tm ON pi.test_id = tm.id WHERE pi.visit_id::text = $1::text`,
-      [validId]
+       LEFT JOIN test_master tm ON pi.test_id = tm.id WHERE pi.visit_id = $1`,
+      [v.id]
     );
     const items = invRes.rows;
 
@@ -1586,27 +1602,28 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
        JOIN patients p ON v.patient_id = p.id
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
        LEFT JOIN clinic_centres c ON v.centre_id = c.id
-       WHERE v.id::text = $1::text`,
+       WHERE v.id::text = $1::text OR v.invoice_number = $1::text`,
       [validId]
     );
     if (visitRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Visit not found' });
+    const v = visitRes.rows[0];
 
     const invRes = await pool.query(
       `SELECT tm.test_name, tm.category FROM patient_investigations pi
-       LEFT JOIN test_master tm ON pi.test_id = tm.id WHERE pi.visit_id::text = $1::text`,
-      [validId]
+       LEFT JOIN test_master tm ON pi.test_id = tm.id WHERE pi.visit_id = $1`,
+      [v.id]
     );
 
     let repRes = await pool.query(
-      `SELECT * FROM imaging_reports WHERE visit_id::text = $1::text ORDER BY created_at DESC LIMIT 1`,
-      [validId]
+      `SELECT * FROM imaging_reports WHERE visit_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [v.id]
     );
 
     let existingRep = repRes.rows[0] || null;
-    if (!existingRep && visitRes.rows[0].report_file) {
-      const fullPath = path.resolve(__dirname, visitRes.rows[0].report_file);
+    if (!existingRep && v.report_file) {
+      const fullPath = path.resolve(__dirname, v.report_file);
       if (fs.existsSync(fullPath)) {
-        const parsed = extractTextFromUploadedFile(fullPath, visitRes.rows[0].full_name || '', visitRes.rows[0].ref_doctor || '');
+        const parsed = extractTextFromUploadedFile(fullPath, v.full_name || '', v.ref_doctor || '');
         existingRep = {
           template_name: parsed.title,
           report_text: parsed.body,
@@ -1620,12 +1637,12 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
     }
 
     const tmplRes = await pool.query(`SELECT id, title, template_name, category, default_impression, template_body FROM imaging_templates ORDER BY title ASC`);
-    const radRes = await pool.query(`SELECT * FROM radiologists WHERE is_global = true OR centre_id::text = $1::text ORDER BY doctor_name ASC`, [visitRes.rows[0].centre_id || null]);
+    const radRes = await pool.query(`SELECT * FROM radiologists WHERE is_global = true OR centre_id::text = $1::text ORDER BY doctor_name ASC`, [v.centre_id || null]);
 
     res.status(200).json({
       success: true,
       data: {
-        visit: visitRes.rows[0],
+        visit: v,
         investigations: invRes.rows,
         existingReport: existingRep,
         templates: tmplRes.rows || [],
@@ -1645,9 +1662,10 @@ app.post('/api/imaging/report-save', async (req, res) => {
     const validVisitId = getCleanId(visitId);
     if (!validVisitId) return res.status(400).json({ success: false, error: 'Visit ID is required.' });
 
-    const vRes = await pool.query('SELECT patient_id, centre_id FROM visits WHERE id::text = $1::text', [validVisitId]);
+    const vRes = await pool.query('SELECT id, patient_id, centre_id FROM visits WHERE id::text = $1::text OR invoice_number = $1::text', [validVisitId]);
     if (vRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Visit record not found.' });
 
+    const realVisitId = vRes.rows[0].id;
     const { patient_id, centre_id } = vRes.rows[0];
     const isLetterhead = hasLetterhead !== false && hasLetterhead !== 'false';
     const topMargin = parseInt(marginMm, 10) || 55;
@@ -1655,8 +1673,8 @@ app.post('/api/imaging/report-save', async (req, res) => {
     await pool.query(
       `UPDATE visits 
        SET report_has_letterhead = $1, report_margin_mm = $2 
-       WHERE id::text = $3::text`,
-      [isLetterhead, topMargin, validVisitId]
+       WHERE id = $3`,
+      [isLetterhead, topMargin, realVisitId]
     );
 
     let finalSig = signatureFile || null;
@@ -1667,7 +1685,7 @@ app.post('/api/imaging/report-save', async (req, res) => {
       }
     }
 
-    const existing = await pool.query('SELECT id FROM imaging_reports WHERE visit_id::text = $1::text', [validVisitId]);
+    const existing = await pool.query('SELECT id FROM imaging_reports WHERE visit_id = $1', [realVisitId]);
     let result;
 
     if (existing.rows.length > 0) {
@@ -1675,16 +1693,16 @@ app.post('/api/imaging/report-save', async (req, res) => {
         `UPDATE imaging_reports
          SET template_name = $1, report_text = $2, impression = $3, doctor_name = $4, 
              doctor_reg_no = $5, doctor_designation = $6, signature_file = $7, created_at = CURRENT_TIMESTAMP
-         WHERE visit_id::text = $8::text RETURNING *`,
+         WHERE visit_id = $8 RETURNING *`,
         [
           reportTitle || 'Diagnostic Study',
           reportText || '',
-          impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.',
+          impression || '',
           doctorName || 'Dr NIKUNJ KOTHIA',
           doctorRegNo || '2009/09/3218',
           doctorDesignation || 'Consultant Radiologist',
           finalSig,
-          validVisitId
+          realVisitId
         ]
       );
     } else {
@@ -1693,10 +1711,10 @@ app.post('/api/imaging/report-save', async (req, res) => {
            (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no, doctor_designation, signature_file)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
         [
-          validVisitId, patient_id, centre_id,
+          realVisitId, patient_id, centre_id,
           reportTitle || 'Diagnostic Study',
           reportText || '',
-          impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.',
+          impression || '',
           doctorName || 'Dr NIKUNJ KOTHIA',
           doctorRegNo || '2009/09/3218',
           doctorDesignation || 'Consultant Radiologist',
@@ -1724,15 +1742,15 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
        JOIN patients p ON v.patient_id = p.id
        LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
        LEFT JOIN clinic_centres c ON v.centre_id = c.id
-       WHERE v.id::text = $1::text`,
+       WHERE v.id::text = $1::text OR v.invoice_number = $1::text`,
       [validId]
     );
     if (visitRes.rows.length === 0) return res.status(404).send('Visit not found');
     const v = visitRes.rows[0];
 
     const repRes = await pool.query(
-      `SELECT * FROM imaging_reports WHERE visit_id::text = $1::text ORDER BY created_at DESC LIMIT 1`,
-      [validId]
+      `SELECT * FROM imaging_reports WHERE visit_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [v.id]
     );
 
     let rep = repRes.rows[0];
@@ -1753,7 +1771,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
         rep = {
           template_name: 'DIAGNOSTIC IMAGING REPORT',
           report_text: 'Study completed within normal parameters.',
-          impression: 'NO SIGNIFICANT ABNORMALITY DETECTED.',
+          impression: '',
           doctor_name: 'Dr NIKUNJ KOTHIA',
           doctor_reg_no: '2009/09/3218',
           doctor_designation: 'Consultant Radiologist',
@@ -1788,7 +1806,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     doc.pipe(res);
 
-    // 1. CENTERED CLINIC LETTERHEAD
+    // 1. LETTERHEAD
     if (withLetterhead) {
       doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a')
          .text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', 40, doc.y, { width: 515, align: 'center' });
@@ -1809,7 +1827,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       doc.y = Math.max(25, Math.round(effectiveMarginMm * 2.83465));
     }
 
-    // 2. PATIENT DEMOGRAPHICS CARD
+    // 2. PATIENT DEMOGRAPHICS
     const metaBoxY = doc.y;
     doc.rect(40, metaBoxY, 515, 46).fillAndStroke('#f8fafc', '#cbd5e1');
     doc.fontSize(8.5).fillColor('#000000');
@@ -1821,18 +1839,17 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
 
     doc.font('Helvetica-Bold').text('DATE: ', 340, metaBoxY + 8, { continued: true })
        .font('Helvetica').text(new Date(v.created_at).toLocaleDateString('en-GB'));
+
+    const displayRefDoc = (v.ref_doctor || 'DIRECT OPD').toUpperCase();
+    const formattedRefDoc = displayRefDoc.startsWith('DR') ? displayRefDoc : `DR. ${displayRefDoc}`;
     doc.font('Helvetica-Bold').text('REF. BY: ', 340, metaBoxY + 26, { continued: true })
-       .font('Helvetica').text((v.ref_doctor || 'DIRECT OPD').toUpperCase());
+       .font('Helvetica').text(formattedRefDoc);
 
     doc.x = 40;
     doc.y = metaBoxY + 58;
 
-    // 3. CENTERED STUDY TITLE
+    // 3. STUDY TITLE
     let displayTitle = (rep.template_name || 'DIAGNOSTIC IMAGING REPORT').toUpperCase();
-    if (displayTitle === v.full_name.toUpperCase() || displayTitle.length < 4) {
-      displayTitle = 'DIAGNOSTIC IMAGING REPORT';
-    }
-
     doc.fontSize(12).font('Helvetica-Bold').fillColor('#19486a')
        .text(displayTitle, 40, doc.y, { width: 515, align: 'center', underline: true });
     
@@ -1872,29 +1889,31 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
 
     doc.moveDown(0.8);
 
-    // 5. IMPRESSION BOX
-    if (doc.y > 640) {
-      doc.addPage();
+    // 5. IMPRESSION SECTION (Omitted automatically if empty)
+    if (rep.impression && rep.impression.trim().length > 0) {
+      if (doc.y > 640) {
+        doc.addPage();
+        doc.x = 40;
+        doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
+      }
+
       doc.x = 40;
-      doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('IMPRESSION:', 40, doc.y);
+      doc.moveDown(0.3);
+
+      const impText = rep.impression.trim().toUpperCase();
+      const impY = doc.y;
+      const boxH = Math.max(34, doc.heightOfString(impText, { width: 495 }) + 14);
+
+      doc.rect(40, impY, 515, boxH).fillAndStroke('#f1f5f9', '#94a3b8');
+      doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a')
+         .text(impText, 50, impY + 7, { width: 495, lineGap: 2, align: 'left' });
+
+      doc.y = impY + boxH + 16;
+      doc.x = 40;
     }
 
-    doc.x = 40;
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('IMPRESSION:', 40, doc.y);
-    doc.moveDown(0.3);
-
-    const impText = (rep.impression || 'NO SIGNIFICANT ABNORMALITY DETECTED.').toUpperCase();
-    const impY = doc.y;
-    const boxH = Math.max(34, doc.heightOfString(impText, { width: 495 }) + 14);
-
-    doc.rect(40, impY, 515, boxH).fillAndStroke('#f1f5f9', '#94a3b8');
-    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a')
-       .text(impText, 50, impY + 7, { width: 495, lineGap: 2, align: 'left' });
-
-    doc.y = impY + boxH + 16;
-    doc.x = 40;
-
-    // 6. DOCTOR SIGNATURE BLOCK WITH EMBEDDED SIGNATURE
+    // 6. DOCTOR SIGNATURE BLOCK
     if (doc.y > 700) {
       doc.addPage();
       doc.x = 40;
@@ -1944,14 +1963,14 @@ app.post('/api/visits/:id/send-bill-sms', async (req, res) => {
        FROM visits v 
        JOIN patients p ON v.patient_id = p.id 
        LEFT JOIN clinic_centres c ON v.centre_id = c.id 
-       WHERE v.id::text = $1::text`,
+       WHERE v.id::text = $1::text OR v.invoice_number = $1::text`,
       [validId]
     );
     if (!visitRes.rows.length) return res.status(404).json({ success: false, error: 'Visit not found' });
 
     const v = visitRes.rows[0];
     const net = (parseFloat(v.total_amount) - parseFloat(v.concession || 0)).toFixed(2);
-    const pdfUrl = `https://resq-clinic-app.onrender.com/api/invoice/${validId}/pdf`;
+    const pdfUrl = `https://resq-clinic-app.onrender.com/api/invoice/${v.invoice_number}/pdf`;
     const msg = `Dear ${v.full_name}, your bill for ${v.centre_name || 'RESQ Clinic'} is ready. Inv: ${v.invoice_number}, Net: Rs.${net}, Balance: Rs.${parseFloat(v.balance_amount).toFixed(2)}. Download Bill: ${pdfUrl}`;
 
     const sent = await dispatchSMS(v.phone, msg);
@@ -1967,7 +1986,7 @@ app.post('/api/visits/:id/send-report-sms', async (req, res) => {
        FROM visits v 
        JOIN patients p ON v.patient_id = p.id 
        LEFT JOIN clinic_centres c ON v.centre_id = c.id 
-       WHERE v.id::text = $1::text`,
+       WHERE v.id::text = $1::text OR v.invoice_number = $1::text`,
       [validId]
     );
     if (!visitRes.rows.length) return res.status(404).json({ success: false, error: 'Visit not found' });
@@ -1980,7 +1999,7 @@ app.post('/api/visits/:id/send-report-sms', async (req, res) => {
       });
     }
 
-    const reportUrl = `https://resq-clinic-app.onrender.com/api/imaging/report/${validId}/pdf?letterhead=true`;
+    const reportUrl = `https://resq-clinic-app.onrender.com/api/imaging/report/${v.invoice_number}/pdf?letterhead=true`;
     const msg = `Dear ${v.full_name}, your diagnostic report from ${v.centre_name || 'RESQ Clinic'} is ready. View/Download: ${reportUrl}`;
 
     const sent = await dispatchSMS(v.phone, msg);
@@ -1991,12 +2010,17 @@ app.post('/api/visits/:id/send-report-sms', async (req, res) => {
 app.get('/api/imaging/report/:visitId/download', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
-    const rRes = await pool.query(`SELECT * FROM imaging_reports WHERE visit_id::text = $1::text LIMIT 1`, [validId]);
+    const rRes = await pool.query(
+      `SELECT r.* FROM imaging_reports r
+       JOIN visits v ON r.visit_id = v.id
+       WHERE v.id::text = $1::text OR v.invoice_number = $1::text LIMIT 1`,
+      [validId]
+    );
     if (!rRes.rows.length) return res.status(404).send('Diagnostic report not found.');
     const r = rRes.rows[0];
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Content-Disposition', `inline; filename="Report_${validId}.txt"`);
-    res.send(`RESQ CLINIC & IMAGING CENTRE - DIAGNOSTIC REPORT\nDoctor: ${r.doctor_name}\n\nFINDINGS:\n${r.report_text}\n\nIMPRESSION:\n${r.impression}`);
+    res.send(`RESQ CLINIC & IMAGING CENTRE - DIAGNOSTIC REPORT\nDoctor: ${r.doctor_name}\n\nFINDINGS:\n${r.report_text}\n\nIMPRESSION:\n${r.impression || 'None'}`);
   } catch (err) { res.status(500).send(err.message); }
 });
 
@@ -2518,20 +2542,26 @@ app.post('/api/imaging/reports', async (req, res) => {
   try {
     const { visitId, patientId, templateId, templateName, reportText, impression, doctorName, doctorRegNo } = req.body;
     const centreId = getTenantCentreId(req);
-    const existing = await pool.query('SELECT id FROM imaging_reports WHERE visit_id::text = $1::text', [String(visitId)]);
+    const validVisitId = getCleanId(visitId);
+
+    let existing = { rows: [] };
+    if (validVisitId) {
+      existing = await pool.query('SELECT id FROM imaging_reports WHERE visit_id::text = $1::text OR visit_id IN (SELECT id FROM visits WHERE invoice_number = $1::text)', [validVisitId]);
+    }
+
     let result;
     if (existing.rows.length > 0) {
       result = await pool.query(
         `UPDATE imaging_reports 
          SET template_id = $1, template_name = $2, report_text = $3, impression = $4, doctor_name = $5, doctor_reg_no = $6, created_at = CURRENT_TIMESTAMP
-         WHERE visit_id::text = $7::text RETURNING *`,
-        [getCleanId(templateId), templateName, reportText || 'Opened in Word', impression || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', String(visitId)]
+         WHERE id = $7 RETURNING *`,
+        [getCleanId(templateId), templateName, reportText || 'Opened in Word', impression || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', existing.rows[0].id]
       );
     } else {
       result = await pool.query(
         `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_id, template_name, report_text, impression, doctor_name, doctor_reg_no, doctor_designation)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-        [getCleanId(visitId), getCleanId(patientId), centreId, getCleanId(templateId), templateName, reportText || 'Opened in Word', impression || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', 'Consultant Radiologist']
+        [validVisitId, getCleanId(patientId), centreId, getCleanId(templateId), templateName, reportText || 'Opened in Word', impression || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', 'Consultant Radiologist']
       );
     }
     res.status(200).json({ success: true, data: result.rows[0] });
