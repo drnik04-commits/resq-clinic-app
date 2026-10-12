@@ -616,6 +616,7 @@ async function initDB() {
         template_body TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE imaging_templates ADD COLUMN IF NOT EXISTS file_data BYTEA;
     `);
 
     await pool.query(`
@@ -2278,122 +2279,108 @@ app.delete('/api/doctors/:id', async (req, res) => {
   }
 });
 
-// TEMPLATES APIS
+// 1. GET TEMPLATES (Scoped to Active Centre + Optional Shared Defaults)
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
     const { category, search } = req.query;
-    const templates = [];
 
-    let dbQuery = 'SELECT * FROM imaging_templates WHERE 1=1';
+    let dbQuery = `
+      SELECT id, centre_id, template_name, title, category, default_impression, template_body,
+             (file_data IS NOT NULL) as has_file
+      FROM imaging_templates
+      WHERE 1=1
+    `;
     const params = [];
+
     if (centreId) {
       params.push(String(centreId));
+      // Prioritize centre-specific templates, fall back to global templates (centre_id IS NULL)
       dbQuery += ` AND (centre_id::text = $${params.length}::text OR centre_id IS NULL)`;
     }
+
     if (category && category.trim()) {
       params.push(`%${category.trim()}%`);
       dbQuery += ` AND category ILIKE $${params.length}`;
     }
+
     if (search && search.trim()) {
       params.push(`%${search.trim()}%`);
       dbQuery += ` AND (title ILIKE $${params.length} OR template_name ILIKE $${params.length})`;
     }
-    dbQuery += ' ORDER BY title ASC';
 
-    let dbRows = [];
-    if (isDbConnected) {
-      try {
-        const dbResult = await pool.query(dbQuery, params);
-        dbRows = dbResult.rows;
-      } catch (e) {}
-    }
+    // Sort: Centre-specific first, then alphabetical by title
+    dbQuery += ' ORDER BY (centre_id IS NOT NULL) DESC, title ASC';
 
-    const seenNames = new Set();
-    dbRows.forEach(t => {
-      seenNames.add(t.template_name.toLowerCase());
-      templates.push({
-        id: t.id,
-        template_name: t.template_name,
-        title: t.title,
-        category: t.category || 'Ultrasonography',
-        default_impression: t.default_impression || '',
-        template_body: t.template_body || '',
-        is_centre_specific: Boolean(t.centre_id)
-      });
-    });
+    const result = await pool.query(dbQuery, params);
+    const templates = result.rows.map(t => ({
+      id: t.id,
+      centre_id: t.centre_id,
+      template_name: t.template_name,
+      title: t.title,
+      category: t.category || 'Ultrasonography',
+      default_impression: t.default_impression || '',
+      template_body: t.template_body || '',
+      is_centre_specific: Boolean(t.centre_id)
+    }));
 
-    const searchDirs = [];
-    if (centreId) searchDirs.push({ dir: path.join(TEMPLATES_DIR, String(centreId)), isCentre: true });
-    searchDirs.push(TEMPLATES_DIR);
-
-    for (const entry of searchDirs) {
-      if (fs.existsSync(entry.dir)) {
-        const files = fs.readdirSync(entry.dir);
-        for (const f of files) {
-          const ext = path.extname(f).toLowerCase();
-          if ((ext === '.doc' || ext === '.docx') && !seenNames.has(f.toLowerCase())) {
-            const cleanTitle = path.basename(f, ext).replace(/_/g, ' ').toUpperCase();
-            let cat = 'Ultrasonography';
-            const low = f.toLowerCase();
-            if (low.includes('echo')) cat = 'Echocardiography';
-            else if (low.includes('doppler')) cat = 'Color Doppler';
-            else if (low.includes('x-ray') || low.includes('xray')) cat = 'Digital X-Ray';
-            else if (low.includes('trimester') || low.includes('anomaly') || low.includes('obstetric') || low.includes('pregnancy')) cat = 'Obstetrics';
-
-            if (category && category.trim() && !cat.toLowerCase().includes(category.toLowerCase())) continue;
-            if (search && search.trim() && !cleanTitle.toLowerCase().includes(search.toLowerCase()) && !f.toLowerCase().includes(search.toLowerCase())) continue;
-
-            seenNames.add(f.toLowerCase());
-            templates.push({
-              id: f, template_name: f, title: cleanTitle, category: cat, default_impression: '', template_body: '', is_centre_specific: entry.isCentre
-            });
-          }
-        }
-      }
-    }
     res.status(200).json({ success: true, data: templates });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
+// 2. ADD SINGLE TEMPLATE (Strictly saved to this Centre in DB)
 app.post('/api/imaging/templates/single', upload.single('templateFile'), async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
+    if (!centreId) return res.status(400).json({ success: false, error: 'Centre ID is required.' });
+
     const { title, category } = req.body;
     const file = req.file;
     if (!file) return res.status(400).json({ success: false, error: 'Please select a Word template (.docx or .doc).' });
 
-    const cleanTitle = (title && title.trim()) 
-      ? title.trim().toUpperCase() 
+    const cleanTitle = (title && title.trim())
+      ? title.trim().toUpperCase()
       : path.basename(file.originalname, path.extname(file.originalname)).replace(/_/g, ' ').toUpperCase();
-    
+
     const chosenCategory = category || 'Ultrasonography';
     const { body, impression } = extractTextFromUploadedFile(file.path);
+    const fileBuffer = fs.readFileSync(file.path);
 
-    if (isDbConnected) {
-      const existing = await pool.query(
-        `SELECT id FROM imaging_templates WHERE template_name = $1 AND (centre_id::text = $2::text OR ($2 IS NULL AND centre_id IS NULL)) LIMIT 1`,
-        [file.originalname, centreId]
+    const existing = await pool.query(
+      `SELECT id FROM imaging_templates 
+       WHERE template_name = $1 AND centre_id::text = $2::text LIMIT 1`,
+      [file.originalname, String(centreId)]
+    );
+
+    if (existing.rows.length > 0) {
+      await pool.query(
+        `UPDATE imaging_templates 
+         SET title = $1, category = $2, template_body = $3, default_impression = $4, file_data = $5 
+         WHERE id = $6`,
+        [cleanTitle, chosenCategory, body, impression, fileBuffer, existing.rows[0].id]
       );
-      if (existing.rows.length > 0) {
-        await pool.query(
-          `UPDATE imaging_templates SET title = $1, category = $2, template_body = $3, default_impression = $4 WHERE id = $5`,
-          [cleanTitle, chosenCategory, body, impression, existing.rows[0].id]
-        );
-      } else {
-        await pool.query(
-          `INSERT INTO imaging_templates (centre_id, template_name, title, category, template_body, default_impression) VALUES ($1, $2, $3, $4, $5, $6)`,
-          [centreId, file.originalname, cleanTitle, chosenCategory, body, impression]
-        );
-      }
+    } else {
+      await pool.query(
+        `INSERT INTO imaging_templates (centre_id, template_name, title, category, template_body, default_impression, file_data) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [centreId, file.originalname, cleanTitle, chosenCategory, body, impression, fileBuffer]
+      );
     }
-    res.status(200).json({ success: true, message: `Template "${cleanTitle}" added successfully!` });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+
+    res.status(200).json({ success: true, message: `Template "${cleanTitle}" saved permanently for this centre!` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
+// 3. BULK UPLOAD TEMPLATES (Strictly saved to this Centre in DB)
 app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
+    if (!centreId) return res.status(400).json({ success: false, error: 'Centre ID is required.' });
+
     const files = req.files || [];
     let count = 0;
 
@@ -2401,6 +2388,7 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
       const baseName = path.basename(f.originalname, path.extname(f.originalname));
       const cleanTitle = baseName.replace(/_/g, ' ').toUpperCase();
       const { body, impression } = extractTextFromUploadedFile(f.path);
+      const fileBuffer = fs.readFileSync(f.path);
 
       let category = 'Ultrasonography';
       const low = f.originalname.toLowerCase();
@@ -2409,81 +2397,94 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
       else if (low.includes('x-ray') || low.includes('xray')) category = 'Digital X-Ray';
       else if (low.includes('trimester') || low.includes('anomaly') || low.includes('obstetric') || low.includes('pregnancy')) category = 'Obstetrics';
 
-      if (isDbConnected) {
-        const existing = await pool.query(
-          `SELECT id FROM imaging_templates WHERE template_name = $1 AND (centre_id::text = $2::text OR ($2 IS NULL AND centre_id IS NULL)) LIMIT 1`,
-          [f.originalname, centreId]
+      const existing = await pool.query(
+        `SELECT id FROM imaging_templates 
+         WHERE template_name = $1 AND centre_id::text = $2::text LIMIT 1`,
+        [f.originalname, String(centreId)]
+      );
+
+      if (existing.rows.length > 0) {
+        await pool.query(
+          `UPDATE imaging_templates 
+           SET title = $1, category = $2, template_body = $3, default_impression = $4, file_data = $5 
+           WHERE id = $6`,
+          [cleanTitle, category, body, impression, fileBuffer, existing.rows[0].id]
         );
-        if (existing.rows.length > 0) {
-          await pool.query(
-            `UPDATE imaging_templates SET title = $1, category = $2, template_body = $3, default_impression = $4 WHERE id = $5`,
-            [cleanTitle, category, body, impression, existing.rows[0].id]
-          );
-        } else {
-          await pool.query(
-            `INSERT INTO imaging_templates (centre_id, template_name, title, category, template_body, default_impression) VALUES ($1, $2, $3, $4, $5, $6)`,
-            [centreId, f.originalname, cleanTitle, category, body, impression]
-          );
-        }
+      } else {
+        await pool.query(
+          `INSERT INTO imaging_templates (centre_id, template_name, title, category, template_body, default_impression, file_data) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [centreId, f.originalname, cleanTitle, category, body, impression, fileBuffer]
+        );
       }
       count++;
     }
-    res.status(200).json({ success: true, message: `Successfully added ${count} template(s)!` });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+
+    res.status(200).json({ success: true, message: `Successfully saved ${count} template(s) permanently for this centre!` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-app.post('/api/imaging/templates/clear-all', async (req, res) => {
-  try {
-    const centreId = getTenantCentreId(req);
-    if (isDbConnected) {
-      if (centreId) {
-        await pool.query('DELETE FROM imaging_templates WHERE centre_id::text = $1::text', [String(centreId)]);
-      } else {
-        await pool.query('DELETE FROM imaging_templates');
-      }
-    }
-    const targetDirs = [];
-    if (centreId) targetDirs.push(path.join(TEMPLATES_DIR, String(centreId)));
-    targetDirs.push(TEMPLATES_DIR);
-
-    for (const dir of targetDirs) {
-      if (fs.existsSync(dir)) {
-        const files = fs.readdirSync(dir);
-        for (const f of files) {
-          const fullPath = path.join(dir, f);
-          if (fs.lstatSync(fullPath).isFile() && (f.endsWith('.doc') || f.endsWith('.docx'))) {
-            try { fs.unlinkSync(fullPath); } catch (e) {}
-          }
-        }
-      }
-    }
-    res.status(200).json({ success: true, message: 'All old templates deleted permanently!' });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
+// 4. DELETE SINGLE TEMPLATE (Only deletes from this Centre)
 app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
     const identifier = req.params.identifier;
-    if (isDbConnected) {
-      await pool.query(
-        `DELETE FROM imaging_templates WHERE (id::text = $1 OR template_name = $1) AND (centre_id::text = $2::text OR centre_id IS NULL)`,
-        [identifier, centreId]
-      );
+
+    if (!centreId) {
+      return res.status(400).json({ success: false, error: 'Centre ID is required to delete templates.' });
     }
-    const possiblePaths = [];
-    if (centreId) possiblePaths.push(path.join(TEMPLATES_DIR, String(centreId), identifier));
-    possiblePaths.push(path.join(TEMPLATES_DIR, identifier));
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        try { fs.unlinkSync(p); } catch (e) {}
-      }
+
+    // Strictly scoped: center can ONLY delete its own template
+    const result = await pool.query(
+      `DELETE FROM imaging_templates 
+       WHERE (id::text = $1 OR template_name = $1) 
+       AND centre_id::text = $2::text RETURNING id`,
+      [identifier, String(centreId)]
+    );
+
+    // Delete local disk backup if it exists
+    const localCentrePath = path.join(TEMPLATES_DIR, String(centreId), identifier);
+    if (fs.existsSync(localCentrePath)) {
+      try { fs.unlinkSync(localCentrePath); } catch (e) {}
     }
-    res.status(200).json({ success: true, message: 'Template deleted successfully!' });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Template not found for this centre or cannot be deleted.' });
+    }
+
+    res.status(200).json({ success: true, message: 'Centre template deleted permanently!' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// CLEAN WORD DOCUMENT MERGE GENERATOR
+// 5. CLEAR ALL TEMPLATES (Only clears this Centre's templates)
+app.post('/api/imaging/templates/clear-all', async (req, res) => {
+  try {
+    const centreId = getTenantCentreId(req);
+    if (!centreId) {
+      return res.status(400).json({ success: false, error: 'Centre ID is required.' });
+    }
+
+    await pool.query('DELETE FROM imaging_templates WHERE centre_id::text = $1::text', [String(centreId)]);
+
+    const centreDir = path.join(TEMPLATES_DIR, String(centreId));
+    if (fs.existsSync(centreDir)) {
+      const files = fs.readdirSync(centreDir);
+      for (const f of files) {
+        try { fs.unlinkSync(path.join(centreDir, f)); } catch (e) {}
+      }
+    }
+
+    res.status(200).json({ success: true, message: 'All templates for this centre were deleted permanently!' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6. GENERATE DOC (Merges using Database Binary Data first)
 app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   try {
     const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm, centreId: explicitCentreId } = req.body;
@@ -2491,7 +2492,7 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
     if (!templateName) return res.status(400).json({ success: false, error: 'Template name is required' });
 
     let centreObj = null;
-    if (isDbConnected && centreId) {
+    if (centreId) {
       const cRes = await pool.query('SELECT * FROM clinic_centres WHERE id::text = $1::text', [String(centreId)]);
       if (cRes.rows.length) centreObj = cRes.rows[0];
     }
@@ -2506,26 +2507,60 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
       topMarginMm = parseInt(marginOverrideMm, 10);
     }
 
-    let targetPath = null;
+    let templateBuffer = null;
+    let ext = '.docx';
+
+    // A. Check database first (Centre-specific prioritized over global)
     if (centreId) {
-      const centreSpecific = path.join(TEMPLATES_DIR, String(centreId), templateName);
-      if (fs.existsSync(centreSpecific)) targetPath = centreSpecific;
-    }
-    if (!targetPath) {
-      const globalFile = path.join(TEMPLATES_DIR, templateName);
-      if (fs.existsSync(globalFile)) targetPath = globalFile;
-    }
-    if (!targetPath) {
-      const allFiles = fs.readdirSync(TEMPLATES_DIR);
-      const matched = allFiles.find(f => f.toLowerCase() === templateName.toLowerCase());
-      if (matched) targetPath = path.join(TEMPLATES_DIR, matched);
-    }
-
-    if (!targetPath || !fs.existsSync(targetPath)) {
-      return res.status(404).json({ success: false, error: `Template "${templateName}" not found.` });
+      const dbRes = await pool.query(
+        `SELECT file_data, template_name FROM imaging_templates 
+         WHERE (template_name = $1 OR title = $1) 
+         AND centre_id::text = $2::text 
+         AND file_data IS NOT NULL LIMIT 1`,
+        [templateName, String(centreId)]
+      );
+      if (dbRes.rows.length > 0 && dbRes.rows[0].file_data) {
+        templateBuffer = dbRes.rows[0].file_data;
+        ext = path.extname(dbRes.rows[0].template_name || '').toLowerCase() || '.docx';
+      }
     }
 
-    const ext = path.extname(targetPath).toLowerCase();
+    // B. Fallback to global database template if centre has no override
+    if (!templateBuffer) {
+      const globalDbRes = await pool.query(
+        `SELECT file_data, template_name FROM imaging_templates 
+         WHERE (template_name = $1 OR title = $1) 
+         AND centre_id IS NULL 
+         AND file_data IS NOT NULL LIMIT 1`,
+        [templateName]
+      );
+      if (globalDbRes.rows.length > 0 && globalDbRes.rows[0].file_data) {
+        templateBuffer = globalDbRes.rows[0].file_data;
+        ext = path.extname(globalDbRes.rows[0].template_name || '').toLowerCase() || '.docx';
+      }
+    }
+
+    // C. Disk Fallback (Local environment)
+    if (!templateBuffer) {
+      let targetPath = null;
+      if (centreId) {
+        const cPath = path.join(TEMPLATES_DIR, String(centreId), templateName);
+        if (fs.existsSync(cPath)) targetPath = cPath;
+      }
+      if (!targetPath) {
+        const gPath = path.join(TEMPLATES_DIR, templateName);
+        if (fs.existsSync(gPath)) targetPath = gPath;
+      }
+      if (targetPath && fs.existsSync(targetPath)) {
+        templateBuffer = fs.readFileSync(targetPath);
+        ext = path.extname(targetPath).toLowerCase();
+      }
+    }
+
+    if (!templateBuffer) {
+      return res.status(404).json({ success: false, error: `Template "${templateName}" file data not found in database for this centre.` });
+    }
+
     const ptName = (patientName || 'PATIENT NAME').toUpperCase();
     const dt = date || new Date().toLocaleDateString('en-GB');
     const ag = age ? (String(age).toUpperCase().includes('YR') ? String(age).toUpperCase() : `${age} YRS`) : 'ADULT';
@@ -2536,13 +2571,10 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
     const bottomDxa = Math.round(bottomMarginMm * 56.6929);
 
     let isZip = false;
-    try {
-      const buffer = fs.readFileSync(targetPath);
-      if (buffer[0] === 0x50 && buffer[1] === 0x4b) isZip = true;
-    } catch (e) {}
+    if (templateBuffer[0] === 0x50 && templateBuffer[1] === 0x4b) isZip = true;
 
     if (ext === '.docx' || isZip) {
-      const zip = new AdmZip(targetPath);
+      const zip = new AdmZip(templateBuffer);
       const docEntry = zip.getEntry('word/document.xml') || zip.getEntries().find(e => e.entryName.toLowerCase().includes('word/document.xml'));
       if (!docEntry) throw new Error('Invalid Word document structure: word/document.xml not found');
 
@@ -2568,11 +2600,11 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
 
       const safeName = ptName.replace(/[^a-zA-Z0-9]/g, '_');
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      res.setHeader('Content-Disposition', `attachment; filename="${path.basename(targetPath, ext)}_${safeName}.docx"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${path.basename(templateName, ext)}_${safeName}.docx"`);
       return res.send(outputBuffer);
     }
 
-    let binaryData = fs.readFileSync(targetPath, 'binary');
+    let binaryData = templateBuffer.toString('binary');
     if (binaryData.includes('<*NAME1*>') || binaryData.includes('{{NAME}}') || binaryData.includes('{{PATIENT_NAME}}')) {
       binaryData = binaryData
         .replace(/<\*NAME1\*>/g, ptName)
@@ -2599,38 +2631,45 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
 
     const safeName = ptName.replace(/[^a-zA-Z0-9]/g, '_');
     res.setHeader('Content-Type', 'application/msword');
-    res.setHeader('Content-Disposition', `attachment; filename="${path.basename(targetPath, ext)}_${safeName}.doc"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${path.basename(templateName, ext)}_${safeName}.doc"`);
     res.send(Buffer.from(binaryData, 'binary'));
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
+// 7. BULK DOWNLOAD (Generates ZIP directly from Centre's Database Records)
 app.get('/api/imaging/templates/bulk-download', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
     const zip = new AdmZip();
-    const searchDirs = [];
-    if (centreId) searchDirs.push(path.join(TEMPLATES_DIR, String(centreId)));
-    searchDirs.push(TEMPLATES_DIR);
 
-    let count = 0;
-    const seen = new Set();
-    for (const dir of searchDirs) {
-      if (fs.existsSync(dir)) {
-        const files = fs.readdirSync(dir);
-        for (const f of files) {
-          if (!seen.has(f.toLowerCase()) && (f.endsWith('.doc') || f.endsWith('.docx'))) {
-            seen.add(f.toLowerCase());
-            zip.addLocalFile(path.join(dir, f));
-            count++;
-          }
-        }
+    let query = 'SELECT template_name, file_data FROM imaging_templates WHERE file_data IS NOT NULL';
+    const params = [];
+    if (centreId) {
+      params.push(String(centreId));
+      query += ` AND (centre_id::text = $1::text OR centre_id IS NULL)`;
+    }
+
+    const result = await pool.query(query, params);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'No templates with file data found for this centre.' });
+    }
+
+    const added = new Set();
+    for (const row of result.rows) {
+      if (!added.has(row.template_name.toLowerCase())) {
+        added.add(row.template_name.toLowerCase());
+        zip.addFile(row.template_name, row.file_data);
       }
     }
-    if (count === 0) return res.status(404).json({ success: false, error: 'No templates found.' });
+
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="Templates_${centreId || 'Export'}.zip"`);
     res.send(zip.toBuffer());
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.post('/api/imaging/reports', async (req, res) => {
@@ -3113,9 +3152,9 @@ app.post('/api/sync/cloud', async (req, res) => {
 
     const templates = await localClient.query('SELECT * FROM imaging_templates');
     await bulkInsert(cloudClient, 'imaging_templates', [
-      'id', 'centre_id', 'template_name', 'title', 'category', 'default_impression', 'template_body'
-    ], templates.rows, 50, `ON CONFLICT (id) DO UPDATE 
-      SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body`);
+      'id', 'centre_id', 'template_name', 'title', 'category', 'default_impression', 'template_body', 'file_data'
+    ], templates.rows, 10, `ON CONFLICT (id) DO UPDATE 
+      SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body, file_data = EXCLUDED.file_data`);
 
     // 8. Clinical Reports Sync
     const reports = await localClient.query('SELECT * FROM imaging_reports');

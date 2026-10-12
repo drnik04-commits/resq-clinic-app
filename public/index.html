@@ -3285,7 +3285,7 @@
                 btnDel.innerHTML = '🗑️';
                 btnDel.title = 'Delete Template';
                 btnDel.style.cssText = 'border:none; background:transparent; cursor:pointer; font-size:0.85rem; color:#dc3545;';
-                btnDel.onclick = (e) => { e.stopPropagation(); deleteTemplate(tmpl.template_name); };
+                btnDel.onclick = (e) => { e.stopPropagation(); deleteTemplate(tmpl.id ||tmpl.template_name); };
 
                 actionsDiv.appendChild(btnEdit);
                 actionsDiv.appendChild(btnDel);
