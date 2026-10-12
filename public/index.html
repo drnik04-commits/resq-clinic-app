@@ -522,6 +522,16 @@
                     </div>
                 </div>
 
+                <div id="repCategorySection" style="margin-bottom: 16px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-size: 0.88rem; font-weight: 800; color: #1e3a8a;">📊 Modality / Category-wise Revenue Bifurcation</span>
+                        <span id="repCategoryGrandTotalBadge" style="font-size: 0.8rem; font-weight: bold; background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px;">Total: ₹0.00</span>
+                    </div>
+                    <div id="repCategoryGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px;">
+                        <!-- Dynamic Category Cards Inserted Here -->
+                    </div>
+                </div>
+
                 <table>
                     <thead>
                         <tr>
@@ -2371,6 +2381,52 @@
                 document.getElementById('repOnlineTotal').textContent = `₹${onlineTotal.toFixed(2)}`;
                 document.getElementById('repGrandTotal').textContent = `₹${grandTotal.toFixed(2)}`;
                 document.getElementById('repPendingTotal').textContent = `₹${pendingTotal.toFixed(2)}`;
+
+                const catGrid = document.getElementById('repCategoryGrid');
+                const catGrandBadge = document.getElementById('repCategoryGrandTotalBadge');
+                const categories = json.categoryBifurcation || [];
+
+                if (catGrid) {
+                   catGrid.innerHTML = '';
+                   let catBifurcationSum = 0;
+                   categories.forEach(c => { catBifurcationSum += parseFloat(c.category_total || 0); });
+
+                   if (catGrandBadge) {
+                       catGrandBadge.textContent = `Billed Across Modalities: ₹${catBifurcationSum.toFixed(2)}`;
+                   }
+
+                   if (!categories.length) {
+                       catGrid.innerHTML = '<div style="color:#64748b; font-size:0.82rem; grid-column: 1 / -1; padding: 6px;">No modality data recorded for current filter range.</div>';
+                   } else {
+                       const catIcons = {
+                           'Imaging': '🩻',
+                           'Ultrasonography': '📡',
+                           'Obstetrics': '👶',
+                           'Cardiology': '❤️',
+                           'Pathology': '🔬',
+                           'Consulting': '🩺'
+                       };
+
+                       categories.forEach(c => {
+                           const catName = c.category || 'General';
+                           const icon = catIcons[catName] || '📋';
+                           const total = parseFloat(c.category_total || 0);
+                           const count = parseInt(c.test_count || 0, 10);
+                           const percent = catBifurcationSum > 0 ? ((total / catBifurcationSum) * 100).toFixed(1) : 0;
+
+                           catGrid.innerHTML += `
+                              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;">
+                                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                                      <strong style="color: #0f172a; font-size: 0.85rem;">${icon} ${catName}</strong>
+                                      <span style="font-size: 0.72rem; font-weight: bold; background: #e2e8f0; color: #475569; padding: 1px 6px; border-radius: 3px;">${percent}%</span>
+                                  </div>
+                                  <div style="font-size: 1.15rem; font-weight: 800; color: #1e40af;">₹${total.toFixed(2)}</div>
+                                  <div style="font-size: 0.75rem; color: #64748b;">${count} study/test(s) performed</div>
+                              </div>
+                           `;
+                       });
+                    }
+                } 
 
                 const tbody = document.getElementById('reportsTableBody');
                 tbody.innerHTML = '';

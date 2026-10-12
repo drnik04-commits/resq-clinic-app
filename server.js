@@ -2460,7 +2460,47 @@ app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   }
 });
 
-// 5. CLEAR ALL TEMPLATES (Only clears this Centre's templates)
+// 5. EDIT / UPDATE EXISTING TEMPLATE TITLE OR CATEGORY
+app.put('/api/imaging/templates/:identifier', async (req, res) => {
+  try {
+    const centreId = getTenantCentreId(req);
+    const identifier = decodeURIComponent(req.params.identifier);
+    const { title, category } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, error: 'Template title cannot be empty.' });
+    }
+
+    const cleanTitle = title.trim().toUpperCase();
+    const cleanCat = category || 'Ultrasonography';
+
+    let query = `
+      UPDATE imaging_templates 
+      SET title = $1, category = $2 
+      WHERE (id::text = $3 OR template_name = $3)
+    `;
+    const params = [cleanTitle, cleanCat, identifier];
+
+    if (centreId) {
+      params.push(String(centreId));
+      query += ` AND (centre_id::text = $4::text OR centre_id IS NULL)`;
+    }
+
+    query += ` RETURNING *`;
+
+    const result = await pool.query(query, params);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Template not found or cannot be modified for this centre.' });
+    }
+
+    res.status(200).json({ success: true, message: 'Template updated successfully!', data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6. CLEAR ALL TEMPLATES (Only clears this Centre's templates)
 app.post('/api/imaging/templates/clear-all', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2484,7 +2524,7 @@ app.post('/api/imaging/templates/clear-all', async (req, res) => {
   }
 });
 
-// 6. GENERATE DOC (Merges using Database Binary Data first)
+// 7. GENERATE DOC (Merges using Database Binary Data first)
 app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   try {
     const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm, centreId: explicitCentreId } = req.body;
@@ -2638,7 +2678,7 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   }
 });
 
-// 7. BULK DOWNLOAD (Generates ZIP directly from Centre's Database Records)
+// 8. BULK DOWNLOAD (Generates ZIP directly from Centre's Database Records)
 app.get('/api/imaging/templates/bulk-download', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2763,6 +2803,53 @@ app.get('/api/reports/collection', async (req, res) => {
 
     query += ` ORDER BY v.created_at DESC LIMIT 500`;
     const result = await pool.query(query, params);
+
+    // Compute Category Bifurcation using the same filter constraints
+    let catQuery = `
+      SELECT 
+        COALESCE(NULLIF(TRIM(tm.category), ''), 'General / Direct') as category,
+        COUNT(pi.id) as test_count,
+        COALESCE(SUM(pi.price), 0)::numeric(10,2) as category_total
+      FROM patient_investigations pi
+      JOIN visits v ON pi.visit_id = v.id
+      JOIN patients p ON v.patient_id = p.id
+      LEFT JOIN test_master tm ON pi.test_id = tm.id
+      WHERE 1=1
+    `;
+    let catParams = [];
+    if (centreId) {
+      catParams.push(String(centreId));
+      catQuery += ` AND (v.centre_id::text = $${catParams.length}::text OR v.centre_id IS NULL)`;
+    }
+    if (pendingOnly === 'true' || pendingOnly === true) {
+      catQuery += ` AND v.balance_amount > 0`;
+    }
+    if (startDate && startDate.trim()) {
+      catParams.push(startDate.trim());
+      catQuery += ` AND v.created_at::date >= $${catParams.length}::date`;
+    }
+    if (endDate && endDate.trim()) {
+      catParams.push(endDate.trim());
+      catQuery += ` AND v.created_at::date <= $${catParams.length}::date`;
+    }
+    if (month && month.trim() && !startDate && !endDate) {
+      catParams.push(`${month.trim()}%`);
+      catQuery += ` AND TO_CHAR(v.created_at, 'YYYY-MM') LIKE $${catParams.length}`;
+    }
+    if (patientName && patientName.trim()) {
+      catParams.push(`%${patientName.trim()}%`);
+      catQuery += ` AND (p.full_name ILIKE $${catParams.length} OR p.phone ILIKE $${catParams.length} OR v.invoice_number ILIKE $${catParams.length})`;
+    }
+    catQuery += ` GROUP BY COALESCE(NULLIF(TRIM(tm.category), ''), 'General / Direct') ORDER BY category_total DESC`;
+    
+    let catRows = [];
+    try {
+      const catRes = await pool.query(catQuery, catParams);
+      catRows = catRes.rows;
+    } catch (e) {
+      console.error('catQuery error:', e.message);
+    }
+
     let grossTotal = 0, totalCollection = 0, totalPending = 0;
     result.rows.forEach(r => {
       grossTotal += parseFloat(r.total_amount || 0);
@@ -2773,7 +2860,8 @@ app.get('/api/reports/collection', async (req, res) => {
     res.status(200).json({
       success: true,
       data: result.rows,
-      summary: { totalCollection, totalPending, grossTotal, recordCount: result.rows.length }
+      summary: { totalCollection, totalPending, grossTotal, recordCount: result.rows.length },
+      categoryBifurcation: catRows
     });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
