@@ -53,6 +53,70 @@ function escapeXml(unsafe) {
     .replace(/'/g, '&apos;');
 }
 
+function decodeXmlEntities(str) {
+  return String(str || '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
+}
+
+// Sanitizes text for PDFKit standard Helvetica (WinAnsi encoding) while preserving ~, -, etc.
+function sanitizeForPdfKit(str) {
+  return String(str || '')
+    .replace(/[\u223C\u223D\uFF5E\u02DC\u2053]/g, '~') // All Unicode tilde variants -> standard ASCII ~
+    .replace(/[\u2013\u2014\u2212]/g, '-')              // En-dash / Em-dash / Minus -> standard ASCII -
+    .replace(/[\u2018\u2019]/g, "'")                    // Smart single quotes
+    .replace(/[\u201C\u201D]/g, '"')                    // Smart double quotes
+    .replace(/\u20B9/g, 'Rs. ')                         // Indian Rupee symbol -> Rs. (Helvetica safe)
+    .replace(/\u00A0/g, ' ');                           // Non-breaking space -> standard space
+}
+
+// Helper to convert a Word XML paragraph/cell block into text with **bold** markers preserved
+function parseWordParagraphXml(pXml) {
+  let result = '';
+  const tokenRegex = /<w:r\b[^>]*>([\s\S]*?)<\/w:r>|<w:tab[^>]*\/>|<w:br[^>]*\/>/gi;
+  let match;
+  while ((match = tokenRegex.exec(pXml)) !== null) {
+    const fullMatch = match[0];
+    if (/^<w:tab/i.test(fullMatch)) {
+      result += '\t';
+    } else if (/^<w:br/i.test(fullMatch)) {
+      result += '\n';
+    } else {
+      const rInner = match[1] || '';
+      const rPrMatch = rInner.match(/<w:rPr\b[^>]*>([\s\S]*?)<\/w:rPr>/i);
+      let isBold = false;
+      if (rPrMatch) {
+        const rPr = rPrMatch[1];
+        if (/<w:b\b(?![^>]*w:val\s*=\s*["']?(?:false|0|none)["']?)/i.test(rPr)) {
+          isBold = true;
+        }
+      }
+      let runText = '';
+      const innerTokens = rInner.match(/<w:t\b[^>]*>[\s\S]*?<\/w:t>|<w:tab[^>]*\/>|<w:br[^>]*\/>/gi) || [];
+      for (const tk of innerTokens) {
+        if (/^<w:tab/i.test(tk)) runText += '\t';
+        else if (/^<w:br/i.test(tk)) runText += '\n';
+        else runText += decodeXmlEntities(tk.replace(/<[^>]+>/g, ''));
+      }
+      if (runText) {
+        if (isBold && runText.trim().length > 0) {
+          result += `**${runText}**`;
+        } else {
+          result += runText;
+        }
+      }
+    }
+  }
+  // Merge adjacent bold runs like **KIDNEYS ** + **:-** -> **KIDNEYS :-**
+  result = result.replace(/\*\*(\s*)\*\*/g, '$1');
+  return sanitizeForPdfKit(result);
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const centreId = getTenantCentreId(req);
@@ -187,7 +251,7 @@ const FALLBACK_CENTRES = [
 const generateBarcode = () => `BC-${Date.now()}-${Math.floor(100000 + Math.random() * 900000)}`;
 const generateInvoiceNumber = () => `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// REVISED TEXT, TABLE & SIGNATURE EXTRACTOR
+// REVISED TEXT, EXACT WORD BOLD (**...**), TABLE & SIGNATURE EXTRACTOR
 function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDoctorName = '') {
   if (!fs.existsSync(filePath)) return { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '', signatureFile: null };
   try {
@@ -217,38 +281,35 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
         if (docXmlEntry) {
           let xml = docXmlEntry.getData().toString('utf-8');
 
-          // Keep table rows unified horizontally across columns
+          // Keep table rows unified horizontally across columns while preserving bold
           xml = xml.replace(/<w:tr\b[\s\S]*?<\/w:tr>/gi, (trXml) => {
             const cellMatches = trXml.match(/<w:tc\b[\s\S]*?<\/w:tc>/gi) || [];
             const cells = [];
             for (const tc of cellMatches) {
-              const cellText = tc
-                .replace(/<w:tab[^>]*\/>/gi, ' ')
-                .replace(/<w:br[^>]*\/>/gi, ' ')
-                .replace(/<[^>]+>/g, '')
-                .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
-                .replace(/\s+/g, ' ')
-                .trim();
+              const pMatches = tc.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/gi) || [tc];
+              const cellParas = pMatches
+                .map(p => parseWordParagraphXml(p).replace(/\s+/g, ' ').trim())
+                .filter(Boolean);
+              const cellText = cellParas.join(' ');
               if (cellText) cells.push(cellText);
             }
             if (cells.length === 0) return '';
-            return cells.join('   |   ') + '\n';
+            return `<w:p><w:r><w:t>${escapeXml(cells.join('   |   '))}</w:t></w:r></w:p>\n`;
           });
 
-          const formatted = xml
-            .replace(/<\/w:p>/gi, '\n')
-            .replace(/<w:tab[^>]*\/>/gi, '\t')
-            .replace(/<w:br[^>]*\/>/gi, '\n');
-
-          textContent = formatted
-            .replace(/<[^>]+>/g, '')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&amp;/g, '&')
-            .replace(/&quot;/g, '"')
-            .replace(/&apos;/g, "'");
+          const paraMatches = xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/gi) || [];
+          const extractedParas = [];
+          for (const pXml of paraMatches) {
+            const pText = parseWordParagraphXml(pXml);
+            if (pText.trim().length > 0) {
+              extractedParas.push(pText);
+            }
+          }
+          textContent = extractedParas.join('\n');
         }
-      } catch (ze) {}
+      } catch (ze) {
+        console.error('DOCX XML parse error:', ze.message);
+      }
     }
 
     if (!textContent || textContent.trim().length === 0) {
@@ -269,7 +330,7 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
       for (const run of asciiRuns) {
         if (/^(bjbj|theme|\[Content_Types\]|_rels|Microsoft|Normal\.dot|DocumentSummaryInformation|CompObj)/i.test(run)) continue;
         if (/^<\?xml|<a:clrMap|<w:|<m:|<\/|<b:/i.test(run)) continue;
-        if (run.length >= 2) cleanLines.push(run);
+        if (run.length >= 2) cleanLines.push(sanitizeForPdfKit(run));
       }
       textContent = cleanLines.join('\n');
     }
@@ -277,7 +338,7 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
     const lines = textContent
       .split('\n')
       .map(l => l.trim())
-      .filter(l => l.length > 0);
+      .filter(l => l.replace(/\*\*/g, '').trim().length > 0);
 
     const normPtName = knownPatientName.trim().toLowerCase().replace(/^(mr|mrs|ms|mast|dr)\.?\s+/i, '');
     const normDocName = knownDoctorName.trim().toLowerCase().replace(/^(dr|doctor)\.?\s+/i, '');
@@ -285,7 +346,8 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
 
     let headerPassed = false;
     for (const line of lines) {
-      const lower = line.toLowerCase();
+      const plainLine = line.replace(/\*\*/g, '').trim();
+      const lower = plainLine.toLowerCase();
 
       // Filter out repeated patient names from page-break headers
       if (normPtName && normPtName.length >= 3) {
@@ -297,11 +359,11 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
       if (!headerPassed) {
         if (normPtName && normPtName.length >= 3 && lower.includes(normPtName)) continue;
         if (normDocName && normDocName.length >= 3 && lower.includes(normDocName)) continue;
-        if (/^(NAME|DATE|AGE|SEX|GENDER|REF\.?\s*BY|REFERRING|PATIENT|IPD|OPD|UHID|REG\.?\s*NO)\b/i.test(line)) continue;
-        if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(line)) continue;
-        if (/^\d{1,3}\s*(YRS?|YEARS?|Y|MONTHS?|DAYS?)?(\s*[\/|]\s*(M|F|MALE|FEMALE))?$/i.test(line)) continue;
-        if (/^(MALE|FEMALE|OTHER|M|F)$/i.test(line)) continue;
-        if (/^[|\t\s\-_=]+$/.test(line)) continue;
+        if (/^(NAME|DATE|AGE|SEX|GENDER|REF\.?\s*BY|REFERRING|PATIENT|IPD|OPD|UHID|REG\.?\s*NO)\b/i.test(plainLine)) continue;
+        if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(plainLine)) continue;
+        if (/^\d{1,3}\s*(YRS?|YEARS?|Y|MONTHS?|DAYS?)?(\s*[\/|]\s*(M|F|MALE|FEMALE))?$/i.test(plainLine)) continue;
+        if (/^(MALE|FEMALE|OTHER|M|F)$/i.test(plainLine)) continue;
+        if (/^[|\t\s\-_=]+$/.test(plainLine)) continue;
         headerPassed = true;
       }
       contentLines.push(line);
@@ -309,29 +371,29 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
 
     let joined = contentLines.join('\n').trim();
 
-    // Strip doctor signature lines from findings text
+    // Strip doctor signature lines from findings text (handles **bold** markers too)
     const stripDocSign = (str) => {
       return str
-        .replace(/(?:\n|^)\s*(?:DR\.?|DR\s)[\s\S]*?(?:CONSULTANT|RADIOLOGIST|SONOLOGIST|PATHOLOGIST|MBBS|MD|DMRD|DNB)[\s\S]*$/i, '')
-        .replace(/(?:\n|^)\s*(?:DR\.?|DR\s)\s*[A-Z\s.]+\s*$/i, '')
-        .replace(/(?:\n|^)\s*(?:CONSULTANT\s+RADIOLOGIST|RADIOLOGIST|SONOLOGIST)[\s\S]*$/i, '')
+        .replace(/(?:\n|^)\s*(?:\*\*)?\s*(?:DR\.?|DR\s)[\s\S]*?(?:CONSULTANT|RADIOLOGIST|SONOLOGIST|PATHOLOGIST|MBBS|MD|DMRD|DNB)[\s\S]*$/i, '')
+        .replace(/(?:\n|^)\s*(?:\*\*)?\s*(?:DR\.?|DR\s)\s*[A-Z\s.*]+\s*$/i, '')
+        .replace(/(?:\n|^)\s*(?:\*\*)?\s*(?:CONSULTANT\s+RADIOLOGIST|RADIOLOGIST|SONOLOGIST)[\s\S]*$/i, '')
         .trim();
     };
 
     // Strip statutory sex-disclosure declarations from Impression
     const stripStatutoryDeclaration = (str) => {
       return str
-        .replace(/(?:^|\n)\s*I\s*,?\s*Dr\.?[\s\S]*?(?:detected\s+nor\s+disclosed|sex\s+of\s+(?:the\s+)?(?:foetus|fetus))[\s\S]*?$/i, '')
+        .replace(/(?:^|\n)\s*(?:\*\*)?\s*I\s*,?\s*Dr\.?[\s\S]*?(?:detected\s+nor\s+disclosed|sex\s+of\s+(?:the\s+)?(?:foetus|fetus))[\s\S]*?$/i, '')
         .trim();
     };
 
     let impression = '';
     let body = joined;
 
-    const impRegex = /(?:^|\n)\s*(?:IMPRESSION|CONCLUSION|OPINION|REMARKS|FINAL\s+OPINION)\s*[:-]?\s*([\s\S]*)$/i;
+    const impRegex = /(?:^|\n)\s*(?:\*\*)?\s*(?:IMPRESSION|CONCLUSION|OPINION|REMARKS|FINAL\s+OPINION)\s*(?:\*\*)?\s*[:\-–]*\s*(?:\*\*)?\s*([\s\S]*)$/i;
     const match = joined.match(impRegex);
     if (match) {
-      impression = stripStatutoryDeclaration(stripDocSign(match[1].trim()));
+      impression = stripStatutoryDeclaration(stripDocSign(match[1].replace(/\*\*/g, '').trim()));
       body = stripStatutoryDeclaration(stripDocSign(joined.substring(0, match.index).trim()));
     } else {
       body = stripStatutoryDeclaration(stripDocSign(joined));
@@ -344,26 +406,136 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
     const bodyLines = body.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
     for (let i = 0; i < Math.min(bodyLines.length, 5); i++) {
-      const candidate = bodyLines[i];
-      if (candidate.length <= 95 && studyKeywordPattern.test(candidate) && (!sentenceStarters.test(candidate) || /^(X-RAY|USG|CT|MRI|ECHO|DOPPLER)\b/i.test(candidate))) {
-        title = candidate.replace(/^TITLE\s*[:-]?\s*/i, '').trim().toUpperCase();
+      const candidatePlain = bodyLines[i].replace(/\*\*/g, '').trim();
+      if (candidatePlain.length <= 95 && studyKeywordPattern.test(candidatePlain) && (!sentenceStarters.test(candidatePlain) || /^(X-RAY|USG|CT|MRI|ECHO|DOPPLER|SONOGRAPHY)\b/i.test(candidatePlain))) {
+        title = candidatePlain.replace(/^TITLE\s*[:-]?\s*/i, '').trim().toUpperCase();
         bodyLines.splice(i, 1);
         body = bodyLines.join('\n').trim();
         break;
       }
     }
 
-    body = body.replace(/^(FINDINGS|OBSERVATIONS)\s*[:-]?\s*/i, '').trim();
+    body = body.replace(/^(?:\*\*)?\s*(FINDINGS|OBSERVATIONS)\s*(?:\*\*)?\s*[:-]?\s*/i, '').trim();
 
     return {
-      title: title || 'DIAGNOSTIC IMAGING REPORT',
-      body: body || 'Study completed within normal parameters.',
-      impression: impression,
+      title: sanitizeForPdfKit(title || 'DIAGNOSTIC IMAGING REPORT'),
+      body: sanitizeForPdfKit(body || 'Study completed within normal parameters.'),
+      impression: sanitizeForPdfKit(impression),
       signatureFile: extractedSignature
     };
   } catch (err) {
     return { title: 'DIAGNOSTIC IMAGING REPORT', body: 'Study completed.', impression: '', signatureFile: null };
   }
+}
+
+// Renders a single paragraph in PDFKit, honoring **bold** inline segments OR organ heading prefixes (e.g. "KIDNEYS :-")
+function renderFormattedPdfLine(doc, rawLine, startX, width) {
+  const cleanLine = sanitizeForPdfKit(rawLine);
+
+  // Case 1: Line contains explicit **bold** markers from Word extraction or Report Studio
+  if (cleanLine.includes('**')) {
+    const parts = cleanLine.split(/(\*\*[\s\S]*?\*\*)/g).filter(p => p.length > 0);
+    if (parts.length === 0) return;
+
+    doc.x = startX;
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const isLast = (i === parts.length - 1);
+      const isBold = part.startsWith('**') && part.endsWith('**') && part.length >= 4;
+      const textSegment = isBold ? part.slice(2, -2) : part;
+
+      if (!textSegment) continue;
+      doc.font(isBold ? 'Helvetica-Bold' : 'Helvetica')
+         .text(textSegment, i === 0 ? startX : undefined, i === 0 ? doc.y : undefined, {
+           width: width,
+           lineGap: 2.5,
+           align: 'left',
+           continued: !isLast
+         });
+    }
+    doc.font('Helvetica');
+    return;
+  }
+
+  // Case 2: Table Header Row
+  if (cleanLine.includes('|') && /^(VESSELS|PARAMETER|INVESTIGATION|SITE|ORGAN)\b/i.test(cleanLine)) {
+    doc.moveDown(0.2);
+    doc.font('Helvetica-Bold').text(cleanLine, startX, doc.y, { width: width, lineGap: 2.5, align: 'left' });
+    doc.font('Helvetica');
+    return;
+  }
+
+  // Case 3: Plain text line starting with an Organ / Section Label (e.g. "KIDNEYS :- Both kidneys are...")
+  const labelMatch = cleanLine.match(/^([A-Z][A-Z0-9\s/()&-]{1,32}?\s*:\s*-?\s*)(.*)$/);
+  if (labelMatch && !cleanLine.includes('|')) {
+    const labelPart = labelMatch[1];
+    const restPart = labelMatch[2];
+    doc.moveDown(0.15);
+    if (restPart && restPart.trim().length > 0) {
+      doc.font('Helvetica-Bold').text(labelPart, startX, doc.y, {
+        width: width,
+        lineGap: 2.5,
+        align: 'left',
+        continued: true
+      });
+      doc.font('Helvetica').text(restPart, {
+        width: width,
+        lineGap: 2.5,
+        align: 'left',
+        continued: false
+      });
+    } else {
+      doc.font('Helvetica-Bold').text(labelPart, startX, doc.y, { width: width, lineGap: 2.5, align: 'left' });
+      doc.font('Helvetica');
+    }
+    return;
+  }
+
+  // Case 4: Standard normal finding sentence
+  doc.font('Helvetica').text(cleanLine, startX, doc.y, { width: width, lineGap: 2.5, align: 'left' });
+}
+
+// Helper to resolve Radiologist Signature across radiologists table & historical imaging_reports
+async function resolveDoctorSignature(doctorName, centreId) {
+  if (!isDbConnected) return null;
+  try {
+    const cleanTarget = (doctorName || 'NIKUNJ KOTHIA')
+      .toLowerCase()
+      .replace(/^(dr|doctor)\.?\s*/i, '')
+      .replace(/[^a-z0-9]/g, '');
+
+    // 1. Check radiologists table matching normalized name
+    const radRes = await pool.query(
+      `SELECT signature_file, designation, reg_no 
+       FROM radiologists 
+       WHERE signature_file IS NOT NULL AND signature_file != ''
+       ORDER BY (centre_id::text = $1::text) DESC, is_global DESC, created_at DESC`,
+      [String(centreId || '')]
+    );
+
+    if (radRes.rows.length > 0) {
+      const exactMatch = radRes.rows.find(r => {
+        const normDb = (r.doctor_name || '').toLowerCase().replace(/^(dr|doctor)\.?\s*/i, '').replace(/[^a-z0-9]/g, '');
+        return normDb && (normDb.includes(cleanTarget) || cleanTarget.includes(normDb));
+      });
+      if (exactMatch) return exactMatch;
+      return radRes.rows[0];
+    }
+
+    // 2. Fallback: Check if any existing imaging_reports row already has an extracted signature saved
+    const repSigRes = await pool.query(
+      `SELECT signature_file, doctor_designation as designation, doctor_reg_no as reg_no 
+       FROM imaging_reports 
+       WHERE signature_file IS NOT NULL AND signature_file != '' 
+       ORDER BY created_at DESC LIMIT 1`
+    );
+    if (repSigRes.rows.length > 0) {
+      return repSigRes.rows[0];
+    }
+  } catch (e) {
+    console.error('resolveDoctorSignature error:', e.message);
+  }
+  return null;
 }
 
 async function dispatchSMS(phone, message) {
@@ -1232,8 +1404,13 @@ app.post('/api/visits/:id/upload-report', upload.single('reportFile'), async (re
     let parsed = { title: 'DIAGNOSTIC IMAGING REPORT', body: '', impression: '', signatureFile: null };
     if (ext === '.docx' || ext === '.doc') {
       parsed = extractTextFromUploadedFile(req.file.path, vRow.full_name || '', vRow.ref_doctor_name || '');
-      const existingRep = await pool.query('SELECT id, signature_file FROM imaging_reports WHERE visit_id = $1', [vRow.id]);
-      const finalSig = parsed.signatureFile || existingRep.rows[0]?.signature_file || null;
+      const existingRep = await pool.query('SELECT id, signature_file, doctor_name FROM imaging_reports WHERE visit_id = $1', [vRow.id]);
+      let finalSig = parsed.signatureFile || existingRep.rows[0]?.signature_file || null;
+
+      if (!finalSig) {
+        const resolved = await resolveDoctorSignature(existingRep.rows[0]?.doctor_name || 'Dr NIKUNJ KOTHIA', vRow.centre_id);
+        if (resolved?.signature_file) finalSig = resolved.signature_file;
+      }
 
       if (existingRep.rows.length > 0) {
         await pool.query(
@@ -1432,7 +1609,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     const validDoctorId = getCleanId(referringDoctorId);
     let docInfo = null;
     if (validDoctorId) {
-      const docRes = await client.query('SELECT commission_type, commission_value FROM referring_doctors WHERE id::text = $1::text', [validDoctorId]);
+      const docRes = await client.query('SELECT doctor_name, commission_type, commission_value FROM referring_doctors WHERE id::text = $1::text', [validDoctorId]);
       if (docRes.rows.length > 0) docInfo = docRes.rows[0];
     }
 
@@ -1445,6 +1622,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
     }
 
     const invoiceNum = generateInvoiceNumber();
+    const uploadedRelPath = req.file ? req.file.path.replace(/\\/g, '/') : null;
 
     const visitRes = await client.query(
       `INSERT INTO visits (
@@ -1452,7 +1630,7 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
         balance_amount, payment_status, payment_mode, cash_amount, online_amount, bill_printed,
         invoice_number, doctor_commission, report_file
        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, $12, $13, $14) RETURNING id`,
-      [finalCentreId, patientId, validDoctorId, grossTotal, disc, paid, balance, payStatus, paymentMode || 'Cash', parsedCash, parsedOnline, invoiceNum, totalCommission, req.file ? req.file.path.replace(/\\/g, '/') : null]
+      [finalCentreId, patientId, validDoctorId, grossTotal, disc, paid, balance, payStatus, paymentMode || 'Cash', parsedCash, parsedOnline, invoiceNum, totalCommission, uploadedRelPath]
     );
     const visitId = visitRes.rows[0].id;
 
@@ -1462,6 +1640,24 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
         `INSERT INTO patient_investigations (visit_id, test_id, barcode, price, cut_type, test_cut) VALUES ($1, $2, $3, $4, $5, $6)`,
         [visitId, getCleanId(t.id), generateBarcode(), parseFloat(t.price) || 0, t.cut_type || 'percentage', cutVal]
       );
+    }
+
+    // Automatically parse & store report into imaging_reports if a Word file was attached during registration
+    if (req.file) {
+      const ext = path.extname(req.file.originalname).toLowerCase();
+      if (ext === '.docx' || ext === '.doc') {
+        const parsed = extractTextFromUploadedFile(req.file.path, fullName.trim(), docInfo?.doctor_name || '');
+        let finalSig = parsed.signatureFile || null;
+        if (!finalSig) {
+          const resolved = await resolveDoctorSignature(doctorName || 'Dr NIKUNJ KOTHIA', finalCentreId);
+          if (resolved?.signature_file) finalSig = resolved.signature_file;
+        }
+        await client.query(
+          `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no, doctor_designation, signature_file)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [visitId, patientId, finalCentreId, parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body || 'Study completed.', parsed.impression || '', doctorName || 'Dr NIKUNJ KOTHIA', doctorRegNo || '2009/09/3218', 'Consultant Radiologist', finalSig]
+        );
+      }
     }
 
     if (String(isPcpndt) === 'true') {
@@ -1569,10 +1765,10 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     doc.pipe(res);
 
     if (withLetterhead) {
-      doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', 40, doc.y, { width: 515, align: 'center' });
-      if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(v.centre_tagline, 40, doc.y, { width: 515, align: 'center' });
-      doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`Phone / Contact: ${v.centre_phone || '+91 8433838285'}`, 40, doc.y, { width: 515, align: 'center' });
-      doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, 40, doc.y, { width: 515, align: 'center' });
+      doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a').text(sanitizeForPdfKit(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE'), 40, doc.y, { width: 515, align: 'center' });
+      if (v.centre_tagline) doc.fontSize(8.5).font('Helvetica').fillColor('#555555').text(sanitizeForPdfKit(v.centre_tagline), 40, doc.y, { width: 515, align: 'center' });
+      doc.fontSize(9).font('Helvetica-Bold').fillColor('#b91c1c').text(`Phone / Contact: ${sanitizeForPdfKit(v.centre_phone || '+91 8433838285')}`, 40, doc.y, { width: 515, align: 'center' });
+      doc.fontSize(8).font('Helvetica').fillColor('#333333').text(`${sanitizeForPdfKit(v.centre_address || 'Kandivali West, Mumbai')} | Reg: ${sanitizeForPdfKit(v.centre_reg_no || 'RC197')}`, 40, doc.y, { width: 515, align: 'center' });
       doc.moveDown(0.5);
       doc.strokeColor('#cccccc').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
       doc.moveDown(0.8);
@@ -1582,13 +1778,13 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
 
     const metaTop = doc.y;
     doc.fontSize(9).font('Helvetica-Bold').fillColor('#000000');
-    doc.text(`Patient Name: `, 40, metaTop, { continued: true }).font('Helvetica').text(v.full_name);
+    doc.text(`Patient Name: `, 40, metaTop, { continued: true }).font('Helvetica').text(sanitizeForPdfKit(v.full_name));
     doc.font('Helvetica-Bold').text(`Age / Gender: `, 40, doc.y + 2, { continued: true }).font('Helvetica').text(`${v.age || 0} Yrs / ${v.gender || 'N/A'}`);
-    doc.font('Helvetica-Bold').text(`Address: `, 40, doc.y + 2, { continued: true }).font('Helvetica').text(v.address || '-');
+    doc.font('Helvetica-Bold').text(`Address: `, 40, doc.y + 2, { continued: true }).font('Helvetica').text(sanitizeForPdfKit(v.address || '-'));
 
-    doc.font('Helvetica-Bold').text(`Invoice No: `, 330, metaTop, { continued: true }).font('Helvetica').text(v.invoice_number);
+    doc.font('Helvetica-Bold').text(`Invoice No: `, 330, metaTop, { continued: true }).font('Helvetica').text(sanitizeForPdfKit(v.invoice_number));
     doc.font('Helvetica-Bold').text(`Date: `, 330, doc.y + 2, { continued: true }).font('Helvetica').text(new Date(v.created_at).toLocaleDateString('en-GB'));
-    doc.font('Helvetica-Bold').text(`Ref. Doctor: `, 330, doc.y + 2, { continued: true }).font('Helvetica').text(v.doctor_name || 'Direct OPD');
+    doc.font('Helvetica-Bold').text(`Ref. Doctor: `, 330, doc.y + 2, { continued: true }).font('Helvetica').text(sanitizeForPdfKit(v.doctor_name || 'Direct OPD'));
     doc.moveDown(1.5);
 
     const tableTop = doc.y;
@@ -1601,8 +1797,8 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     let currentY = tableTop + 24;
     doc.font('Helvetica').fillColor('#000000').fontSize(9);
     for (const item of items) {
-      doc.text(item.test_name || 'Service', 50, currentY);
-      doc.text(item.category || 'General', 300, currentY);
+      doc.text(sanitizeForPdfKit(item.test_name || 'Service'), 50, currentY);
+      doc.text(sanitizeForPdfKit(item.category || 'General'), 300, currentY);
       doc.text(parseFloat(item.price || 0).toFixed(2), 450, currentY, { width: 95, align: 'right' });
       currentY += 18;
     }
@@ -1626,7 +1822,7 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
 
     let modeText = `Paid (${v.payment_mode || 'Cash'}):`;
     if (v.payment_mode === 'Split') {
-      modeText = `Paid (Cash ₹${parseFloat(v.cash_amount || 0).toFixed(0)} + Online ₹${parseFloat(v.online_amount || 0).toFixed(0)}):`;
+      modeText = `Paid (Cash Rs.${parseFloat(v.cash_amount || 0).toFixed(0)} + Online Rs.${parseFloat(v.online_amount || 0).toFixed(0)}):`;
     }
     doc.font('Helvetica').text(modeText, totalBoxX, currentY, { width: 120 });
     doc.text(`INR ${parseFloat(v.paid_amount || 0).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
@@ -1635,9 +1831,10 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     doc.font('Helvetica-Bold').fillColor('#c00000').text('Balance Due:', totalBoxX, currentY, { width: 120 });
     doc.text(`INR ${parseFloat(v.balance_amount || 0).toFixed(2)}`, 450, currentY, { width: 95, align: 'right' });
 
+    const footerY = Math.min(760, Math.max(currentY + 40, 720));
     doc.fontSize(8).fillColor('#777777').font('Helvetica').text(
       'This is an electronically generated diagnostic invoice and requires no signature.',
-      40, 760, { align: 'center', width: 515 }
+      40, footerY, { align: 'center', width: 515 }
     );
     doc.end();
   } catch (err) { res.status(500).send('Error generating PDF: ' + err.message); }
@@ -1691,6 +1888,13 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
       }
     }
 
+    if (existingRep && !existingRep.signature_file) {
+      const resolved = await resolveDoctorSignature(existingRep.doctor_name, v.centre_id);
+      if (resolved?.signature_file) {
+        existingRep.signature_file = resolved.signature_file;
+      }
+    }
+
     const tmplRes = await pool.query(`SELECT id, title, template_name, category, default_impression, template_body FROM imaging_templates ORDER BY title ASC`);
     const radRes = await pool.query(`SELECT * FROM radiologists WHERE is_global = true OR centre_id::text = $1::text ORDER BY doctor_name ASC`, [v.centre_id || null]);
 
@@ -1733,17 +1937,10 @@ app.post('/api/imaging/report-save', async (req, res) => {
     );
 
     let finalSig = signatureFile || null;
-    if (!finalSig && doctorName) {
-      const cleanTarget = doctorName.toLowerCase().replace(/^(dr|doctor)\.?\s*/i, '').trim();
-      const radCheck = await pool.query(
-        `SELECT signature_file FROM radiologists 
-         WHERE LOWER(doctor_name) LIKE $1 
-         ORDER BY (signature_file IS NOT NULL) DESC 
-         LIMIT 1`,
-        [`%${cleanTarget}%`]
-      );
-      if (radCheck.rows.length > 0 && radCheck.rows[0].signature_file) {
-        finalSig = radCheck.rows[0].signature_file;
+    if (!finalSig) {
+      const resolved = await resolveDoctorSignature(doctorName || 'Dr NIKUNJ KOTHIA', centre_id);
+      if (resolved?.signature_file) {
+        finalSig = resolved.signature_file;
       }
     }
 
@@ -1789,7 +1986,7 @@ app.post('/api/imaging/report-save', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// FULL-WIDTH PROFESSIONAL MEDICAL PDF REPORT GENERATOR WITH SIGNATURE
+// FULL-WIDTH PROFESSIONAL MEDICAL PDF REPORT GENERATOR WITH EXACT WORD BOLD & SIGNATURE
 app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
@@ -1816,69 +2013,52 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     );
 
     let rep = repRes.rows[0];
-    if (!rep) {
-      if (v.report_file) {
-        const fullPath = path.resolve(__dirname, v.report_file);
-        const parsed = extractTextFromUploadedFile(fullPath, v.full_name || '', v.ref_doctor || '');
-        rep = {
-          template_name: parsed.title,
-          report_text: parsed.body,
-          impression: parsed.impression,
-          doctor_name: 'Dr NIKUNJ KOTHIA',
-          doctor_reg_no: '2009/09/3218',
-          doctor_designation: 'Consultant Radiologist',
-          signature_file: parsed.signatureFile || null
-        };
-      } else {
-        rep = {
-          template_name: 'DIAGNOSTIC IMAGING REPORT',
-          report_text: 'Study completed within normal parameters.',
-          impression: '',
-          doctor_name: 'Dr NIKUNJ KOTHIA',
-          doctor_reg_no: '2009/09/3218',
-          doctor_designation: 'Consultant Radiologist',
-          signature_file: null
-        };
-      }
-    }
 
-    // Try extracting signature from uploaded Word file if still missing
-    if (!rep.signature_file && v.report_file) {
+    // If local uploaded .docx exists, re-extract if report row is missing OR if report_text lost **bold** markers from older version
+    if (v.report_file) {
       const fullPath = path.resolve(__dirname, v.report_file);
-      const parsed = extractTextFromUploadedFile(fullPath, v.full_name || '', v.ref_doctor || '');
-      if (parsed.signatureFile) {
-        rep.signature_file = parsed.signatureFile;
+      if (fs.existsSync(fullPath)) {
+        const parsed = extractTextFromUploadedFile(fullPath, v.full_name || '', v.ref_doctor || '');
+        if (!rep) {
+          rep = {
+            template_name: parsed.title,
+            report_text: parsed.body,
+            impression: parsed.impression,
+            doctor_name: 'Dr NIKUNJ KOTHIA',
+            doctor_reg_no: '2009/09/3218',
+            doctor_designation: 'Consultant Radiologist',
+            signature_file: parsed.signatureFile || null
+          };
+        } else {
+          if (!rep.report_text.includes('**') && parsed.body.includes('**')) {
+            rep.report_text = parsed.body;
+          }
+          if (!rep.signature_file && parsed.signatureFile) {
+            rep.signature_file = parsed.signatureFile;
+          }
+        }
       }
     }
 
-    // Fallback: search in radiologists table
-    if (!rep.signature_file && rep.doctor_name) {
-      const cleanDoctorName = rep.doctor_name
-        .toLowerCase()
-        .replace(/^(dr|doctor)\.?\s*/i, '')
-        .trim();
-
-      const radCheck = await pool.query(
-        `SELECT signature_file, designation, reg_no 
-         FROM radiologists 
-         WHERE LOWER(doctor_name) LIKE $1 
-         ORDER BY (signature_file IS NOT NULL) DESC 
-         LIMIT 1`,
-        [`%${cleanDoctorName}%`]
-      );
-
-      if (radCheck.rows.length > 0) {
-        if (radCheck.rows[0].signature_file) rep.signature_file = radCheck.rows[0].signature_file;
-        if (radCheck.rows[0].designation) rep.doctor_designation = radCheck.rows[0].designation;
-        if (radCheck.rows[0].reg_no) rep.doctor_reg_no = radCheck.rows[0].reg_no;
-      }
+    if (!rep) {
+      rep = {
+        template_name: 'DIAGNOSTIC IMAGING REPORT',
+        report_text: 'Study completed within normal parameters.',
+        impression: '',
+        doctor_name: 'Dr NIKUNJ KOTHIA',
+        doctor_reg_no: '2009/09/3218',
+        doctor_designation: 'Consultant Radiologist',
+        signature_file: null
+      };
     }
 
-    // Secondary fallback: if any radiologist signature exists, use it
+    // Bulletproof 3-tier signature resolution (Radiologists table -> Global Radiologist -> Historical Report Signature)
     if (!rep.signature_file) {
-      const anyRad = await pool.query(`SELECT signature_file, designation, reg_no FROM radiologists WHERE signature_file IS NOT NULL LIMIT 1`);
-      if (anyRad.rows.length > 0) {
-        rep.signature_file = anyRad.rows[0].signature_file;
+      const resolved = await resolveDoctorSignature(rep.doctor_name, v.centre_id);
+      if (resolved) {
+        if (resolved.signature_file) rep.signature_file = resolved.signature_file;
+        if (resolved.designation && !rep.doctor_designation) rep.doctor_designation = resolved.designation;
+        if (resolved.reg_no && !rep.doctor_reg_no) rep.doctor_reg_no = resolved.reg_no;
       }
     }
 
@@ -1899,16 +2079,16 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     // 1. CLINIC LETTERHEAD
     if (withLetterhead) {
       doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a')
-         .text(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE', 40, doc.y, { width: 515, align: 'center' });
+         .text(sanitizeForPdfKit(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE'), 40, doc.y, { width: 515, align: 'center' });
       
       if (v.centre_tagline) {
         doc.fontSize(8.5).font('Helvetica').fillColor('#555555')
-           .text(v.centre_tagline, 40, doc.y, { width: 515, align: 'center' });
+           .text(sanitizeForPdfKit(v.centre_tagline), 40, doc.y, { width: 515, align: 'center' });
       }
       doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#b91c1c')
-         .text(`Phone / Contact: ${v.centre_phone || '+91 8433838285'}`, 40, doc.y, { width: 515, align: 'center' });
+         .text(`Phone / Contact: ${sanitizeForPdfKit(v.centre_phone || '+91 8433838285')}`, 40, doc.y, { width: 515, align: 'center' });
       doc.fontSize(8).font('Helvetica').fillColor('#333333')
-         .text(`${v.centre_address || 'Kandivali West, Mumbai'} | Reg: ${v.centre_reg_no || 'RC197'}`, 40, doc.y, { width: 515, align: 'center' });
+         .text(`${sanitizeForPdfKit(v.centre_address || 'Kandivali West, Mumbai')} | Reg: ${sanitizeForPdfKit(v.centre_reg_no || 'RC197')}`, 40, doc.y, { width: 515, align: 'center' });
       
       doc.moveDown(0.4);
       doc.strokeColor('#19486a').lineWidth(1.2).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
@@ -1923,14 +2103,14 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     doc.fontSize(8.5).fillColor('#000000');
 
     doc.font('Helvetica-Bold').text('PATIENT NAME: ', 52, metaBoxY + 8, { continued: true })
-       .font('Helvetica').text(v.full_name.toUpperCase());
+       .font('Helvetica').text(sanitizeForPdfKit(v.full_name.toUpperCase()));
     doc.font('Helvetica-Bold').text('AGE / GENDER: ', 52, metaBoxY + 26, { continued: true })
        .font('Helvetica').text(`${v.age || 0} YRS / ${(v.gender || 'FEMALE').toUpperCase()}`);
 
     doc.font('Helvetica-Bold').text('DATE: ', 340, metaBoxY + 8, { continued: true })
        .font('Helvetica').text(new Date(v.created_at).toLocaleDateString('en-GB'));
 
-    const displayRefDoc = (v.ref_doctor || 'DIRECT OPD').toUpperCase();
+    const displayRefDoc = sanitizeForPdfKit((v.ref_doctor || 'DIRECT OPD').toUpperCase());
     const formattedRefDoc = displayRefDoc.startsWith('DR') ? displayRefDoc : `DR. ${displayRefDoc}`;
     doc.font('Helvetica-Bold').text('REF. BY: ', 340, metaBoxY + 26, { continued: true })
        .font('Helvetica').text(formattedRefDoc);
@@ -1939,7 +2119,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     doc.y = metaBoxY + 58;
 
     // 3. STUDY TITLE
-    let displayTitle = (rep.template_name || 'DIAGNOSTIC IMAGING REPORT').toUpperCase();
+    let displayTitle = sanitizeForPdfKit((rep.template_name || 'DIAGNOSTIC IMAGING REPORT').replace(/\*\*/g, '').toUpperCase());
     doc.fontSize(12).font('Helvetica-Bold').fillColor('#19486a')
        .text(displayTitle, 40, doc.y, { width: 515, align: 'center', underline: true });
     
@@ -1951,7 +2131,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     doc.moveDown(0.3);
 
     const findingsLines = (rep.report_text || 'No significant abnormality recorded.').split('\n');
-    doc.fontSize(9).fillColor('#111827');
+    doc.fontSize(9.5).fillColor('#111827');
 
     for (const fLine of findingsLines) {
       const trimmed = fLine.trim();
@@ -1961,20 +2141,8 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       }
 
       doc.x = 40;
-
-      // Bold subsection headers
-      if (/^[A-Z\s/-]{2,35}:/i.test(trimmed) && !trimmed.includes('|')) {
-        doc.moveDown(0.25);
-        doc.font('Helvetica-Bold').text(trimmed, 40, doc.y, { width: 515, align: 'left' });
-        doc.font('Helvetica');
-      } else if (trimmed.includes('|') && /^(VESSELS|PARAMETER|INVESTIGATION|SITE|ORGAN)\b/i.test(trimmed)) {
-        // Table header line
-        doc.moveDown(0.2);
-        doc.font('Helvetica-Bold').text(trimmed, 40, doc.y, { width: 515, align: 'left' });
-        doc.font('Helvetica');
-      } else {
-        doc.font('Helvetica').text(trimmed, 40, doc.y, { width: 515, lineGap: 2.5, align: 'left' });
-      }
+      renderFormattedPdfLine(doc, trimmed, 40, 515);
+      doc.moveDown(0.2);
 
       if (doc.y > 690) {
         doc.addPage();
@@ -1983,10 +2151,11 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       }
     }
 
-    doc.moveDown(0.8);
+    doc.moveDown(0.6);
 
     // 5. IMPRESSION SECTION
-    if (rep.impression && rep.impression.trim().length > 0) {
+    const cleanImpression = sanitizeForPdfKit((rep.impression || '').replace(/\*\*/g, '').trim());
+    if (cleanImpression.length > 0) {
       if (doc.y > 640) {
         doc.addPage();
         doc.x = 40;
@@ -1997,9 +2166,9 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('IMPRESSION:', 40, doc.y);
       doc.moveDown(0.3);
 
-      const impText = rep.impression.trim().toUpperCase();
+      const impText = cleanImpression.toUpperCase();
       const impY = doc.y;
-      const boxH = Math.max(34, doc.heightOfString(impText, { width: 495 }) + 14);
+      const boxH = Math.max(32, doc.heightOfString(impText, { width: 495 }) + 14);
 
       doc.rect(40, impY, 515, boxH).fillAndStroke('#f1f5f9', '#94a3b8');
       doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a')
@@ -2009,14 +2178,14 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       doc.x = 40;
     }
 
-    // 6. DOCTOR SIGNATURE BLOCK
-    if (doc.y > 700) {
+    // 6. DOCTOR SIGNATURE BLOCK (Safely anchored without overflowing page)
+    if (doc.y > 695) {
       doc.addPage();
       doc.x = 40;
       doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
     }
 
-    const signY = Math.max(doc.y + 15, 715);
+    const signY = Math.min(735, Math.max(doc.y + 48, 680));
 
     if (rep.signature_file) {
       try {
@@ -2032,7 +2201,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
         }
 
         if (imgBuffer) {
-          doc.image(imgBuffer, 385, signY - 45, { fit: [140, 42], align: 'right' });
+          doc.image(imgBuffer, 385, signY - 44, { fit: [140, 42], align: 'right' });
         }
       } catch (imgErr) {
         console.error('Signature embed error:', imgErr.message);
@@ -2040,10 +2209,10 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
     }
 
     doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#000000')
-       .text(rep.doctor_name || 'Dr NIKUNJ KOTHIA', 330, signY, { width: 225, align: 'right' });
+       .text(sanitizeForPdfKit(rep.doctor_name || 'Dr NIKUNJ KOTHIA'), 330, signY, { width: 225, align: 'right' });
 
     doc.fontSize(8).font('Helvetica').fillColor('#333333')
-       .text(`${rep.doctor_designation || 'Consultant Radiologist'} / Reg: ${rep.doctor_reg_no || '2009/09/3218'}`, 330, signY + 13, { width: 225, align: 'right' });
+       .text(sanitizeForPdfKit(`${rep.doctor_designation || 'Consultant Radiologist'} / Reg: ${rep.doctor_reg_no || '2009/09/3218'}`), 330, signY + 13, { width: 225, align: 'right' });
 
     doc.end();
   } catch (err) {
@@ -2295,7 +2464,6 @@ app.get('/api/imaging/templates', async (req, res) => {
 
     if (centreId) {
       params.push(String(centreId));
-      // Prioritize centre-specific templates, fall back to global templates (centre_id IS NULL)
       dbQuery += ` AND (centre_id::text = $${params.length}::text OR centre_id IS NULL)`;
     }
 
@@ -2309,7 +2477,6 @@ app.get('/api/imaging/templates', async (req, res) => {
       dbQuery += ` AND (title ILIKE $${params.length} OR template_name ILIKE $${params.length})`;
     }
 
-    // Sort: Centre-specific first, then alphabetical by title
     dbQuery += ' ORDER BY (centre_id IS NOT NULL) DESC, title ASC';
 
     const result = await pool.query(dbQuery, params);
@@ -2436,7 +2603,6 @@ app.delete('/api/imaging/templates/:identifier', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Centre ID is required to delete templates.' });
     }
 
-    // Strictly scoped: center can ONLY delete its own template
     const result = await pool.query(
       `DELETE FROM imaging_templates 
        WHERE (id::text = $1 OR template_name = $1) 
@@ -2444,7 +2610,6 @@ app.delete('/api/imaging/templates/:identifier', async (req, res) => {
       [identifier, String(centreId)]
     );
 
-    // Delete local disk backup if it exists
     const localCentrePath = path.join(TEMPLATES_DIR, String(centreId), identifier);
     if (fs.existsSync(localCentrePath)) {
       try { fs.unlinkSync(localCentrePath); } catch (e) {}
@@ -2804,7 +2969,6 @@ app.get('/api/reports/collection', async (req, res) => {
     query += ` ORDER BY v.created_at DESC LIMIT 500`;
     const result = await pool.query(query, params);
 
-    // Compute Category Bifurcation using the same filter constraints
     let catQuery = `
       SELECT 
         COALESCE(NULLIF(TRIM(tm.category), ''), 'General / Direct') as category,
@@ -3244,8 +3408,30 @@ app.post('/api/sync/cloud', async (req, res) => {
     ], templates.rows, 10, `ON CONFLICT (id) DO UPDATE 
       SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body, file_data = EXCLUDED.file_data`);
 
-    // 8. Clinical Reports Sync
+    // 8. Clinical Reports Sync (Ensure local uploaded Word files are extracted before syncing to Cloud)
     const reports = await localClient.query('SELECT * FROM imaging_reports');
+    const existingReportVisitIds = new Set(reports.rows.map(r => String(r.visit_id)));
+
+    for (const v of visits.rows) {
+      if (v.report_file && !existingReportVisitIds.has(String(v.id))) {
+        const fullPath = path.resolve(__dirname, v.report_file);
+        if (fs.existsSync(fullPath)) {
+          const ext = path.extname(fullPath).toLowerCase();
+          if (ext === '.docx' || ext === '.doc') {
+            const parsed = extractTextFromUploadedFile(fullPath);
+            const fallbackSig = await resolveDoctorSignature('Dr NIKUNJ KOTHIA', v.centre_id);
+            const newRep = await localClient.query(
+              `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no, doctor_designation, signature_file)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+              [v.id, v.patient_id, v.centre_id, parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body || 'Study completed.', parsed.impression || '', 'Dr NIKUNJ KOTHIA', '2009/09/3218', 'Consultant Radiologist', parsed.signatureFile || fallbackSig?.signature_file || null]
+            );
+            if (newRep.rows[0]) reports.rows.push(newRep.rows[0]);
+          }
+        }
+      }
+    }
+
+    const fallbackGlobalSig = await resolveDoctorSignature('Dr NIKUNJ KOTHIA', null);
     const mappedReports = reports.rows.map(r => ({
       ...r,
       visit_id: isValidUuid(r.visit_id) ? r.visit_id : null,
@@ -3255,7 +3441,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       doctor_name: r.doctor_name || 'Dr NIKUNJ KOTHIA',
       doctor_reg_no: r.doctor_reg_no || '2009/09/3218',
       doctor_designation: r.doctor_designation || 'Consultant Radiologist',
-      signature_file: r.signature_file || null
+      signature_file: r.signature_file || fallbackGlobalSig?.signature_file || null
     }));
 
     await bulkInsert(cloudClient, 'imaging_reports', [
@@ -3268,7 +3454,7 @@ app.post('/api/sync/cloud', async (req, res) => {
       doctor_name = EXCLUDED.doctor_name,
       doctor_reg_no = EXCLUDED.doctor_reg_no,
       doctor_designation = EXCLUDED.doctor_designation,
-      signature_file = EXCLUDED.signature_file,
+      signature_file = COALESCE(EXCLUDED.signature_file, imaging_reports.signature_file),
       created_at = EXCLUDED.created_at`);
 
     await cloudClient.query('COMMIT');

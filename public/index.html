@@ -776,8 +776,8 @@
                 </table>
             </div>
         </div>
-    </div>                 
-  
+    </div>
+
     <!-- MODAL: BULK IMPORT DOCTORS -->
     <div id="bulkDocModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
@@ -1051,8 +1051,11 @@
                 </div>
 
                 <div class="form-group" style="margin-bottom:12px;">
-                    <label style="font-weight:bold; color:#1e3a8a;">Findings:</label>
-                    <textarea id="repModalFindings" rows="8" style="width:100%; padding:8px; border:1.5px solid #cbd5e1; border-radius:4px; font-family:inherit;"></textarea>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:6px;">
+                        <label style="font-weight:bold; color:#1e3a8a;">Findings (Use **text** for Bold in PDF):</label>
+                        <button type="button" class="btn-act" style="background:#1e40af; color:white; padding:4px 10px; font-size:0.78rem;" onclick="toggleBoldInFindings()">𝐁 Bold Selected Text (Ctrl+B)</button>
+                    </div>
+                    <textarea id="repModalFindings" rows="8" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='b'){event.preventDefault();toggleBoldInFindings();}" style="width:100%; padding:8px; border:1.5px solid #cbd5e1; border-radius:4px; font-family:inherit;"></textarea>
                 </div>
 
                 <div class="form-group" style="margin-bottom:12px;">
@@ -2451,6 +2454,8 @@
 
                     const docName = v.referring_doctor_name || 'Direct OPD / Self';
                     const pdfBtnLabel = v.bill_printed ? '📄 Invoice PDF ✔️' : '📄 Invoice PDF';
+                    const savedHasLh = v.report_has_letterhead !== false;
+                    const savedMargin = v.report_margin_mm || activeCentre?.top_margin_mm || 55;
 
                     tbody.innerHTML += `
                         <tr>
@@ -2468,8 +2473,8 @@
                                 <button type="button" class="btn-act btn-act-pdf btn-pdf-visit-${v.visit_id}" onclick="openInvoicePdf('${v.visit_id}')">${pdfBtnLabel}</button>
                                 ${getBillPrintBtnHtml(v.visit_id, v.bill_printed)}
                                 <button type="button" class="btn-act" style="background:#6366f1; color:white;" onclick="openClinicalReportModal('${v.visit_id}')">📝 Report Studio</button>
-                                <button type="button" class="btn-act" style="background:#0f766e; color:white;" onclick="window.open('/api/imaging/report/${v.visit_id}/pdf?letterhead=true', '_blank')">📑 Report PDF</button>
-                                <button type="button" class="btn-act btn-act-wa" style="background:#047857;" onclick="shareWhatsAppReport('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${escapeHtml(v.centre_name)}', '${v.visit_id}', true, 55)">📱 WA Report</button>
+                                <button type="button" class="btn-act" style="background:#0f766e; color:white;" onclick="window.open('/api/imaging/report/${v.visit_id}/pdf?letterhead=${savedHasLh}&margin=${savedMargin}', '_blank')">📑 Report PDF</button>
+                                <button type="button" class="btn-act btn-act-wa" style="background:#047857;" onclick="shareWhatsAppReport('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${escapeHtml(v.centre_name)}', '${v.visit_id}', ${savedHasLh}, ${savedMargin})">📱 WA Report</button>
                                 <button type="button" class="btn-act btn-act-wa" onclick="shareWhatsAppInvoice('${v.phone}', '${escapeHtml(v.full_name)}', '${v.invoice_number}', '${net}', '${v.balance_amount}', '${escapeHtml(v.centre_name)}', '${v.visit_id}')">📱 WA Bill</button>
                                 ${v.has_pcpndt ? `<button type="button" class="btn-act btn-act-formf" onclick="printPCPNDTForm('${v.visit_id}')">📝 Form F</button>` : ''}
                                 <button type="button" class="btn-act btn-act-edit" onclick="openEditBillModal('${v.visit_id}')">✏️ Edit</button>
@@ -2526,6 +2531,28 @@
             }
         }
 
+        function toggleBoldInFindings() {
+            const ta = document.getElementById('repModalFindings');
+            if (!ta) return;
+            const start = ta.selectionStart;
+            const end = ta.selectionEnd;
+            if (start === end) {
+                alert('Highlight the text or line in Findings that you want to make Bold first.');
+                return;
+            }
+            const val = ta.value;
+            const selected = val.substring(start, end);
+            let replacement;
+            if (selected.startsWith('**') && selected.endsWith('**') && selected.length >= 4) {
+                replacement = selected.slice(2, -2);
+            } else {
+                replacement = `**${selected}**`;
+            }
+            ta.value = val.substring(0, start) + replacement + val.substring(end);
+            ta.focus();
+            ta.setSelectionRange(start, start + replacement.length);
+        }
+
         async function openClinicalReportModal(visitId) {
             activeReportVisitId = visitId;
             try {
@@ -2562,22 +2589,33 @@
 
                 // Match with dropdown
                 const sel = document.getElementById('repModalDoctorSelect');
-                const matchedRad = radiologistsList.find(r => r.doctor_name.toLowerCase().trim() === docName.toLowerCase().trim());
+                const normTarget = docName.toLowerCase().replace(/^(dr|doctor)\.?\s*/i, '').replace(/[^a-z0-9]/g, '');
+                const matchedRad = radiologistsList.find(r => {
+                    const normR = (r.doctor_name || '').toLowerCase().replace(/^(dr|doctor)\.?\s*/i, '').replace(/[^a-z0-9]/g, '');
+                    return normR && (normR.includes(normTarget) || normTarget.includes(normR));
+                });
+
                 if (matchedRad) {
                     sel.value = String(matchedRad.id);
                     onRadiologistDropdownChanged(matchedRad.id);
+                    if (!document.getElementById('repModalSigFile').value && rep?.signature_file) {
+                        document.getElementById('repModalSigFile').value = rep.signature_file;
+                    }
                 } else {
                     sel.value = '';
-                    const badge = document.getElementById('repModalSigBadge');
-                    if (rep?.signature_file) {
-                        badge.innerHTML = '✅ Digital Signature Attached';
-                        badge.style.color = '#047857';
-                        badge.style.background = '#dcfce7';
-                    } else {
-                        badge.innerHTML = '⚠️ No Signature on File';
-                        badge.style.color = '#92400e';
-                        badge.style.background = '#fef3c7';
-                    }
+                }
+
+                const badge = document.getElementById('repModalSigBadge');
+                if (document.getElementById('repModalSigFile').value) {
+                    badge.innerHTML = '✅ Digital Signature Attached';
+                    badge.style.color = '#047857';
+                    badge.style.background = '#dcfce7';
+                    badge.style.borderColor = '#86efac';
+                } else {
+                    badge.innerHTML = '⚠️ No Signature on File';
+                    badge.style.color = '#92400e';
+                    badge.style.background = '#fef3c7';
+                    badge.style.borderColor = '#fde68a';
                 }
 
                 const hasLetterhead = v.report_has_letterhead !== false;
@@ -2672,6 +2710,14 @@
                         if (json.data.extracted.title) document.getElementById('repModalTitle').value = json.data.extracted.title;
                         if (json.data.extracted.body) document.getElementById('repModalFindings').value = json.data.extracted.body;
                         if (json.data.extracted.impression) document.getElementById('repModalImpression').value = json.data.extracted.impression;
+                        if (json.data.extracted.signatureFile) {
+                            document.getElementById('repModalSigFile').value = json.data.extracted.signatureFile;
+                            const badge = document.getElementById('repModalSigBadge');
+                            badge.innerHTML = '✅ Digital Signature Attached';
+                            badge.style.color = '#047857';
+                            badge.style.background = '#dcfce7';
+                            badge.style.borderColor = '#86efac';
+                        }
                     }
 
                     loadReports();
@@ -2724,7 +2770,10 @@
                 });
                 const json = await res.json();
                 if (json.success) {
-                    alert('✅ Report Saved Successfully!');
+                    if (json.data?.signature_file) {
+                        document.getElementById('repModalSigFile').value = json.data.signature_file;
+                    }
+                    loadReports();
                     return true;
                 } else {
                     alert('Error: ' + json.error);
@@ -3105,7 +3154,7 @@
                         <td>${p.phone || '-'}</td>
                         <td>₹${parseFloat(p.total_billed || 0).toFixed(2)} (Due: ₹${parseFloat(p.total_due || 0).toFixed(2)})</td>
                         <td>
-                            <button type="button" class="btn-act btn-act-edit" onclick="openEditPatientModal('${p.id}')">✏️️ Edit</button>
+                            <button type="button" class="btn-act btn-act-edit" onclick="openEditPatientModal('${p.id}')">✏ Edit</button>
                             <button type="button" class="btn-act btn-act-bills" onclick="openPatientBillsModal('${p.id}', '${escapeHtml(p.full_name)}')">📂 View Bills</button>
                             <button type="button" class="btn-act btn-act-bill-unprinted" onclick="document.getElementById('lookupSearch').value='${p.phone || p.full_name}'; lookupPatient(); openTab('tab-billing', document.querySelectorAll('.tab-btn')[0]);">➕ New Bill</button>
                             <button type="button" class="btn-act btn-act-del" onclick="deletePatientRecord('${p.id}')">✕ Delete</button>
@@ -3341,7 +3390,7 @@
                 btnDel.innerHTML = '🗑️';
                 btnDel.title = 'Delete Template';
                 btnDel.style.cssText = 'border:none; background:transparent; cursor:pointer; font-size:0.85rem; color:#dc3545;';
-                btnDel.onclick = (e) => { e.stopPropagation(); deleteTemplate(tmpl.id ||tmpl.template_name); };
+                btnDel.onclick = (e) => { e.stopPropagation(); deleteTemplate(tmpl.id || tmpl.template_name); };
 
                 actionsDiv.appendChild(btnEdit);
                 actionsDiv.appendChild(btnDel);
@@ -3895,7 +3944,7 @@
                             <td style="color:#047857; font-weight:bold;">₹${paid.toFixed(2)}</td>
                             <td style="color:#7c3aed; font-weight:bold;">₹${cut.toFixed(2)}</td>
                             <td>
-                                <button type="button" class="btn-act btn-act-edit" onclick="editSingleDoctorCut('${b.visit_id}', '${escapeHtml(b.doctor_name)}', '${cut.toFixed(2)}')">✏️️ Edit Cut</button>
+                                <button type="button" class="btn-act btn-act-edit" onclick="editSingleDoctorCut('${b.visit_id}', '${escapeHtml(b.doctor_name)}', '${cut.toFixed(2)}')">✏ Edit Cut</button>
                                 ${getBillPrintBtnHtml(b.visit_id, false)}
                             </td>
                         </tr>
@@ -4059,7 +4108,6 @@
         }
 
         async function triggerCloudSync() {
-            // If running directly on Render, alert that the system is already live
             if (window.location.hostname.includes('onrender.com')) {
                alert('ℹ️ You are already connected directly to the live Cloud Database. Any changes are saved in real-time automatically!');
                return;
