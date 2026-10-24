@@ -778,7 +778,7 @@
         </div>
     </div>
 
-    <!-- MODAL: BULK IMPORT DOCTORS -->
+<!-- MODAL: BULK IMPORT DOCTORS -->
     <div id="bulkDocModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
@@ -1101,7 +1101,7 @@
         </div>
     </div>
 
-    <!-- INVOICE PRINT PAPER WITH CENTRE CONTACT NUMBER -->
+    <!-- INVOICE PRINT PAPER WITH PATIENT MOBILE NUMBER -->
     <div id="invoicePrintArea" class="print-paper">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
             <h2 id="prtClinicName" style="font-size: 16pt;">RESQ HEART CLINIC AND IMAGING CENTRE</h2>
@@ -1115,7 +1115,7 @@
                 <td style="border: 1px solid #000; padding: 4px 8px; width: 50%;">
                     <strong>Patient Name:</strong> <span id="prtPatName"></span><br>
                     <strong>Age / Gender:</strong> <span id="prtPatMeta"></span><br>
-                    <strong>Address:</strong> <span id="prtPatAddress"></span>
+                    <strong>Mobile No:</strong> <span id="prtPatPhone"></span>
                 </td>
                 <td style="border: 1px solid #000; padding: 4px 8px; width: 50%;">
                     <strong>Invoice No:</strong> <span id="prtInvNo"></span><br>
@@ -1139,7 +1139,7 @@
         </div>
     </div>
 
-    <!-- EXACT 2-PAGE STATUTORY PCPNDT FORM F DOCUMENT -->
+    <!-- EXACT 2-PAGE STATUTORY PCPNDT FORM F DOCUMENT (LINE 14 KEPT BLANK FOR MANUAL ENTRY) -->
     <div id="exactPcpndtDoc" class="print-paper">
         <div class="doc-page">
             <div style="text-align:center; font-size:8.5pt; font-weight:bold; border-bottom:1.5px solid #000; padding-bottom:2px; margin-bottom:4px;">FORM FOR MAINTENANCE OF RECORD IN CASE OF PRENATAL DIAGNOSTIC TEST /PROCEDURE BY GENETIC CLINIC/ULTRASOUND CLINIC/IMAGING CENTRE</div>
@@ -1184,7 +1184,7 @@
             <div class="doc-line-item"><div class="label">11 i. Procedures carried out (Non-Invasive) :</div><div class="val">Ultrasonography</div></div>
             <div class="doc-line-item"><div class="label">12. Date on which declaration of preg woman /person obtai</div><div class="val" id="docDeclDate">DD/MM/YYYY</div></div>
             <div class="doc-line-item"><div class="label">13. Date(s) on which procedures carried out:</div><div class="val" id="docProcDate">DD/MM/YYYY</div></div>
-            <div class="doc-line-item"><div class="label">14. Result of non invasive proc carried out:</div><div class="val" id="docProcResult" style="font-weight:normal;">Single live intrauterine gestation with regular cardiac activity.</div></div>
+            <div class="doc-line-item"><div class="label">14. Result of non invasive proc carried out:</div><div class="val" id="docProcResult" style="font-weight:normal;"></div></div>
             <div class="doc-line-item"><div class="label">15. Result conveyed on:</div><div class="val" id="docConveyDate">DD/MM/YYYY</div></div>
             <div class="doc-line-item"><div class="label">16. Any indication for MTP as per abnormality detected:</div><div class="val">NONE</div></div>
             <div class="doc-sign-box">
@@ -2215,6 +2215,9 @@
             document.getElementById('prtContactNum').textContent = v.centre_phone || activeCentre.phone || '+91 8433838285';
             document.getElementById('prtPatName').textContent = v.full_name;
             document.getElementById('prtPatMeta').textContent = `${v.age || 'N/A'} Yrs / ${v.gender || '-'}`;
+            if (document.getElementById('prtPatPhone')) {
+                document.getElementById('prtPatPhone').textContent = v.phone || '-';
+            }
             document.getElementById('prtDocName').textContent = v.doctor_name || 'Direct OPD';
             document.getElementById('prtInvNo').textContent = v.invoice_number;
             document.getElementById('prtDate').textContent = new Date(v.created_at || Date.now()).toLocaleDateString('en-GB');
@@ -2271,7 +2274,7 @@
             document.getElementById('docActiveIndication').textContent = f.indications || '';
             document.getElementById('docDeclDate').textContent = formattedDate;
             document.getElementById('docProcDate').textContent = formattedDate;
-            document.getElementById('docProcResult').textContent = f.scan_result || 'Single live intrauterine gestation with regular cardiac activity.';
+            document.getElementById('docProcResult').textContent = f.scan_result || '';
             document.getElementById('docConveyDate').textContent = formattedDate;
             document.getElementById('docSignDate').textContent = formattedDate;
             document.getElementById('docSignDate2').textContent = formattedDate;
@@ -2391,11 +2394,17 @@
 
                 if (catGrid) {
                    catGrid.innerHTML = '';
-                   let catBifurcationSum = 0;
-                   categories.forEach(c => { catBifurcationSum += parseFloat(c.category_total || 0); });
+                   let catCollectedSum = 0;
+                   let catConcessionSum = 0;
+                   categories.forEach(c => {
+                       const colVal = c.category_collected !== undefined ? parseFloat(c.category_collected) : parseFloat(c.category_total || 0);
+                       const discVal = parseFloat(c.category_concession || 0);
+                       catCollectedSum += colVal;
+                       catConcessionSum += discVal;
+                   });
 
                    if (catGrandBadge) {
-                       catGrandBadge.textContent = `Billed Across Modalities: ₹${catBifurcationSum.toFixed(2)}`;
+                       catGrandBadge.textContent = `Collected Across Modalities: ₹${catCollectedSum.toFixed(2)} (Concession: ₹${catConcessionSum.toFixed(2)})`;
                    }
 
                    if (!categories.length) {
@@ -2413,18 +2422,21 @@
                        categories.forEach(c => {
                            const catName = c.category || 'General';
                            const icon = catIcons[catName] || '📋';
-                           const total = parseFloat(c.category_total || 0);
+                           const collected = c.category_collected !== undefined ? parseFloat(c.category_collected) : parseFloat(c.category_total || 0);
+                           const concession = parseFloat(c.category_concession || 0);
+                           const gross = c.category_gross !== undefined ? parseFloat(c.category_gross) : (collected + concession);
                            const count = parseInt(c.test_count || 0, 10);
-                           const percent = catBifurcationSum > 0 ? ((total / catBifurcationSum) * 100).toFixed(1) : 0;
+                           const percent = catCollectedSum > 0 ? ((collected / catCollectedSum) * 100).toFixed(1) : 0;
 
                            catGrid.innerHTML += `
                               <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;">
                                   <div style="display: flex; justify-content: space-between; align-items: center;">
                                       <strong style="color: #0f172a; font-size: 0.85rem;">${icon} ${catName}</strong>
-                                      <span style="font-size: 0.72rem; font-weight: bold; background: #e2e8f0; color: #475569; padding: 1px 6px; border-radius: 3px;">${percent}%</span>
+                                      <span style="font-size: 0.72rem; font-weight: bold; background: #dcfce7; color: #166534; padding: 1px 6px; border-radius: 3px;">${percent}%</span>
                                   </div>
-                                  <div style="font-size: 1.15rem; font-weight: 800; color: #1e40af;">₹${total.toFixed(2)}</div>
-                                  <div style="font-size: 0.75rem; color: #64748b;">${count} study/test(s) performed</div>
+                                  <div style="font-size: 1.15rem; font-weight: 800; color: #047857;">₹${collected.toFixed(2)} <span style="font-size:0.7rem; font-weight:600; color:#475569;">Collected</span></div>
+                                  <div style="font-size: 0.75rem; color: #b91c1c; font-weight: 600;">Concession Given: - ₹${concession.toFixed(2)} <span style="color:#64748b; font-weight:normal;">(Gross: ₹${gross.toFixed(0)})</span></div>
+                                  <div style="font-size: 0.74rem; color: #64748b;">${count} study/test(s) performed</div>
                               </div>
                            `;
                        });
@@ -2512,7 +2524,7 @@
             loadReports();
         }
 
-        async function saveWordMarginAsCentreDefault() {
+async function saveWordMarginAsCentreDefault() {
             const marginMm = parseInt(document.getElementById('repTopMarginMm').value, 10);
             if (isNaN(marginMm) || marginMm <= 0) return alert('Enter a valid millimeter value (e.g. 55).');
             if (!activeCentre?.id) return alert('No active centre selected.');

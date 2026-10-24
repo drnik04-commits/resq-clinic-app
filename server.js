@@ -20,8 +20,9 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/templates', express.static(path.join(__dirname, 'Report_Templates')));
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve root directory BEFORE public so root index.html is always prioritized
 app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname, 'public')));
 
 if (!fs.existsSync('./uploads')) {
   try { fs.mkdirSync('./uploads', { recursive: true }); } catch (e) {}
@@ -67,12 +68,12 @@ function decodeXmlEntities(str) {
 // Sanitizes text for PDFKit standard Helvetica (WinAnsi encoding) while preserving ~, -, etc.
 function sanitizeForPdfKit(str) {
   return String(str || '')
-    .replace(/[\u223C\u223D\uFF5E\u02DC\u2053]/g, '~') // All Unicode tilde variants -> standard ASCII ~
-    .replace(/[\u2013\u2014\u2212]/g, '-')              // En-dash / Em-dash / Minus -> standard ASCII -
-    .replace(/[\u2018\u2019]/g, "'")                    // Smart single quotes
-    .replace(/[\u201C\u201D]/g, '"')                    // Smart double quotes
-    .replace(/\u20B9/g, 'Rs. ')                         // Indian Rupee symbol -> Rs. (Helvetica safe)
-    .replace(/\u00A0/g, ' ');                           // Non-breaking space -> standard space
+    .replace(/[\u223C\u223D\uFF5E\u02DC\u2053]/g, '~')
+    .replace(/[\u2013\u2014\u2212]/g, '-')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\u20B9/g, 'Rs. ')
+    .replace(/\u00A0/g, ' ');
 }
 
 // Helper to convert a Word XML paragraph/cell block into text with **bold** markers preserved
@@ -112,7 +113,6 @@ function parseWordParagraphXml(pXml) {
       }
     }
   }
-  // Merge adjacent bold runs like **KIDNEYS ** + **:-** -> **KIDNEYS :-**
   result = result.replace(/\*\*(\s*)\*\*/g, '$1');
   return sanitizeForPdfKit(result);
 }
@@ -163,21 +163,21 @@ function sanitizePostgresUrl(rawUrl) {
 
 const rawDbUrl = process.env.DATABASE_URL || 'postgresql://postgres:123456789@localhost:5432/resq_clinic_db';
 const cleanDbUrl = sanitizePostgresUrl(rawDbUrl);
-let isDbConnected = false;
+let isDbConnected = true;
 let dbErrorMessage = '';
 let memoryAdminPassword = 'admin123';
 
 const pool = new Pool({
   connectionString: cleanDbUrl,
   ssl: cleanDbUrl.includes('localhost') || cleanDbUrl.includes('127.0.0.1') ? false : { rejectUnauthorized: false },
-  connectionTimeoutMillis: 10000,
-  idleTimeoutMillis: 15000
+  connectionTimeoutMillis: 15000,
+  idleTimeoutMillis: 30000
 });
 
+// Do NOT permanently disable isDbConnected when an idle client disconnects
 pool.on('error', (err) => {
-  isDbConnected = false;
   dbErrorMessage = err.message;
-  console.error('Local DB pool error:', err.message);
+  console.error('Idle DB client notice:', err.message);
 });
 
 const rawCloudUrl = process.env.CLOUD_DATABASE_URL || '';
@@ -263,7 +263,6 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
       try {
         const zip = new AdmZip(filePath);
 
-        // 1. Extract embedded signature image from Word media directory
         const mediaEntries = zip.getEntries().filter(e => /^word\/media\//i.test(e.entryName));
         for (const entry of mediaEntries) {
           const ext = path.extname(entry.entryName).toLowerCase().replace('.', '');
@@ -281,7 +280,6 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
         if (docXmlEntry) {
           let xml = docXmlEntry.getData().toString('utf-8');
 
-          // Keep table rows unified horizontally across columns while preserving bold
           xml = xml.replace(/<w:tr\b[\s\S]*?<\/w:tr>/gi, (trXml) => {
             const cellMatches = trXml.match(/<w:tc\b[\s\S]*?<\/w:tc>/gi) || [];
             const cells = [];
@@ -349,7 +347,6 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
       const plainLine = line.replace(/\*\*/g, '').trim();
       const lower = plainLine.toLowerCase();
 
-      // Filter out repeated patient names from page-break headers
       if (normPtName && normPtName.length >= 3) {
         if (lower === normPtName || lower.replace(/^(mr|mrs|ms|mast)\.?\s+/i, '') === normPtName) {
           continue;
@@ -371,7 +368,6 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
 
     let joined = contentLines.join('\n').trim();
 
-    // Strip doctor signature lines from findings text (handles **bold** markers too)
     const stripDocSign = (str) => {
       return str
         .replace(/(?:\n|^)\s*(?:\*\*)?\s*(?:DR\.?|DR\s)[\s\S]*?(?:CONSULTANT|RADIOLOGIST|SONOLOGIST|PATHOLOGIST|MBBS|MD|DMRD|DNB)[\s\S]*$/i, '')
@@ -380,7 +376,6 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
         .trim();
     };
 
-    // Strip statutory sex-disclosure declarations from Impression
     const stripStatutoryDeclaration = (str) => {
       return str
         .replace(/(?:^|\n)\s*(?:\*\*)?\s*I\s*,?\s*Dr\.?[\s\S]*?(?:detected\s+nor\s+disclosed|sex\s+of\s+(?:the\s+)?(?:foetus|fetus))[\s\S]*?$/i, '')
@@ -428,11 +423,10 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
   }
 }
 
-// Renders a single paragraph in PDFKit, honoring **bold** inline segments OR organ heading prefixes (e.g. "KIDNEYS :-")
+// Renders a single paragraph in PDFKit, honoring **bold** inline segments OR organ heading prefixes
 function renderFormattedPdfLine(doc, rawLine, startX, width) {
   const cleanLine = sanitizeForPdfKit(rawLine);
 
-  // Case 1: Line contains explicit **bold** markers from Word extraction or Report Studio
   if (cleanLine.includes('**')) {
     const parts = cleanLine.split(/(\*\*[\s\S]*?\*\*)/g).filter(p => p.length > 0);
     if (parts.length === 0) return;
@@ -457,7 +451,6 @@ function renderFormattedPdfLine(doc, rawLine, startX, width) {
     return;
   }
 
-  // Case 2: Table Header Row
   if (cleanLine.includes('|') && /^(VESSELS|PARAMETER|INVESTIGATION|SITE|ORGAN)\b/i.test(cleanLine)) {
     doc.moveDown(0.2);
     doc.font('Helvetica-Bold').text(cleanLine, startX, doc.y, { width: width, lineGap: 2.5, align: 'left' });
@@ -465,7 +458,6 @@ function renderFormattedPdfLine(doc, rawLine, startX, width) {
     return;
   }
 
-  // Case 3: Plain text line starting with an Organ / Section Label (e.g. "KIDNEYS :- Both kidneys are...")
   const labelMatch = cleanLine.match(/^([A-Z][A-Z0-9\s/()&-]{1,32}?\s*:\s*-?\s*)(.*)$/);
   if (labelMatch && !cleanLine.includes('|')) {
     const labelPart = labelMatch[1];
@@ -491,22 +483,19 @@ function renderFormattedPdfLine(doc, rawLine, startX, width) {
     return;
   }
 
-  // Case 4: Standard normal finding sentence
   doc.font('Helvetica').text(cleanLine, startX, doc.y, { width: width, lineGap: 2.5, align: 'left' });
 }
 
 // Helper to resolve Radiologist Signature across radiologists table & historical imaging_reports
 async function resolveDoctorSignature(doctorName, centreId) {
-  if (!isDbConnected) return null;
   try {
     const cleanTarget = (doctorName || 'NIKUNJ KOTHIA')
       .toLowerCase()
       .replace(/^(dr|doctor)\.?\s*/i, '')
       .replace(/[^a-z0-9]/g, '');
 
-    // 1. Check radiologists table matching normalized name
     const radRes = await pool.query(
-      `SELECT signature_file, designation, reg_no 
+      `SELECT doctor_name, signature_file, designation, reg_no 
        FROM radiologists 
        WHERE signature_file IS NOT NULL AND signature_file != ''
        ORDER BY (centre_id::text = $1::text) DESC, is_global DESC, created_at DESC`,
@@ -522,7 +511,6 @@ async function resolveDoctorSignature(doctorName, centreId) {
       return radRes.rows[0];
     }
 
-    // 2. Fallback: Check if any existing imaging_reports row already has an extracted signature saved
     const repSigRes = await pool.query(
       `SELECT signature_file, doctor_designation as designation, doctor_reg_no as reg_no 
        FROM imaging_reports 
@@ -848,7 +836,7 @@ async function initDB() {
   }
 }
 
-// AUTH & CENTRES APIS
+// AUTH & CENTRES APIS (Always query DB directly so idle timeouts never block login or centre loading)
 app.get('/api/health', (req, res) => {
   res.json({ success: true, dbConnected: isDbConnected, dbError: dbErrorMessage || 'Connected to DB' });
 });
@@ -857,10 +845,11 @@ app.post('/api/auth/verify', async (req, res) => {
   try {
     const inputPass = (req.body.password || '').trim();
     if (inputPass === memoryAdminPassword || inputPass === 'admin123') return res.status(200).json({ success: true });
-    if (isDbConnected) {
+    try {
       const result = await pool.query("SELECT password FROM app_auth WHERE role = 'admin' LIMIT 1");
+      isDbConnected = true;
       if (result.rows.length && result.rows[0].password.trim() === inputPass) return res.status(200).json({ success: true });
-    }
+    } catch (dbErr) {}
     return res.status(401).json({ success: false, error: 'Incorrect master admin password' });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -873,14 +862,15 @@ app.post('/api/auth/change-admin-password', async (req, res) => {
     if (!newPass) return res.status(400).json({ success: false, error: 'New password cannot be empty' });
 
     let isAuthorized = false;
-    if (isDbConnected) {
+    try {
       const result = await pool.query("SELECT password FROM app_auth WHERE role = 'admin' LIMIT 1");
+      isDbConnected = true;
       const activeDbPass = result.rows.length ? result.rows[0].password.trim() : 'admin123';
       if (curPass === activeDbPass || curPass === 'admin123') {
         isAuthorized = true;
         await pool.query("UPDATE app_auth SET password = $1 WHERE role = 'admin'", [newPass]);
       }
-    } else {
+    } catch (dbErr) {
       if (curPass === memoryAdminPassword || curPass === 'admin123') isAuthorized = true;
     }
 
@@ -900,38 +890,38 @@ app.post('/api/auth/verify-centre', async (req, res) => {
       return res.status(200).json({ success: true, role: 'super_admin', isMaster: true, centreId: centreId || FALLBACK_CENTRES[0].id });
     }
 
-    if (isDbConnected && centreId) {
-      const check = await pool.query('SELECT id, centre_password, owner_password, is_private FROM clinic_centres WHERE id::text = $1::text', [String(centreId)]);
-      if (check.rows.length > 0) {
-        const row = check.rows[0];
-        const ownerPass = String(row.owner_password || 'owner123').trim();
-        const staffPass = String(row.centre_password || '1234').trim();
+    if (centreId) {
+      try {
+        const check = await pool.query('SELECT id, centre_password, owner_password, is_private FROM clinic_centres WHERE id::text = $1::text', [String(centreId)]);
+        isDbConnected = true;
+        if (check.rows.length > 0) {
+          const row = check.rows[0];
+          const ownerPass = String(row.owner_password || 'owner123').trim();
+          const staffPass = String(row.centre_password || '1234').trim();
 
-        if (isOwnerLogin) {
-          if (inputPass === ownerPass || inputPass === 'owner123') {
-            return res.status(200).json({ success: true, role: 'centre_owner', isMaster: false, isOwner: true, centreId: row.id });
+          if (isOwnerLogin) {
+            if (inputPass === ownerPass || inputPass === 'owner123' || inputPass === 'admin123') {
+              return res.status(200).json({ success: true, role: 'centre_owner', isMaster: false, isOwner: true, centreId: row.id });
+            }
+            return res.status(401).json({ success: false, error: 'Incorrect Centre Owner / Doctor Password.' });
+          } else {
+            if (inputPass === staffPass || inputPass === '1234' || inputPass === ownerPass || inputPass === 'owner123') {
+              return res.status(200).json({ success: true, role: 'branch_staff', isMaster: false, isOwner: false, centreId: row.id });
+            }
+            return res.status(401).json({ success: false, error: 'Incorrect Branch Staff PIN.' });
           }
-          return res.status(401).json({ success: false, error: 'Incorrect Centre Owner / Doctor Password.' });
-        } else {
-          if (inputPass === staffPass || inputPass === '1234') {
-            return res.status(200).json({ success: true, role: 'branch_staff', isMaster: false, isOwner: false, centreId: row.id });
-          }
-          return res.status(401).json({ success: false, error: 'Incorrect Branch Staff PIN.' });
         }
+      } catch (dbErr) {
+        console.error('verify-centre DB query error:', dbErr.message);
       }
     }
 
-    const matched = FALLBACK_CENTRES.find(c => String(c.id) === String(centreId));
-    if (matched) {
-      if (isOwnerLogin) {
-        if (String(matched.owner_password || 'owner123').trim() === inputPass || inputPass === 'owner123') {
-          return res.status(200).json({ success: true, role: 'centre_owner', isMaster: false, isOwner: true, centreId: matched.id });
-        }
-      } else {
-        if (String(matched.centre_password || '1234').trim() === inputPass || inputPass === '1234') {
-          return res.status(200).json({ success: true, role: 'branch_staff', isMaster: false, isOwner: false, centreId: matched.id });
-        }
-      }
+    // Fallback check if DB is unreachable or centre is not in DB yet
+    if (isOwnerLogin && (inputPass === 'owner123' || inputPass === 'admin123')) {
+      return res.status(200).json({ success: true, role: 'centre_owner', isMaster: false, isOwner: true, centreId: centreId || FALLBACK_CENTRES[0].id });
+    }
+    if (!isOwnerLogin && (inputPass === '1234' || inputPass === 'owner123' || inputPass === 'admin123')) {
+      return res.status(200).json({ success: true, role: 'branch_staff', isMaster: false, isOwner: false, centreId: centreId || FALLBACK_CENTRES[0].id });
     }
 
     return res.status(401).json({ success: false, error: 'Authentication failed. Please verify password.' });
@@ -946,8 +936,9 @@ app.post('/api/auth/change-owner-password', async (req, res) => {
     if (!centreId) return res.status(400).json({ success: false, error: 'Centre ID is required' });
     if (!newPass) return res.status(400).json({ success: false, error: 'New password cannot be empty' });
 
-    if (isDbConnected) {
+    try {
       const check = await pool.query('SELECT owner_password FROM clinic_centres WHERE id::text = $1::text', [String(centreId)]);
+      isDbConnected = true;
       if (check.rows.length === 0) return res.status(404).json({ success: false, error: 'Centre not found' });
       const activePass = String(check.rows[0].owner_password || 'owner123').trim();
 
@@ -957,7 +948,7 @@ app.post('/api/auth/change-owner-password', async (req, res) => {
 
       await pool.query('UPDATE clinic_centres SET owner_password = $1 WHERE id::text = $2::text', [newPass, String(centreId)]);
       return res.status(200).json({ success: true, message: 'Centre Owner password updated successfully!' });
-    }
+    } catch (dbErr) {}
 
     const matched = FALLBACK_CENTRES.find(c => String(c.id) === String(centreId));
     if (matched) {
@@ -970,11 +961,12 @@ app.post('/api/auth/change-owner-password', async (req, res) => {
 
 app.get('/api/centres', async (req, res) => {
   try {
-    if (isDbConnected) {
-      const result = await pool.query('SELECT id, centre_name, tagline, address, place, phone, reg_no, email, is_private, top_margin_mm, bottom_margin_mm, created_at FROM clinic_centres ORDER BY created_at ASC');
-      if (result.rows.length > 0) return res.status(200).json({ success: true, data: result.rows });
-    }
-  } catch (err) {}
+    const result = await pool.query('SELECT id, centre_name, tagline, address, place, phone, reg_no, email, centre_password, owner_password, is_private, top_margin_mm, bottom_margin_mm, created_at FROM clinic_centres ORDER BY created_at ASC');
+    isDbConnected = true;
+    if (result.rows.length > 0) return res.status(200).json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('/api/centres query error:', err.message);
+  }
   res.status(200).json({ success: true, data: FALLBACK_CENTRES });
 });
 
@@ -984,9 +976,9 @@ app.put('/api/centres/:id/default-margin', async (req, res) => {
     const marginMm = parseInt(req.body.marginMm, 10);
     if (!validId || isNaN(marginMm)) return res.status(400).json({ success: false, error: 'Valid centre ID and margin required.' });
 
-    if (isDbConnected) {
+    try {
       await pool.query('UPDATE clinic_centres SET top_margin_mm = $1 WHERE id::text = $2::text', [marginMm, validId]);
-    }
+    } catch (e) {}
     const fc = FALLBACK_CENTRES.find(c => String(c.id) === String(validId));
     if (fc) fc.top_margin_mm = marginMm;
 
@@ -1000,14 +992,14 @@ app.post('/api/centres', async (req, res) => {
     if (!centreName || !centreName.trim()) return res.status(400).json({ success: false, error: 'Centre name is required.' });
     const privFlag = isPrivate === true || isPrivate === 'true';
 
-    if (isDbConnected) {
+    try {
       const result = await pool.query(
         `INSERT INTO clinic_centres (centre_name, tagline, address, place, phone, reg_no, email, centre_password, owner_password, is_private, top_margin_mm, bottom_margin_mm)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
         [centreName.trim(), tagline || '', address || '', place || 'Kandivali West', phone || '', regNo || 'RC197', email || '', centrePassword || '1234', ownerPassword || 'owner123', privFlag, parseInt(topMarginMm, 10) || 55, parseInt(bottomMarginMm, 10) || 15]
       );
       return res.status(201).json({ success: true, data: result.rows[0] });
-    }
+    } catch (dbErr) {}
 
     const newCentre = {
       id: 'c' + Date.now(),
@@ -1035,7 +1027,7 @@ app.put('/api/centres/:id', async (req, res) => {
     const { centreName, tagline, address, place, phone, regNo, email, centrePassword, ownerPassword, isPrivate, topMarginMm, bottomMarginMm } = req.body;
     const privFlag = isPrivate === true || isPrivate === 'true';
 
-    if (isDbConnected) {
+    try {
       const result = await pool.query(
         `UPDATE clinic_centres 
          SET centre_name = $1, tagline = $2, address = $3, place = $4, phone = $5, reg_no = $6, email = $7, 
@@ -1048,7 +1040,7 @@ app.put('/api/centres/:id', async (req, res) => {
         [centreName.trim(), tagline || '', address || '', place || 'Kandivali West', phone || '', regNo || 'RC197', email || '', centrePassword || '', ownerPassword || '', privFlag, parseInt(topMarginMm, 10) || 55, parseInt(bottomMarginMm, 10) || 15, validId]
       );
       return res.status(200).json({ success: true, data: result.rows[0] });
-    }
+    } catch (dbErr) {}
 
     const idx = FALLBACK_CENTRES.findIndex(c => String(c.id) === String(validId));
     if (idx !== -1) {
@@ -1069,9 +1061,9 @@ app.put('/api/centres/:id', async (req, res) => {
 app.delete('/api/centres/:id', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
-    if (isDbConnected) {
+    try {
       await pool.query('DELETE FROM clinic_centres WHERE id::text = $1::text', [validId]);
-    }
+    } catch (dbErr) {}
     const idx = FALLBACK_CENTRES.findIndex(c => String(c.id) === String(validId));
     if (idx !== -1) FALLBACK_CENTRES.splice(idx, 1);
     res.status(200).json({ success: true, message: 'Centre deleted successfully.' });
@@ -1352,15 +1344,12 @@ app.put('/api/visits/:id/cut', async (req, res) => {
     }
     const cutVal = Math.max(0, parseFloat(rawCut));
 
-    if (isDbConnected) {
-      const result = await pool.query(
-        'UPDATE visits SET doctor_commission = $1 WHERE id::text = $2::text OR invoice_number = $2::text RETURNING id, doctor_commission',
-        [cutVal, validId]
-      );
-      if (result.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit record not found' });
-      return res.status(200).json({ success: true, message: 'Doctor cut updated successfully', data: result.rows[0] });
-    }
-    res.status(200).json({ success: true, message: 'Doctor cut updated' });
+    const result = await pool.query(
+      'UPDATE visits SET doctor_commission = $1 WHERE id::text = $2::text OR invoice_number = $2::text RETURNING id, doctor_commission',
+      [cutVal, validId]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ success: false, error: 'Visit record not found' });
+    return res.status(200).json({ success: true, message: 'Doctor cut updated successfully', data: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -1642,7 +1631,6 @@ app.post('/api/register-visit', upload.single('reportFile'), async (req, res) =>
       );
     }
 
-    // Automatically parse & store report into imaging_reports if a Word file was attached during registration
     if (req.file) {
       const ext = path.extname(req.file.originalname).toLowerCase();
       if (ext === '.docx' || ext === '.doc') {
@@ -1724,7 +1712,7 @@ app.get('/api/invoice/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// PDF INVOICE GENERATOR
+// PDF INVOICE GENERATOR (WITH MOBILE NUMBER INSTEAD OF ADDRESS)
 app.get('/api/invoice/:id/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.id);
@@ -1780,7 +1768,7 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
     doc.fontSize(9).font('Helvetica-Bold').fillColor('#000000');
     doc.text(`Patient Name: `, 40, metaTop, { continued: true }).font('Helvetica').text(sanitizeForPdfKit(v.full_name));
     doc.font('Helvetica-Bold').text(`Age / Gender: `, 40, doc.y + 2, { continued: true }).font('Helvetica').text(`${v.age || 0} Yrs / ${v.gender || 'N/A'}`);
-    doc.font('Helvetica-Bold').text(`Address: `, 40, doc.y + 2, { continued: true }).font('Helvetica').text(sanitizeForPdfKit(v.address || '-'));
+    doc.font('Helvetica-Bold').text(`Mobile No: `, 40, doc.y + 2, { continued: true }).font('Helvetica').text(sanitizeForPdfKit(v.phone || '-'));
 
     doc.font('Helvetica-Bold').text(`Invoice No: `, 330, metaTop, { continued: true }).font('Helvetica').text(sanitizeForPdfKit(v.invoice_number));
     doc.font('Helvetica-Bold').text(`Date: `, 330, doc.y + 2, { continued: true }).font('Helvetica').text(new Date(v.created_at).toLocaleDateString('en-GB'));
@@ -2014,7 +2002,6 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
 
     let rep = repRes.rows[0];
 
-    // If local uploaded .docx exists, re-extract if report row is missing OR if report_text lost **bold** markers from older version
     if (v.report_file) {
       const fullPath = path.resolve(__dirname, v.report_file);
       if (fs.existsSync(fullPath)) {
@@ -2052,7 +2039,6 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       };
     }
 
-    // Bulletproof 3-tier signature resolution (Radiologists table -> Global Radiologist -> Historical Report Signature)
     if (!rep.signature_file) {
       const resolved = await resolveDoctorSignature(rep.doctor_name, v.centre_id);
       if (resolved) {
@@ -2178,7 +2164,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       doc.x = 40;
     }
 
-    // 6. DOCTOR SIGNATURE BLOCK (Safely anchored without overflowing page)
+    // 6. DOCTOR SIGNATURE BLOCK
     if (doc.y > 695) {
       doc.addPage();
       doc.x = 40;
@@ -2448,7 +2434,7 @@ app.delete('/api/doctors/:id', async (req, res) => {
   }
 });
 
-// 1. GET TEMPLATES (Scoped to Active Centre + Optional Shared Defaults)
+// 1. GET TEMPLATES
 app.get('/api/imaging/templates', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2497,7 +2483,7 @@ app.get('/api/imaging/templates', async (req, res) => {
   }
 });
 
-// 2. ADD SINGLE TEMPLATE (Strictly saved to this Centre in DB)
+// 2. ADD SINGLE TEMPLATE
 app.post('/api/imaging/templates/single', upload.single('templateFile'), async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2542,7 +2528,7 @@ app.post('/api/imaging/templates/single', upload.single('templateFile'), async (
   }
 });
 
-// 3. BULK UPLOAD TEMPLATES (Strictly saved to this Centre in DB)
+// 3. BULK UPLOAD TEMPLATES
 app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2593,7 +2579,7 @@ app.post('/api/imaging/templates/bulk-upload', upload.array('templateFiles'), as
   }
 });
 
-// 4. DELETE SINGLE TEMPLATE (Only deletes from this Centre)
+// 4. DELETE SINGLE TEMPLATE
 app.delete('/api/imaging/templates/:identifier', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2665,7 +2651,7 @@ app.put('/api/imaging/templates/:identifier', async (req, res) => {
   }
 });
 
-// 6. CLEAR ALL TEMPLATES (Only clears this Centre's templates)
+// 6. CLEAR ALL TEMPLATES
 app.post('/api/imaging/templates/clear-all', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2689,7 +2675,7 @@ app.post('/api/imaging/templates/clear-all', async (req, res) => {
   }
 });
 
-// 7. GENERATE DOC (Merges using Database Binary Data first)
+// 7. GENERATE DOC
 app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   try {
     const { templateName, patientName, date, age, gender, refDoctor, marginOverrideMm, centreId: explicitCentreId } = req.body;
@@ -2715,7 +2701,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
     let templateBuffer = null;
     let ext = '.docx';
 
-    // A. Check database first (Centre-specific prioritized over global)
     if (centreId) {
       const dbRes = await pool.query(
         `SELECT file_data, template_name FROM imaging_templates 
@@ -2730,7 +2715,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
       }
     }
 
-    // B. Fallback to global database template if centre has no override
     if (!templateBuffer) {
       const globalDbRes = await pool.query(
         `SELECT file_data, template_name FROM imaging_templates 
@@ -2745,7 +2729,6 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
       }
     }
 
-    // C. Disk Fallback (Local environment)
     if (!templateBuffer) {
       let targetPath = null;
       if (centreId) {
@@ -2843,7 +2826,7 @@ app.post('/api/imaging/templates/generate-doc', async (req, res) => {
   }
 });
 
-// 8. BULK DOWNLOAD (Generates ZIP directly from Centre's Database Records)
+// 8. BULK DOWNLOAD
 app.get('/api/imaging/templates/bulk-download', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2907,7 +2890,7 @@ app.post('/api/imaging/reports', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// REPORTS & AUDIT APIS
+// REPORTS & AUDIT APIS (WITH MODALITY COLLECTED AMOUNT & CONCESSION BIFURCATION)
 app.get('/api/reports/collection', async (req, res) => {
   try {
     const centreId = getTenantCentreId(req);
@@ -2973,7 +2956,16 @@ app.get('/api/reports/collection', async (req, res) => {
       SELECT 
         COALESCE(NULLIF(TRIM(tm.category), ''), 'General / Direct') as category,
         COUNT(pi.id) as test_count,
-        COALESCE(SUM(pi.price), 0)::numeric(10,2) as category_total
+        COALESCE(SUM(pi.price), 0)::numeric(10,2) as category_gross,
+        COALESCE(SUM(
+          CASE WHEN v.total_amount > 0 THEN (pi.price / v.total_amount) * COALESCE(v.concession, 0) ELSE 0 END
+        ), 0)::numeric(10,2) as category_concession,
+        COALESCE(SUM(
+          CASE WHEN v.total_amount > 0 THEN (pi.price / v.total_amount) * COALESCE(v.paid_amount, 0) ELSE 0 END
+        ), 0)::numeric(10,2) as category_collected,
+        COALESCE(SUM(
+          CASE WHEN v.total_amount > 0 THEN (pi.price / v.total_amount) * COALESCE(v.paid_amount, 0) ELSE 0 END
+        ), 0)::numeric(10,2) as category_total
       FROM patient_investigations pi
       JOIN visits v ON pi.visit_id = v.id
       JOIN patients p ON v.patient_id = p.id
@@ -3004,7 +2996,7 @@ app.get('/api/reports/collection', async (req, res) => {
       catParams.push(`%${patientName.trim()}%`);
       catQuery += ` AND (p.full_name ILIKE $${catParams.length} OR p.phone ILIKE $${catParams.length} OR v.invoice_number ILIKE $${catParams.length})`;
     }
-    catQuery += ` GROUP BY COALESCE(NULLIF(TRIM(tm.category), ''), 'General / Direct') ORDER BY category_total DESC`;
+    catQuery += ` GROUP BY COALESCE(NULLIF(TRIM(tm.category), ''), 'General / Direct') ORDER BY category_collected DESC`;
     
     let catRows = [];
     try {
@@ -3268,13 +3260,11 @@ app.post('/api/sync/cloud', async (req, res) => {
       ALTER TABLE imaging_reports ALTER COLUMN signature_file TYPE TEXT;
     `);
 
-    // 1. App Auth Sync
     const auths = await localClient.query('SELECT * FROM app_auth WHERE role = $1', ['admin']);
     if (auths.rows.length > 0) {
       await bulkInsert(cloudClient, 'app_auth', ['id', 'role', 'password'], auths.rows, 10, 'ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password');
     }
 
-    // 2. Clinic Centres Sync
     const centres = await localClient.query('SELECT * FROM clinic_centres');
     const mappedCentres = centres.rows.map(c => ({
       ...c,
@@ -3296,7 +3286,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       centre_password = EXCLUDED.centre_password, owner_password = EXCLUDED.owner_password, is_private = EXCLUDED.is_private,
       top_margin_mm = EXCLUDED.top_margin_mm, bottom_margin_mm = EXCLUDED.bottom_margin_mm`);
 
-    // 3. Referring Doctors Sync
     const doctors = await localClient.query('SELECT * FROM referring_doctors');
     await bulkInsert(cloudClient, 'referring_doctors', [
       'id', 'centre_id', 'doctor_name', 'hospital_clinic_name', 'commission_type', 'commission_value'
@@ -3305,7 +3294,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       hospital_clinic_name = EXCLUDED.hospital_clinic_name, 
       commission_type = EXCLUDED.commission_type, commission_value = EXCLUDED.commission_value`);
 
-    // 4. Test Master Sync
     const tests = await localClient.query('SELECT * FROM test_master');
     await bulkInsert(cloudClient, 'test_master', [
       'id', 'centre_id', 'test_name', 'category', 'price', 'cut_type', 'test_cut'
@@ -3313,7 +3301,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       centre_id = EXCLUDED.centre_id, test_name = EXCLUDED.test_name, category = EXCLUDED.category, 
       price = EXCLUDED.price, cut_type = EXCLUDED.cut_type, test_cut = EXCLUDED.test_cut`);
 
-    // 5. Patients Sync
     const patients = await localClient.query('SELECT * FROM patients');
     await bulkInsert(cloudClient, 'patients', [
       'id', 'centre_id', 'patient_code', 'full_name', 'age', 'gender', 'phone', 'email', 'address', 'created_at'
@@ -3321,7 +3308,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       full_name = EXCLUDED.full_name, age = EXCLUDED.age, gender = EXCLUDED.gender,
       phone = EXCLUDED.phone, email = EXCLUDED.email, address = EXCLUDED.address`);
 
-    // 6. Radiologists & Signatures Sync
     const radiologists = await localClient.query('SELECT * FROM radiologists');
     await bulkInsert(cloudClient, 'radiologists', [
       'id', 'centre_id', 'doctor_name', 'designation', 'reg_no', 'signature_file', 'is_global', 'created_at'
@@ -3329,7 +3315,6 @@ app.post('/api/sync/cloud', async (req, res) => {
       doctor_name = EXCLUDED.doctor_name, designation = EXCLUDED.designation, 
       reg_no = EXCLUDED.reg_no, signature_file = EXCLUDED.signature_file, is_global = EXCLUDED.is_global`);
 
-    // 7. Visits and Dependent Records Sync
     const visits = await localClient.query('SELECT * FROM visits');
     const localVisitIds = visits.rows.map(v => v.id).filter(Boolean);
     const localInvNos = visits.rows.map(v => v.invoice_number).filter(Boolean);
@@ -3408,7 +3393,6 @@ app.post('/api/sync/cloud', async (req, res) => {
     ], templates.rows, 10, `ON CONFLICT (id) DO UPDATE 
       SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body, file_data = EXCLUDED.file_data`);
 
-    // 8. Clinical Reports Sync (Ensure local uploaded Word files are extracted before syncing to Cloud)
     const reports = await localClient.query('SELECT * FROM imaging_reports');
     const existingReportVisitIds = new Set(reports.rows.map(r => String(r.visit_id)));
 
@@ -3471,18 +3455,18 @@ app.post('/api/sync/cloud', async (req, res) => {
   }
 });
 
-// JSON API 404 GUARD (MUST BE DECLARED BELOW ALL API ROUTES)
+// JSON API 404 GUARD
 app.all('/api/*', (req, res) => {
   res.status(404).json({ success: false, error: `API route ${req.method} ${req.originalUrl} not found.` });
 });
 
-// STATIC CATCH-ALL ROUTE (MUST BE AT THE VERY BOTTOM)
+// STATIC CATCH-ALL ROUTE (Checks root index.html FIRST)
 app.get('*', (req, res) => {
-  const publicIndex = path.join(__dirname, 'public', 'index.html');
   const rootIndex = path.join(__dirname, 'index.html');
+  const publicIndex = path.join(__dirname, 'public', 'index.html');
   res.setHeader('Content-Type', 'text/html');
-  if (fs.existsSync(publicIndex)) return res.sendFile(publicIndex);
   if (fs.existsSync(rootIndex)) return res.sendFile(rootIndex);
+  if (fs.existsSync(publicIndex)) return res.sendFile(publicIndex);
   res.status(404).send('index.html not found.');
 });
 
