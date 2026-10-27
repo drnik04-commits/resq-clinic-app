@@ -65,28 +65,30 @@ function decodeXmlEntities(str) {
     .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
 }
 
-// Sanitizes text for PDFKit standard Helvetica (WinAnsi encoding) while preserving ~, -, etc.
+// Sanitizes text for PDFKit standard Helvetica (WinAnsi encoding) while preserving ~, -, tabs, etc.
 function sanitizeForPdfKit(str) {
   return String(str || '')
-    .replace(/[\u223C\u223D\uFF5E\u02DC\u2053]/g, '~')
-    .replace(/[\u2013\u2014\u2212]/g, '-')
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201C\u201D]/g, '"')
-    .replace(/\u20B9/g, 'Rs. ')
-    .replace(/\u00A0/g, ' ');
+    .replace(/[\u223C\u223D\uFF5E\u02DC\u2053]/g, '~') // All Unicode tilde variants -> standard ASCII ~
+    .replace(/[\u2013\u2014\u2212]/g, '-')              // En-dash / Em-dash / Minus -> standard ASCII -
+    .replace(/[\u2018\u2019]/g, "'")                    // Smart single quotes
+    .replace(/[\u201C\u201D]/g, '"')                    // Smart double quotes
+    .replace(/\u2026/g, '...')                          // Ellipsis -> ...
+    .replace(/\u20B9/g, 'Rs. ')                         // Indian Rupee symbol -> Rs.
+    .replace(/\t+/g, '    ')                            // Convert Word tabs into clean spaces so PDFKit never scrambles
+    .replace(/\u00A0/g, ' ');                           // Non-breaking space -> standard space
 }
 
-// Helper to convert a Word XML paragraph/cell block into text with **bold** markers preserved
+// Helper to convert a Word XML paragraph/cell block into text with clean **bold** markers
 function parseWordParagraphXml(pXml) {
-  let result = '';
+  const segments = [];
   const tokenRegex = /<w:r\b[^>]*>([\s\S]*?)<\/w:r>|<w:tab[^>]*\/>|<w:br[^>]*\/>/gi;
   let match;
   while ((match = tokenRegex.exec(pXml)) !== null) {
     const fullMatch = match[0];
     if (/^<w:tab/i.test(fullMatch)) {
-      result += '\t';
+      segments.push({ text: '    ', bold: false });
     } else if (/^<w:br/i.test(fullMatch)) {
-      result += '\n';
+      segments.push({ text: '\n', bold: false });
     } else {
       const rInner = match[1] || '';
       const rPrMatch = rInner.match(/<w:rPr\b[^>]*>([\s\S]*?)<\/w:rPr>/i);
@@ -100,21 +102,44 @@ function parseWordParagraphXml(pXml) {
       let runText = '';
       const innerTokens = rInner.match(/<w:t\b[^>]*>[\s\S]*?<\/w:t>|<w:tab[^>]*\/>|<w:br[^>]*\/>/gi) || [];
       for (const tk of innerTokens) {
-        if (/^<w:tab/i.test(tk)) runText += '\t';
+        if (/^<w:tab/i.test(tk)) runText += '    ';
         else if (/^<w:br/i.test(tk)) runText += '\n';
         else runText += decodeXmlEntities(tk.replace(/<[^>]+>/g, ''));
       }
       if (runText) {
-        if (isBold && runText.trim().length > 0) {
-          result += `**${runText}**`;
+        if (runText.trim().length === 0 && segments.length > 0) {
+          segments[segments.length - 1].text += runText;
+        } else if (segments.length > 0 && segments[segments.length - 1].bold === isBold) {
+          segments[segments.length - 1].text += runText;
         } else {
-          result += runText;
+          segments.push({ text: runText, bold: isBold });
         }
       }
     }
   }
-  result = result.replace(/\*\*(\s*)\*\*/g, '$1');
-  return sanitizeForPdfKit(result);
+
+  let out = '';
+  for (const seg of segments) {
+    if (!seg.text) continue;
+    if (seg.bold && seg.text.trim().length > 0) {
+      const subLines = seg.text.split('\n');
+      out += subLines.map(sl => {
+        if (!sl.trim()) return sl;
+        const lead = sl.match(/^\s*/)[0];
+        const trail = sl.match(/\s*$/)[0];
+        const core = sl.trim();
+        return `${lead}**${core}**${trail}`;
+      }).join('\n');
+    } else {
+      out += seg.text;
+    }
+  }
+
+  out = out
+    .replace(/\*\*(\s*)\*\*/g, '$1')
+    .replace(/\*{3,}/g, '**');
+
+  return sanitizeForPdfKit(out);
 }
 
 const storage = multer.diskStorage({
@@ -174,7 +199,6 @@ const pool = new Pool({
   idleTimeoutMillis: 30000
 });
 
-// Do NOT permanently disable isDbConnected when an idle client disconnects
 pool.on('error', (err) => {
   dbErrorMessage = err.message;
   console.error('Idle DB client notice:', err.message);
@@ -280,26 +304,31 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
         if (docXmlEntry) {
           let xml = docXmlEntry.getData().toString('utf-8');
 
+          // Convert Word tables: skip demographic header table, preserve clinical tables with " | "
           xml = xml.replace(/<w:tr\b[\s\S]*?<\/w:tr>/gi, (trXml) => {
             const cellMatches = trXml.match(/<w:tc\b[\s\S]*?<\/w:tc>/gi) || [];
             const cells = [];
             for (const tc of cellMatches) {
               const pMatches = tc.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/gi) || [tc];
               const cellParas = pMatches
-                .map(p => parseWordParagraphXml(p).replace(/\s+/g, ' ').trim())
+                .map(p => parseWordParagraphXml(p).replace(/\*\*/g, '').replace(/\s+/g, ' ').trim())
                 .filter(Boolean);
               const cellText = cellParas.join(' ');
               if (cellText) cells.push(cellText);
             }
             if (cells.length === 0) return '';
-            return `<w:p><w:r><w:t>${escapeXml(cells.join('   |   '))}</w:t></w:r></w:p>\n`;
+            const rowPlain = cells.join(' ').toUpperCase();
+            if (/^(NAME|REF\.?\s*BY|AGE|SEX|DATE)\b/.test(rowPlain) && /(DATE|AGE|SEX|FEMALE|MALE|YRS)/.test(rowPlain)) {
+              return '';
+            }
+            return `<w:p><w:r><w:t>${escapeXml(cells.join(' | '))}</w:t></w:r></w:p>\n`;
           });
 
           const paraMatches = xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/gi) || [];
           const extractedParas = [];
           for (const pXml of paraMatches) {
             const pText = parseWordParagraphXml(pXml);
-            if (pText.trim().length > 0) {
+            if (pText.replace(/\*\*/g, '').trim().length > 0) {
               extractedParas.push(pText);
             }
           }
@@ -352,6 +381,9 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
           continue;
         }
       }
+      if (/^[A-Z\s]{4,35}$/.test(plainLine) && !headerPassed && normPtName && lower.includes(normPtName)) {
+        continue;
+      }
 
       if (!headerPassed) {
         if (normPtName && normPtName.length >= 3 && lower.includes(normPtName)) continue;
@@ -370,15 +402,8 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
 
     const stripDocSign = (str) => {
       return str
-        .replace(/(?:\n|^)\s*(?:\*\*)?\s*(?:DR\.?|DR\s)[\s\S]*?(?:CONSULTANT|RADIOLOGIST|SONOLOGIST|PATHOLOGIST|MBBS|MD|DMRD|DNB)[\s\S]*$/i, '')
-        .replace(/(?:\n|^)\s*(?:\*\*)?\s*(?:DR\.?|DR\s)\s*[A-Z\s.*]+\s*$/i, '')
-        .replace(/(?:\n|^)\s*(?:\*\*)?\s*(?:CONSULTANT\s+RADIOLOGIST|RADIOLOGIST|SONOLOGIST)[\s\S]*$/i, '')
-        .trim();
-    };
-
-    const stripStatutoryDeclaration = (str) => {
-      return str
-        .replace(/(?:^|\n)\s*(?:\*\*)?\s*I\s*,?\s*Dr\.?[\s\S]*?(?:detected\s+nor\s+disclosed|sex\s+of\s+(?:the\s+)?(?:foetus|fetus))[\s\S]*?$/i, '')
+        .replace(/(?:\n|^)\s*(?:\*\*)?\s*(?:DR\.?\s*NIKUNJ\s*KOTHIA|DR\.?\s*[A-Z]+\s+[A-Z]+)[\s\S]*?(?:CONSULTANT|RADIOLOGIST|SONOLOGIST|PATHOLOGIST|MBBS|MD|DMRD|DNB)[\s\S]*$/i, '')
+        .replace(/(?:\n|^)\s*(?:\*\*)?\s*(?:CONSULTANT\s+RADIOLOGIST|RADIOLOGIST|SONOLOGIST)\s*(?:\*\*)?\s*$/i, '')
         .trim();
     };
 
@@ -388,25 +413,38 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
     const impRegex = /(?:^|\n)\s*(?:\*\*)?\s*(?:IMPRESSION|CONCLUSION|OPINION|REMARKS|FINAL\s+OPINION)\s*(?:\*\*)?\s*[:\-–]*\s*(?:\*\*)?\s*([\s\S]*)$/i;
     const match = joined.match(impRegex);
     if (match) {
-      impression = stripStatutoryDeclaration(stripDocSign(match[1].replace(/\*\*/g, '').trim()));
-      body = stripStatutoryDeclaration(stripDocSign(joined.substring(0, match.index).trim()));
+      impression = stripDocSign(match[1].replace(/\*\*/g, '').trim());
+      body = stripDocSign(joined.substring(0, match.index).trim());
     } else {
-      body = stripStatutoryDeclaration(stripDocSign(joined));
+      body = stripDocSign(joined);
     }
 
-    const studyKeywordPattern = /\b(X-RAY|RADIOGRAPHS?|USG|ULTRASONOGRAPHY|ULTRASOUND|SONOGRAPHY|MRI|CT|SCAN|2D\s*ECHO|ECHOCARDIOGRAPHY|COLOR\s*DOPPLER|DOPPLER|MAMMOGRAPHY|BARIUM|VIEWS|VIEW|STUDY)\b/i;
-    const sentenceStarters = /^(THE|THERE|NO|BOTH|ALL|VISUALIZED|OPERATED|STUDY|PATIENT|EVALUATION|EACH|NORMAL|MILD|SEVERE)\b/i;
+    const studyKeywordPattern = /\b(X-RAY|RADIOGRAPHS?|USG|ULTRASONOGRAPHY|ULTRASOUND|SONOGRAPHY|MRI|CT|SCAN|2D\s*ECHO|ECHOCARDIOGRAPHY|COLOR\s*DOPPLER|DOPPLER|MAMMOGRAPHY|BARIUM|VIEWS|VIEW|STUDY|TRIMESTER|PREGNANCY|ABDOMEN|PELVIS|KUB)\b/i;
+    const sentenceStarters = /^(THE|THERE|NO|BOTH|ALL|VISUALIZED|OPERATED|STUDY|PATIENT|EVALUATION|EACH|NORMAL|MILD|SEVERE|SINGLE|LIVER|UTERUS|KIDNEYS|LMP)\b/i;
 
     let title = 'DIAGNOSTIC IMAGING REPORT';
     const bodyLines = body.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-    for (let i = 0; i < Math.min(bodyLines.length, 5); i++) {
-      const candidatePlain = bodyLines[i].replace(/\*\*/g, '').trim();
-      if (candidatePlain.length <= 95 && studyKeywordPattern.test(candidatePlain) && (!sentenceStarters.test(candidatePlain) || /^(X-RAY|USG|CT|MRI|ECHO|DOPPLER|SONOGRAPHY)\b/i.test(candidatePlain))) {
-        title = candidatePlain.replace(/^TITLE\s*[:-]?\s*/i, '').trim().toUpperCase();
-        bodyLines.splice(i, 1);
+    // Combine split 2-line headings like "SONOGRAPHY -" + "ABDOMEN & PELVIS"
+    if (bodyLines.length >= 2) {
+      const firstPlain = bodyLines[0].replace(/\*\*/g, '').trim();
+      const secondPlain = bodyLines[1].replace(/\*\*/g, '').trim();
+      if (/^(SONOGRAPHY|ULTRASONOGRAPHY|USG|DOPPLER|COLOUR\s*DOPPLER)\s*[-–:]?\s*$/i.test(firstPlain) && secondPlain.length <= 50 && !sentenceStarters.test(secondPlain)) {
+        title = `${firstPlain.replace(/[-–:]\s*$/, '').trim()} - ${secondPlain}`.toUpperCase();
+        bodyLines.splice(0, 2);
         body = bodyLines.join('\n').trim();
-        break;
+      }
+    }
+
+    if (title === 'DIAGNOSTIC IMAGING REPORT') {
+      for (let i = 0; i < Math.min(bodyLines.length, 4); i++) {
+        const candidatePlain = bodyLines[i].replace(/\*\*/g, '').trim();
+        if (candidatePlain.length <= 95 && studyKeywordPattern.test(candidatePlain) && !sentenceStarters.test(candidatePlain) && !candidatePlain.includes('|')) {
+          title = candidatePlain.replace(/^TITLE\s*[:-]?\s*/i, '').trim().toUpperCase();
+          bodyLines.splice(i, 1);
+          body = bodyLines.join('\n').trim();
+          break;
+        }
       }
     }
 
@@ -423,67 +461,139 @@ function extractTextFromUploadedFile(filePath, knownPatientName = '', knownDocto
   }
 }
 
-// Renders a single paragraph in PDFKit, honoring **bold** inline segments OR organ heading prefixes
+// Helper to clean stray/unbalanced ** markers on a single line
+function cleanLineBoldMarkers(line) {
+  let s = String(line || '')
+    .replace(/\*\*\s*\*\*/g, '')
+    .replace(/\*{3,}/g, '**');
+  const count = (s.match(/\*\*/g) || []).length;
+  if (count % 2 !== 0) {
+    if (s.startsWith('**')) s = s.slice(2);
+    else if (s.endsWith('**')) s = s.slice(0, -2);
+    else s = s.replace(/\*\*/, '');
+  }
+  return s.trim();
+}
+
+// Renders a multi-row clinical table (Biometry or Doppler) cleanly in PDFKit
+function renderPdfTableBlock(doc, tableLines, startX, totalWidth, withLetterhead, effectiveMarginMm) {
+  const rows = tableLines.map(l => l.split('|').map(c => c.replace(/\*\*/g, '').trim()).filter((_, idx, arr) => arr.length <= 6));
+  if (rows.length === 0) return;
+
+  const numCols = Math.max(...rows.map(r => r.length));
+  if (numCols <= 1) return;
+
+  let colWidths = [];
+  if (numCols === 4) {
+    const firstCell = (rows[0][0] || '').toUpperCase();
+    if (firstCell.includes('VESSEL') || firstCell.includes('UMB') || firstCell.includes('ART')) {
+      colWidths = [130, 55, 220, 110];
+    } else {
+      colWidths = [95, 110, 155, 155];
+    }
+  } else {
+    const w = Math.floor(totalWidth / numCols);
+    colWidths = Array(numCols).fill(w);
+  }
+
+  doc.moveDown(0.2);
+  let curY = doc.y;
+
+  for (let rIdx = 0; rIdx < rows.length; rIdx++) {
+    const row = rows[rIdx];
+    const isHeaderRow = rIdx === 0 && /^(VESSELS|PARAMETER|INVESTIGATION|SITE|ORGAN)\b/i.test(row[0] || '');
+    const rowHeight = 17;
+
+    if (curY + rowHeight > 740) {
+      doc.addPage();
+      curY = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
+    }
+
+    if (isHeaderRow) {
+      doc.rect(startX, curY, totalWidth, rowHeight).fill('#f1f5f9');
+    }
+
+    let colX = startX;
+    for (let cIdx = 0; cIdx < numCols; cIdx++) {
+      const cellW = colWidths[cIdx] || Math.floor(totalWidth / numCols);
+      const cellText = sanitizeForPdfKit(row[cIdx] || '');
+      doc.rect(colX, curY, cellW, rowHeight).strokeColor('#94a3b8').lineWidth(0.6).stroke();
+
+      const isBoldCell = isHeaderRow || cIdx === 0 || cIdx === numCols - 1;
+      doc.font(isBoldCell ? 'Helvetica-Bold' : 'Helvetica')
+         .fontSize(8.8)
+         .fillColor('#000000')
+         .text(cellText, colX + 5, curY + 4, { width: cellW - 10, align: 'left', lineBreak: false });
+
+      colX += cellW;
+    }
+    curY += rowHeight;
+  }
+
+  doc.x = startX;
+  doc.y = curY + 6;
+  doc.font('Helvetica').fontSize(9.2);
+}
+
+// Renders a single paragraph in PDFKit WITHOUT breaking lines mid-sentence when switching bold/normal
 function renderFormattedPdfLine(doc, rawLine, startX, width) {
-  const cleanLine = sanitizeForPdfKit(rawLine);
+  let cleanLine = cleanLineBoldMarkers(sanitizeForPdfKit(rawLine));
+  if (!cleanLine) return;
+
+  const plainCheck = cleanLine.replace(/\*\*/g, '');
+  const organMatch = plainCheck.match(/^([A-Z][A-Z0-9\s/()&-]{1,28}?\s*:\s*-?\s+)(.+)$/);
+  if (organMatch && !cleanLine.startsWith('**')) {
+    const prefix = organMatch[1];
+    if (cleanLine.startsWith(prefix)) {
+      cleanLine = `**${prefix.trim()}** ` + cleanLine.slice(prefix.length).trim();
+    }
+  }
 
   if (cleanLine.includes('**')) {
-    const parts = cleanLine.split(/(\*\*[\s\S]*?\*\*)/g).filter(p => p.length > 0);
+    const parts = cleanLine
+      .split(/(\*\*[\s\S]*?\*\*)/g)
+      .map(p => {
+        const isBold = p.startsWith('**') && p.endsWith('**') && p.length >= 4;
+        return { text: isBold ? p.slice(2, -2) : p, bold: isBold };
+      })
+      .filter(p => p.text.length > 0);
+
     if (parts.length === 0) return;
 
     doc.x = startX;
     for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
+      const seg = parts[i];
       const isLast = (i === parts.length - 1);
-      const isBold = part.startsWith('**') && part.endsWith('**') && part.length >= 4;
-      const textSegment = isBold ? part.slice(2, -2) : part;
+      doc.font(seg.bold ? 'Helvetica-Bold' : 'Helvetica');
 
-      if (!textSegment) continue;
-      doc.font(isBold ? 'Helvetica-Bold' : 'Helvetica')
-         .text(textSegment, i === 0 ? startX : undefined, i === 0 ? doc.y : undefined, {
-           width: width,
-           lineGap: 2.5,
-           align: 'left',
-           continued: !isLast
-         });
+      if (i === 0) {
+        doc.text(seg.text, startX, doc.y, {
+          width: width,
+          lineGap: 2,
+          align: 'left',
+          continued: !isLast
+        });
+      } else {
+        doc.text(seg.text, {
+          width: width,
+          lineGap: 2,
+          align: 'left',
+          continued: !isLast
+        });
+      }
     }
     doc.font('Helvetica');
     return;
   }
 
-  if (cleanLine.includes('|') && /^(VESSELS|PARAMETER|INVESTIGATION|SITE|ORGAN)\b/i.test(cleanLine)) {
-    doc.moveDown(0.2);
-    doc.font('Helvetica-Bold').text(cleanLine, startX, doc.y, { width: width, lineGap: 2.5, align: 'left' });
-    doc.font('Helvetica');
-    return;
-  }
-
-  const labelMatch = cleanLine.match(/^([A-Z][A-Z0-9\s/()&-]{1,32}?\s*:\s*-?\s*)(.*)$/);
-  if (labelMatch && !cleanLine.includes('|')) {
-    const labelPart = labelMatch[1];
-    const restPart = labelMatch[2];
+  if (/^[A-Z][A-Z0-9\s/()&,-]{2,85}:?\s*-?\s*$/.test(cleanLine)) {
     doc.moveDown(0.15);
-    if (restPart && restPart.trim().length > 0) {
-      doc.font('Helvetica-Bold').text(labelPart, startX, doc.y, {
-        width: width,
-        lineGap: 2.5,
-        align: 'left',
-        continued: true
-      });
-      doc.font('Helvetica').text(restPart, {
-        width: width,
-        lineGap: 2.5,
-        align: 'left',
-        continued: false
-      });
-    } else {
-      doc.font('Helvetica-Bold').text(labelPart, startX, doc.y, { width: width, lineGap: 2.5, align: 'left' });
-      doc.font('Helvetica');
-    }
+    doc.font('Helvetica-Bold').text(cleanLine, startX, doc.y, { width: width, lineGap: 2, align: 'left' });
+    doc.font('Helvetica');
     return;
   }
 
-  doc.font('Helvetica').text(cleanLine, startX, doc.y, { width: width, lineGap: 2.5, align: 'left' });
+  doc.font('Helvetica').text(cleanLine, startX, doc.y, { width: width, lineGap: 2, align: 'left' });
 }
 
 // Helper to resolve Radiologist Signature across radiologists table & historical imaging_reports
@@ -836,7 +946,7 @@ async function initDB() {
   }
 }
 
-// AUTH & CENTRES APIS (Always query DB directly so idle timeouts never block login or centre loading)
+// AUTH & CENTRES APIS
 app.get('/api/health', (req, res) => {
   res.json({ success: true, dbConnected: isDbConnected, dbError: dbErrorMessage || 'Connected to DB' });
 });
@@ -916,7 +1026,6 @@ app.post('/api/auth/verify-centre', async (req, res) => {
       }
     }
 
-    // Fallback check if DB is unreachable or centre is not in DB yet
     if (isOwnerLogin && (inputPass === 'owner123' || inputPass === 'admin123')) {
       return res.status(200).json({ success: true, role: 'centre_owner', isMaster: false, isOwner: true, centreId: centreId || FALLBACK_CENTRES[0].id });
     }
@@ -1828,7 +1937,7 @@ app.get('/api/invoice/:id/pdf', async (req, res) => {
   } catch (err) { res.status(500).send('Error generating PDF: ' + err.message); }
 });
 
-// REPORT DATA & TEMPLATES
+// REPORT DATA & TEMPLATES (Always syncs latest attached .docx file if present on disk)
 app.get('/api/imaging/report-data/:visitId', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
@@ -1860,19 +1969,29 @@ app.get('/api/imaging/report-data/:visitId', async (req, res) => {
     );
 
     let existingRep = repRes.rows[0] || null;
-    if (!existingRep && v.report_file) {
+    if (v.report_file) {
       const fullPath = path.resolve(__dirname, v.report_file);
       if (fs.existsSync(fullPath)) {
-        const parsed = extractTextFromUploadedFile(fullPath, v.full_name || '', v.ref_doctor || '');
-        existingRep = {
-          template_name: parsed.title,
-          report_text: parsed.body,
-          impression: parsed.impression,
-          doctor_name: 'Dr NIKUNJ KOTHIA',
-          doctor_reg_no: '2009/09/3218',
-          doctor_designation: 'Consultant Radiologist',
-          signature_file: parsed.signatureFile || null
-        };
+        const ext = path.extname(fullPath).toLowerCase();
+        if (ext === '.docx' || ext === '.doc') {
+          const parsed = extractTextFromUploadedFile(fullPath, v.full_name || '', v.ref_doctor || '');
+          if (!existingRep) {
+            existingRep = {
+              template_name: parsed.title,
+              report_text: parsed.body,
+              impression: parsed.impression,
+              doctor_name: 'Dr NIKUNJ KOTHIA',
+              doctor_reg_no: '2009/09/3218',
+              doctor_designation: 'Consultant Radiologist',
+              signature_file: parsed.signatureFile || null
+            };
+          } else {
+            existingRep.template_name = parsed.title || existingRep.template_name;
+            existingRep.report_text = parsed.body || existingRep.report_text;
+            existingRep.impression = parsed.impression || existingRep.impression;
+            if (parsed.signatureFile) existingRep.signature_file = parsed.signatureFile;
+          }
+        }
       }
     }
 
@@ -1974,7 +2093,7 @@ app.post('/api/imaging/report-save', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// FULL-WIDTH PROFESSIONAL MEDICAL PDF REPORT GENERATOR WITH EXACT WORD BOLD & SIGNATURE
+// FULL-WIDTH PROFESSIONAL MEDICAL PDF REPORT GENERATOR WITH TABLES, INLINE BOLD & SIGNATURE
 app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
   try {
     const validId = getCleanId(req.params.visitId);
@@ -2002,26 +2121,28 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
 
     let rep = repRes.rows[0];
 
+    // Always re-parse the physical .docx file if it exists on disk so newly attached files (like Reena Kamble) are 100% up to date
     if (v.report_file) {
       const fullPath = path.resolve(__dirname, v.report_file);
       if (fs.existsSync(fullPath)) {
-        const parsed = extractTextFromUploadedFile(fullPath, v.full_name || '', v.ref_doctor || '');
-        if (!rep) {
-          rep = {
-            template_name: parsed.title,
-            report_text: parsed.body,
-            impression: parsed.impression,
-            doctor_name: 'Dr NIKUNJ KOTHIA',
-            doctor_reg_no: '2009/09/3218',
-            doctor_designation: 'Consultant Radiologist',
-            signature_file: parsed.signatureFile || null
-          };
-        } else {
-          if (!rep.report_text.includes('**') && parsed.body.includes('**')) {
-            rep.report_text = parsed.body;
-          }
-          if (!rep.signature_file && parsed.signatureFile) {
-            rep.signature_file = parsed.signatureFile;
+        const ext = path.extname(fullPath).toLowerCase();
+        if (ext === '.docx' || ext === '.doc') {
+          const parsed = extractTextFromUploadedFile(fullPath, v.full_name || '', v.ref_doctor || '');
+          if (!rep) {
+            rep = {
+              template_name: parsed.title,
+              report_text: parsed.body,
+              impression: parsed.impression,
+              doctor_name: 'Dr NIKUNJ KOTHIA',
+              doctor_reg_no: '2009/09/3218',
+              doctor_designation: 'Consultant Radiologist',
+              signature_file: parsed.signatureFile || null
+            };
+          } else {
+            rep.template_name = parsed.title || rep.template_name;
+            rep.report_text = parsed.body || rep.report_text;
+            rep.impression = parsed.impression || rep.impression;
+            if (parsed.signatureFile) rep.signature_file = parsed.signatureFile;
           }
         }
       }
@@ -2055,7 +2176,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
       effectiveMarginMm = parseInt(v.report_margin_mm, 10);
     }
 
-    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const doc = new PDFDocument({ size: 'A4', margin: 36 });
     const filename = `Report_${v.invoice_number || 'REP'}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -2064,114 +2185,156 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
 
     // 1. CLINIC LETTERHEAD
     if (withLetterhead) {
-      doc.fontSize(16).font('Helvetica-Bold').fillColor('#19486a')
+      doc.fontSize(15).font('Helvetica-Bold').fillColor('#19486a')
          .text(sanitizeForPdfKit(v.centre_name || 'RESQ HEART CLINIC AND IMAGING CENTRE'), 40, doc.y, { width: 515, align: 'center' });
       
       if (v.centre_tagline) {
-        doc.fontSize(8.5).font('Helvetica').fillColor('#555555')
+        doc.fontSize(8).font('Helvetica').fillColor('#555555')
            .text(sanitizeForPdfKit(v.centre_tagline), 40, doc.y, { width: 515, align: 'center' });
       }
       doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#b91c1c')
          .text(`Phone / Contact: ${sanitizeForPdfKit(v.centre_phone || '+91 8433838285')}`, 40, doc.y, { width: 515, align: 'center' });
-      doc.fontSize(8).font('Helvetica').fillColor('#333333')
+      doc.fontSize(7.8).font('Helvetica').fillColor('#333333')
          .text(`${sanitizeForPdfKit(v.centre_address || 'Kandivali West, Mumbai')} | Reg: ${sanitizeForPdfKit(v.centre_reg_no || 'RC197')}`, 40, doc.y, { width: 515, align: 'center' });
       
-      doc.moveDown(0.4);
+      doc.moveDown(0.35);
       doc.strokeColor('#19486a').lineWidth(1.2).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
-      doc.moveDown(0.6);
+      doc.moveDown(0.5);
     } else {
       doc.y = Math.max(25, Math.round(effectiveMarginMm * 2.83465));
     }
 
     // 2. PATIENT DEMOGRAPHICS
     const metaBoxY = doc.y;
-    doc.rect(40, metaBoxY, 515, 46).fillAndStroke('#f8fafc', '#cbd5e1');
+    doc.rect(40, metaBoxY, 515, 42).fillAndStroke('#f8fafc', '#cbd5e1');
     doc.fontSize(8.5).fillColor('#000000');
 
-    doc.font('Helvetica-Bold').text('PATIENT NAME: ', 52, metaBoxY + 8, { continued: true })
+    doc.font('Helvetica-Bold').text('PATIENT NAME: ', 50, metaBoxY + 7, { continued: true })
        .font('Helvetica').text(sanitizeForPdfKit(v.full_name.toUpperCase()));
-    doc.font('Helvetica-Bold').text('AGE / GENDER: ', 52, metaBoxY + 26, { continued: true })
+    doc.font('Helvetica-Bold').text('AGE / GENDER: ', 50, metaBoxY + 23, { continued: true })
        .font('Helvetica').text(`${v.age || 0} YRS / ${(v.gender || 'FEMALE').toUpperCase()}`);
 
-    doc.font('Helvetica-Bold').text('DATE: ', 340, metaBoxY + 8, { continued: true })
+    doc.font('Helvetica-Bold').text('DATE: ', 340, metaBoxY + 7, { continued: true })
        .font('Helvetica').text(new Date(v.created_at).toLocaleDateString('en-GB'));
 
     const displayRefDoc = sanitizeForPdfKit((v.ref_doctor || 'DIRECT OPD').toUpperCase());
     const formattedRefDoc = displayRefDoc.startsWith('DR') ? displayRefDoc : `DR. ${displayRefDoc}`;
-    doc.font('Helvetica-Bold').text('REF. BY: ', 340, metaBoxY + 26, { continued: true })
+    doc.font('Helvetica-Bold').text('REF. BY: ', 340, metaBoxY + 23, { continued: true })
        .font('Helvetica').text(formattedRefDoc);
 
     doc.x = 40;
-    doc.y = metaBoxY + 58;
+    doc.y = metaBoxY + 50;
 
     // 3. STUDY TITLE
     let displayTitle = sanitizeForPdfKit((rep.template_name || 'DIAGNOSTIC IMAGING REPORT').replace(/\*\*/g, '').toUpperCase());
-    doc.fontSize(12).font('Helvetica-Bold').fillColor('#19486a')
+    doc.fontSize(11.5).font('Helvetica-Bold').fillColor('#19486a')
        .text(displayTitle, 40, doc.y, { width: 515, align: 'center', underline: true });
     
-    doc.moveDown(0.8);
+    doc.moveDown(0.5);
     doc.x = 40;
 
-    // 4. FINDINGS SECTION
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('FINDINGS:', 40, doc.y);
-    doc.moveDown(0.3);
+    // 4. FINDINGS SECTION (With Automatic Table Grouping)
+    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#123352').text('FINDINGS:', 40, doc.y);
+    doc.moveDown(0.25);
 
     const findingsLines = (rep.report_text || 'No significant abnormality recorded.').split('\n');
-    doc.fontSize(9.5).fillColor('#111827');
+    doc.fontSize(9.2).fillColor('#111827');
+
+    let tableBuffer = [];
+    const flushTableBuffer = () => {
+      if (tableBuffer.length > 0) {
+        renderPdfTableBlock(doc, tableBuffer, 40, 515, withLetterhead, effectiveMarginMm);
+        tableBuffer = [];
+        doc.fontSize(9.2).fillColor('#111827');
+      }
+    };
 
     for (const fLine of findingsLines) {
       const trimmed = fLine.trim();
       if (!trimmed) {
-        doc.moveDown(0.25);
+        flushTableBuffer();
+        doc.moveDown(0.15);
         continue;
+      }
+
+      if (trimmed.includes('|')) {
+        tableBuffer.push(trimmed);
+        continue;
+      } else {
+        flushTableBuffer();
       }
 
       doc.x = 40;
       renderFormattedPdfLine(doc, trimmed, 40, 515);
-      doc.moveDown(0.2);
+      doc.moveDown(0.18);
 
-      if (doc.y > 690) {
+      if (doc.y > 725) {
         doc.addPage();
         doc.x = 40;
         doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
       }
     }
+    flushTableBuffer();
 
-    doc.moveDown(0.6);
+    doc.moveDown(0.4);
 
-    // 5. IMPRESSION SECTION
-    const cleanImpression = sanitizeForPdfKit((rep.impression || '').replace(/\*\*/g, '').trim());
-    if (cleanImpression.length > 0) {
-      if (doc.y > 640) {
+    // 5. IMPRESSION SECTION (Separating Main Impression from Disclaimers / Statutory Declarations)
+    const rawImpLines = sanitizeForPdfKit((rep.impression || '').replace(/\*\*/g, '').trim())
+      .split('\n')
+      .map(l => l.trim())
+      .filter(Boolean);
+
+    const coreImpressionLines = [];
+    const footnoteLines = [];
+
+    for (const iLine of rawImpLines) {
+      if (/^\(?\s*All\s+measurements/i.test(iLine) || /^I\s*,?\s*Dr\.?/i.test(iLine) || /detected\s+nor\s+disclosed/i.test(iLine)) {
+        footnoteLines.push(iLine);
+      } else {
+        coreImpressionLines.push(iLine);
+      }
+    }
+
+    if (coreImpressionLines.length > 0) {
+      if (doc.y > 680) {
         doc.addPage();
         doc.x = 40;
         doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
       }
 
       doc.x = 40;
-      doc.fontSize(10).font('Helvetica-Bold').fillColor('#123352').text('IMPRESSION:', 40, doc.y);
-      doc.moveDown(0.3);
+      doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#123352').text('IMPRESSION:', 40, doc.y);
+      doc.moveDown(0.2);
 
-      const impText = cleanImpression.toUpperCase();
+      const impText = coreImpressionLines.join('\n').toUpperCase();
       const impY = doc.y;
-      const boxH = Math.max(32, doc.heightOfString(impText, { width: 495 }) + 14);
+      const boxH = Math.max(26, doc.heightOfString(impText, { width: 495 }) + 12);
 
       doc.rect(40, impY, 515, boxH).fillAndStroke('#f1f5f9', '#94a3b8');
-      doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a')
-         .text(impText, 50, impY + 7, { width: 495, lineGap: 2, align: 'left' });
+      doc.fontSize(9.2).font('Helvetica-Bold').fillColor('#0f172a')
+         .text(impText, 50, impY + 6, { width: 495, lineGap: 2, align: 'left' });
 
-      doc.y = impY + boxH + 16;
+      doc.y = impY + boxH + 8;
       doc.x = 40;
+    }
+
+    if (footnoteLines.length > 0) {
+      doc.fontSize(7.5).font('Helvetica').fillColor('#334155');
+      for (const fn of footnoteLines) {
+        doc.text(fn, 40, doc.y, { width: 515, align: 'left', lineGap: 1.5 });
+        doc.moveDown(0.15);
+      }
+      doc.moveDown(0.3);
     }
 
     // 6. DOCTOR SIGNATURE BLOCK
-    if (doc.y > 695) {
+    if (doc.y > 730) {
       doc.addPage();
       doc.x = 40;
       doc.y = withLetterhead ? 50 : Math.round(effectiveMarginMm * 2.83465);
     }
 
-    const signY = Math.min(735, Math.max(doc.y + 48, 680));
+    const signY = Math.min(755, Math.max(doc.y + 42, 690));
 
     if (rep.signature_file) {
       try {
@@ -2187,7 +2350,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
         }
 
         if (imgBuffer) {
-          doc.image(imgBuffer, 385, signY - 44, { fit: [140, 42], align: 'right' });
+          doc.image(imgBuffer, 385, signY - 42, { fit: [140, 40], align: 'right' });
         }
       } catch (imgErr) {
         console.error('Signature embed error:', imgErr.message);
@@ -2198,7 +2361,7 @@ app.get('/api/imaging/report/:visitId/pdf', async (req, res) => {
        .text(sanitizeForPdfKit(rep.doctor_name || 'Dr NIKUNJ KOTHIA'), 330, signY, { width: 225, align: 'right' });
 
     doc.fontSize(8).font('Helvetica').fillColor('#333333')
-       .text(sanitizeForPdfKit(`${rep.doctor_designation || 'Consultant Radiologist'} / Reg: ${rep.doctor_reg_no || '2009/09/3218'}`), 330, signY + 13, { width: 225, align: 'right' });
+       .text(sanitizeForPdfKit(`${rep.doctor_designation || 'Consultant Radiologist'} / Reg: ${rep.doctor_reg_no || '2009/09/3218'}`), 330, signY + 12, { width: 225, align: 'right' });
 
     doc.end();
   } catch (err) {
@@ -3393,23 +3556,37 @@ app.post('/api/sync/cloud', async (req, res) => {
     ], templates.rows, 10, `ON CONFLICT (id) DO UPDATE 
       SET title = EXCLUDED.title, category = EXCLUDED.category, default_impression = EXCLUDED.default_impression, template_body = EXCLUDED.template_body, file_data = EXCLUDED.file_data`);
 
+    // Re-extract from local .docx files during Cloud Sync so Cloud DB gets the latest tables & bold tags
     const reports = await localClient.query('SELECT * FROM imaging_reports');
-    const existingReportVisitIds = new Set(reports.rows.map(r => String(r.visit_id)));
+    const existingRepMap = new Map(reports.rows.map(r => [String(r.visit_id), r]));
 
     for (const v of visits.rows) {
-      if (v.report_file && !existingReportVisitIds.has(String(v.id))) {
+      if (v.report_file) {
         const fullPath = path.resolve(__dirname, v.report_file);
         if (fs.existsSync(fullPath)) {
           const ext = path.extname(fullPath).toLowerCase();
           if (ext === '.docx' || ext === '.doc') {
             const parsed = extractTextFromUploadedFile(fullPath);
             const fallbackSig = await resolveDoctorSignature('Dr NIKUNJ KOTHIA', v.centre_id);
-            const newRep = await localClient.query(
-              `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no, doctor_designation, signature_file)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-              [v.id, v.patient_id, v.centre_id, parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body || 'Study completed.', parsed.impression || '', 'Dr NIKUNJ KOTHIA', '2009/09/3218', 'Consultant Radiologist', parsed.signatureFile || fallbackSig?.signature_file || null]
-            );
-            if (newRep.rows[0]) reports.rows.push(newRep.rows[0]);
+            const existingRow = existingRepMap.get(String(v.id));
+
+            if (!existingRow) {
+              const newRep = await localClient.query(
+                `INSERT INTO imaging_reports (visit_id, patient_id, centre_id, template_name, report_text, impression, doctor_name, doctor_reg_no, doctor_designation, signature_file)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+                [v.id, v.patient_id, v.centre_id, parsed.title || 'DIAGNOSTIC IMAGING REPORT', parsed.body || 'Study completed.', parsed.impression || '', 'Dr NIKUNJ KOTHIA', '2009/09/3218', 'Consultant Radiologist', parsed.signatureFile || fallbackSig?.signature_file || null]
+              );
+              if (newRep.rows[0]) reports.rows.push(newRep.rows[0]);
+            } else {
+              existingRow.template_name = parsed.title || existingRow.template_name;
+              existingRow.report_text = parsed.body || existingRow.report_text;
+              existingRow.impression = parsed.impression || existingRow.impression;
+              if (parsed.signatureFile) existingRow.signature_file = parsed.signatureFile;
+              await localClient.query(
+                `UPDATE imaging_reports SET template_name = $1, report_text = $2, impression = $3, signature_file = COALESCE($4, signature_file) WHERE id = $5`,
+                [existingRow.template_name, existingRow.report_text, existingRow.impression, existingRow.signature_file, existingRow.id]
+              );
+            }
           }
         }
       }
