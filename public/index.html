@@ -493,7 +493,7 @@
                             <option value="Obstetrics">Obstetrics</option>
                         </select>
                     </div>
-                    <div><label style="font-size:0.8rem; font-weight:bold; color:#475569;">Search Patient / Inv:</label><br><input type="text" id="repPatientSearch" placeholder="Name, Mobile, Inv..." style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
+                    <div><label style="font-size:0.8rem; font-weight:bold; color:#475569;">Search Patient / Doctor / Inv:</label><br><input type="text" id="repPatientSearch" placeholder="Patient, Doctor, Mobile, Inv..." onkeydown="if(event.key==='Enter') loadReports()" style="padding:6px; border:1px solid #ccc; border-radius:4px;"></div>
                     <div style="display:flex; gap:6px; flex-wrap:wrap;">
                         <button type="button" class="btn-search" onclick="loadReports()">🔍 Filter</button>
                         <button type="button" id="btnTogglePending" class="btn-act" style="background:#e11d48; color:white; padding:7px 11px;" onclick="togglePendingBillsFilter()">⏳ Pending Bills Only</button>
@@ -541,6 +541,7 @@
                             <th>Services</th>
                             <th>Payment Mode</th>
                             <th>Total</th>
+                            <th>Discount</th>
                             <th>Paid</th>
                             <th>Balance</th>
                             <th>Referring Doctor</th>
@@ -577,6 +578,7 @@
                             <th>Patient</th>
                             <th>Invoice No</th>
                             <th>Billed (Gross ₹)</th>
+                            <th>Discount (₹)</th>
                             <th>Paid Amount (₹)</th>
                             <th>Doctor Cut (₹)</th>
                             <th style="width: 170px;">Action</th>
@@ -1929,17 +1931,52 @@
             document.getElementById('patientCode').value = '';
             document.getElementById('patientFullName').value = '';
             document.getElementById('patientAge').value = '';
+            document.getElementById('patientGender').value = 'Female';
             document.getElementById('patientMobile').value = '';
             document.getElementById('patientEmail').value = '';
             document.getElementById('patientAddress').value = '';
-            document.getElementById('inputDoctorCut').value = '';
+
+            // Reset Referring Doctor search & dropdown
+            if (document.getElementById('docSearchQuickInput')) document.getElementById('docSearchQuickInput').value = '';
+            if (document.getElementById('referringDoctorSelect')) {
+                populateReferringDoctorDropdown(doctorsList);
+                document.getElementById('referringDoctorSelect').value = '';
+            }
+
+            // Reset Selected Tests & Live Search Input
+            selectedBillTests = [];
+            if (document.getElementById('liveTestInput')) document.getElementById('liveTestInput').value = '';
+            if (document.getElementById('liveSearchResultsBox')) document.getElementById('liveSearchResultsBox').style.display = 'none';
+
+            // Reset Financial Amounts (Discount, Paid, Doctor Cut, Split, File)
+            if (document.getElementById('inputDiscount')) document.getElementById('inputDiscount').value = 0;
+            if (document.getElementById('inputPaid')) document.getElementById('inputPaid').value = 0;
             if (document.getElementById('inputDoctorCut')) {
+                document.getElementById('inputDoctorCut').value = '';
                 delete document.getElementById('inputDoctorCut').dataset.touched;
             }
+            if (document.getElementById('reportFileInput')) document.getElementById('reportFileInput').value = '';
             document.getElementById('inputSplitCash').value = 0;
             document.getElementById('inputSplitOnline').value = 0;
             document.getElementById('inputPaymentMode').value = 'Cash';
             onPaymentModeChange('Cash');
+
+            // Reset PCPNDT Form F section
+            if (document.getElementById('pcpndtToggle')) {
+                document.getElementById('pcpndtToggle').checked = false;
+                togglePCPNDT(false);
+            }
+            if (document.getElementById('pcpndtRelativeName')) document.getElementById('pcpndtRelativeName').value = '';
+            if (document.getElementById('pcpndtWeeks')) document.getElementById('pcpndtWeeks').value = '';
+            if (document.getElementById('pcpndtNoOfSons')) document.getElementById('pcpndtNoOfSons').value = '';
+            if (document.getElementById('pcpndtSonsAge')) document.getElementById('pcpndtSonsAge').value = '';
+            if (document.getElementById('pcpndtNoOfDaughters')) document.getElementById('pcpndtNoOfDaughters').value = '';
+            if (document.getElementById('pcpndtDaughtersAge')) document.getElementById('pcpndtDaughtersAge').value = '';
+            if (document.getElementById('pcpndtIndication')) document.getElementById('pcpndtIndication').value = '';
+            if (document.getElementById('pcpndtFindings')) document.getElementById('pcpndtFindings').value = '';
+
+            renderSelectedTests();
+
             document.getElementById('loadedPatientBanner').style.display = 'none';
             document.getElementById('patientLookupResultsBox').style.display = 'none';
             applyDefaultDatesEverywhere();
@@ -2447,7 +2484,7 @@
                 tbody.innerHTML = '';
 
                 if (!data.length) {
-                    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:16px; color:#64748b;">No billing or collection records found. Clear filters above to view all history.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:16px; color:#64748b;">No billing or collection records found. Clear filters above to view all history.</td></tr>`;
                     return;
                 }
 
@@ -2477,6 +2514,7 @@
                             <td>${v.categories}</td>
                             <td>${modeBadge}</td>
                             <td>₹${parseFloat(v.total_amount).toFixed(2)}</td>
+                            <td style="color:#b91c1c; font-weight:bold;">₹${parseFloat(v.concession || 0).toFixed(2)}</td>
                             <td style="color:#047857; font-weight:bold;">₹${parseFloat(v.paid_amount).toFixed(2)}</td>
                             <td>₹${parseFloat(v.balance_amount).toFixed(2)}</td>
                             <td><strong style="color:#1e3a8a;">${escapeHtml(docName)}</strong></td>
@@ -3927,22 +3965,24 @@ async function saveWordMarginAsCentreDefault() {
                 const data = json.data || [];
                 currentBusinessData = data;
 
-                let totalBiz = 0, totalPaid = 0, totalCut = 0;
+                let totalBiz = 0, totalDisc = 0, totalPaid = 0, totalCut = 0;
                 const tbody = document.getElementById('businessTableBody');
                 tbody.innerHTML = '';
 
                 if (!data.length) {
-                    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:16px; color:#64748b;">No doctor business records found. Try clearing the date filters above.</td></tr>`;
-                    document.getElementById('busSummaryBanner').innerHTML = `Gross Business: <strong>₹0.00</strong> | Collected Paid: <strong style="color:#047857;">₹0.00</strong> | Total Cuts: <strong style="color:#7c3aed;">₹0.00</strong> | Total Referrals: <strong>0</strong>`;
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:16px; color:#64748b;">No doctor business records found. Try clearing the date filters above.</td></tr>`;
+                    document.getElementById('busSummaryBanner').innerHTML = `Gross Business: <strong>₹0.00</strong> | Total Discount: <strong style="color:#b91c1c;">₹0.00</strong> | Collected Paid: <strong style="color:#047857;">₹0.00</strong> | Total Cuts: <strong style="color:#7c3aed;">₹0.00</strong> | Total Referrals: <strong>0</strong>`;
                     return;
                 }
 
                 data.forEach(b => {
                     const biz = parseFloat(b.total_amount || 0);
+                    const disc = parseFloat(b.concession || 0);
                     const paid = parseFloat(b.paid_amount || 0);
                     const cut = parseFloat(b.doctor_commission || 0);
 
                     totalBiz += biz;
+                    totalDisc += disc;
                     totalPaid += paid;
                     totalCut += cut;
 
@@ -3953,6 +3993,7 @@ async function saveWordMarginAsCentreDefault() {
                             <td>${escapeHtml(b.full_name)}</td>
                             <td>${b.invoice_number || '-'}</td>
                             <td>₹${biz.toFixed(2)}</td>
+                            <td style="color:#b91c1c; font-weight:bold;">₹${disc.toFixed(2)}</td>
                             <td style="color:#047857; font-weight:bold;">₹${paid.toFixed(2)}</td>
                             <td style="color:#7c3aed; font-weight:bold;">₹${cut.toFixed(2)}</td>
                             <td>
@@ -3962,7 +4003,7 @@ async function saveWordMarginAsCentreDefault() {
                         </tr>
                     `;
                 });
-                document.getElementById('busSummaryBanner').innerHTML = `Gross Business: <strong>₹${totalBiz.toFixed(2)}</strong> | Collected Paid: <strong style="color:#047857;">₹${totalPaid.toFixed(2)}</strong> | Total Cuts: <strong style="color:#7c3aed;">₹${totalCut.toFixed(2)}</strong> | Total Referrals: <strong>${data.length}</strong>`;
+                document.getElementById('busSummaryBanner').innerHTML = `Gross Business: <strong>₹${totalBiz.toFixed(2)}</strong> | Total Discount: <strong style="color:#b91c1c;">₹${totalDisc.toFixed(2)}</strong> | Collected Paid: <strong style="color:#047857;">₹${totalPaid.toFixed(2)}</strong> | Total Cuts: <strong style="color:#7c3aed;">₹${totalCut.toFixed(2)}</strong> | Total Referrals: <strong>${data.length}</strong>`;
             } catch (e) {
                 console.error('loadBusiness error:', e);
             }
@@ -4001,12 +4042,14 @@ async function saveWordMarginAsCentreDefault() {
             const end = document.getElementById('busEndDate')?.value || '';
             const periodText = (start && end) ? `${start} to ${end}` : (document.getElementById('busMonth')?.value || 'All Time');
 
-            let totalBiz = 0, totalPaid = 0, totalCut = 0;
+            let totalBiz = 0, totalDisc = 0, totalPaid = 0, totalCut = 0;
             const rowsHtml = currentBusinessData.map((b, i) => {
                 const biz = parseFloat(b.total_amount || 0);
+                const disc = parseFloat(b.concession || 0);
                 const paid = parseFloat(b.paid_amount || 0);
                 const cut = parseFloat(b.doctor_commission || 0);
                 totalBiz += biz;
+                totalDisc += disc;
                 totalPaid += paid;
                 totalCut += cut;
                 return `
@@ -4017,6 +4060,7 @@ async function saveWordMarginAsCentreDefault() {
                         <td>${escapeHtml(b.full_name)}</td>
                         <td>${b.invoice_number || '-'}</td>
                         <td style="text-align:right;">₹${biz.toFixed(2)}</td>
+                        <td style="text-align:right; color:#b91c1c;">₹${disc.toFixed(2)}</td>
                         <td style="text-align:right; font-weight:bold; color:#047857;">₹${paid.toFixed(2)}</td>
                         <td style="text-align:right; font-weight:bold; color:#5b21b6;">₹${cut.toFixed(2)}</td>
                     </tr>
@@ -4065,6 +4109,7 @@ async function saveWordMarginAsCentreDefault() {
                                 <th>Patient Name</th>
                                 <th>Invoice No</th>
                                 <th style="text-align:right;">Billed Gross (₹)</th>
+                                <th style="text-align:right;">Discount (₹)</th>
                                 <th style="text-align:right;">Final Paid (₹)</th>
                                 <th style="text-align:right;">Doctor Cut (₹)</th>
                             </tr>
@@ -4074,6 +4119,7 @@ async function saveWordMarginAsCentreDefault() {
                             <tr class="totals-row">
                                 <td colspan="5" style="text-align:right;">TOTALS:</td>
                                 <td style="text-align:right;">₹${totalBiz.toFixed(2)}</td>
+                                <td style="text-align:right; color:#b91c1c;">₹${totalDisc.toFixed(2)}</td>
                                 <td style="text-align:right; color:#047857;">₹${totalPaid.toFixed(2)}</td>
                                 <td style="text-align:right; color:#5b21b6;">₹${totalCut.toFixed(2)}</td>
                             </tr>

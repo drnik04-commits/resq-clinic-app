@@ -3101,7 +3101,7 @@ app.get('/api/reports/collection', async (req, res) => {
     }
     if (patientName && patientName.trim()) {
       params.push(`%${patientName.trim()}%`);
-      query += ` AND (p.full_name ILIKE $${params.length} OR p.phone ILIKE $${params.length} OR v.invoice_number ILIKE $${params.length})`;
+      query += ` AND (p.full_name ILIKE $${params.length} OR p.phone ILIKE $${params.length} OR v.invoice_number ILIKE $${params.length} OR COALESCE(d.doctor_name, 'Direct OPD / Self') ILIKE $${params.length})`;
     }
     if (category && category.trim()) {
       params.push(`%${category.trim()}%`);
@@ -3132,6 +3132,7 @@ app.get('/api/reports/collection', async (req, res) => {
       FROM patient_investigations pi
       JOIN visits v ON pi.visit_id = v.id
       JOIN patients p ON v.patient_id = p.id
+      LEFT JOIN referring_doctors d ON v.referring_doctor_id = d.id
       LEFT JOIN test_master tm ON pi.test_id = tm.id
       WHERE 1=1
     `;
@@ -3157,7 +3158,7 @@ app.get('/api/reports/collection', async (req, res) => {
     }
     if (patientName && patientName.trim()) {
       catParams.push(`%${patientName.trim()}%`);
-      catQuery += ` AND (p.full_name ILIKE $${catParams.length} OR p.phone ILIKE $${catParams.length} OR v.invoice_number ILIKE $${catParams.length})`;
+      catQuery += ` AND (p.full_name ILIKE $${catParams.length} OR p.phone ILIKE $${catParams.length} OR v.invoice_number ILIKE $${catParams.length} OR COALESCE(d.doctor_name, 'Direct OPD / Self') ILIKE $${catParams.length})`;
     }
     catQuery += ` GROUP BY COALESCE(NULLIF(TRIM(tm.category), ''), 'General / Direct') ORDER BY category_collected DESC`;
     
